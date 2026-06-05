@@ -355,19 +355,34 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: ""
   },
   'PN-L1161': {
-    estadoImplementacion: ['La ejecución empezó a despegar en 2025, en parte gracias a los avances de gestión del proyecto. Hay compromisos por $2 millones adicionales a lo ya ejecutado, y numerosos otros procesos en curso.'],
+    estadoImplementacion: [
+      'Alta resistencia al cambio generó retrasos durante los primeros años de ejecución.',
+      'Recomendaciones y apoyo tras la evaluación intermedia, destacando fortalecimiento de la UCP, contribuyeron a mejorar ritmo de ejecución desde segundo semestre de 2025.',
+      'Sobre la base de estas mejoras se otorgó la prórroga de dos años en diciembre de 2025.'
+    ],
     productosDestacados: ['Sistema digital de gestión tributaria modernizado. Implementación de FE con uso de IA.'],
-    probabilidadObjetivos: ['Monitorear y actualizar matriz de resultados con metas realistas para 2026.'],
-    accionesSugeridas: ['Solicitar reclasificación. Reducir un poco la meta de ejecución financiera.'],
+    probabilidadObjetivos: [],
+    accionesSugeridas: [
+      '1. Monitoreo mensual de seguimiento de metas físicas y financieras e indicadores de resultados (mensual).',
+      '2. Considerar cancelación parcial de recursos (IV/2026).'
+    ],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado de 31% para DI Satisfactorio.\nMF prevista en P1.1.2., P1.3.1., P2.1, P2.3., P2.4., P2.5., P2.6. Al IIS reporta ejecución hito de P1.1, P1.2, P1.3, P2.2, P2.5 y P2.6 (No unitarias, por lo tanto hito no cumple hito)\nEn MF$ Pa tenía US$1.52MM, claves P1, P2.3, P2.4, P2.5 y P2.6. Al IIS reporta ejecución MF$ por US$1.01MM, @66.4% de la meta Pa del año.\nEstá en Satisfactorio.\n\nCiclo 2026\nDesembolso previsto para un acumulado de @54%, para DI Satisfactorio.\nMF prevista en P1.1, P1.2, P1.3, P1.5, P2.1, P2.3 y P2.4 en Pa.\nEn MF$ Pa tiene US$12.5MM, requiere ejecución @80%, @US$10.0MM, claves P1.2, P1.3, P2.3 y P2.4.\nSi cumple desembolsos, MF y MF$ se mantendría Satisfactorio.",
     fechaEvaluacionIntermedia: "Segundo semestre 2025",
     verificadorContenidos: "En VC:\nUna advertencia de alerta por riesgos activos por 4 o más ciclos."
   },
   'PN-L1172': {
-    estadoImplementacion: ['Error de comenzar la ejecución con un piloto, que hizo perder tiempo inicialmente. Ahora mediante una firma consultora se está avanzando en la ejecución. La Vice de Economía es la nueva champion que está apoyando, mediante el coordinador Luis Stoute.'],
+    estadoImplementacion: [
+      'Estrategia inicial basada en desarrollo de un piloto fracasó, perdiendo los primeros dos años de ejecución.',
+      'A esto se sumaron los retrasos por el cambio de gobierno, la conceptualización de la nueva estrategia de ejecución, y las demoras propias de Panamá.',
+      'Nueva estrategia tiene fuerte apoyo del MEF, una UC sólida y una firma competente que está realizando pilotos en cinco procesos clave, ampliando gradualmente el número de bases de datos y entidades con información interoperable.'
+    ],
     productosDestacados: ['Data lake house: información interoperable de 9 entidades. Laboratorio de científicos de datos que harán análisis para hacer data based policy'],
     probabilidadObjetivos: [],
-    accionesSugeridas: ['Abrir la ejecución para 2027 de manera de pasar metas físicas y financieras a dicho año. Monitorear compromisos para autorizar, eventualmente, la primera prórroga en agosto de 2026; y eventualmente considerar si el proyecto va a poder ejecutar más allá de los US$6 millones requeridos para no hacer PCR.'],
+    accionesSugeridas: [
+      '1. Apoyar iterativamente la definición del alcance  en función de la adhesión de nuevas entidades (IV/2026).',
+      '2. Extender por dos años el programa en función del mejor cronograma posible de ejecución (II/2026).',
+      '3. Evaluar cancelaciones parciales de fondos no comprometidos (IV/2026).'
+    ],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado de @24% DI Satisfactorio.\nMF Pa prevista en P1 - P4, P6 - P13, P15 y P16. Al IIS reporta ejecución MF en P1.1, P1.2, P1.3, P1.4, P1.6, P2.1, P2.3, P2.4, P2.5, P2.6, P3.1 y P3.3\nEn MF$ Pa US$1.52MM, claves P1 y P9. Al IIS reporta ejecución MF$ por US$1.01MM, @66.4% de la meta Pa del año.\nEstá en Satisfactorio.\n\nCiclo 2026\nDesembolso previsto para un acumulado de @45%, para DI Satisfactorio.\nMF Pa en P2.2.\nEn MF$ Pa tiene US$9.6MM, requiere @80%, unos US$7.7MM de ejecución, en especial en P1.1, P1.3, P2.3 - P2.6, P3.4, P3.6.\nSi cumple desembolsos y MF$, estaría en Satisfactorio.",
     fechaEvaluacionIntermedia: "Segundo semestre 2026",
     verificadorContenidos: "En VC:\nLimpio, no tiene ninguna advertencia."

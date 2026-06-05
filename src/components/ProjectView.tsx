@@ -652,11 +652,11 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Local contribution:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? '$ 0.00' : project.id === 'BR-L1656' ? '$5,875,000.00' : ''}</span>
+                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? '$ 0.00' : project.id === 'BR-L1656' ? '$5,875,000.00' : project.id === 'EC-L1251' ? '$3,840,000.00' : (project.id === 'PN-L1172' || project.id === 'PN-L1161') ? '$0.00' : ''}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Disbursed Life<br className="lg:hidden" /> Amount:</span>
-                        <span className="text-zinc-500 font-medium">{details.disbursedLifePercent.toFixed(1)}%</span>
+                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '99.78%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Undisbursed Amount:</span>
@@ -667,8 +667,8 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                         <span className="text-zinc-500 font-medium">{details.monthsOfExtension || '0'}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
-                        <span className="font-bold text-zinc-900">Last disbursement date:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? 'N/A' : (details.timeline.lastDisbursement.date === 'Pending' ? 'N/A' : details.timeline.lastDisbursement.date)}</span>
+                        <span className="font-bold text-zinc-900">Last disbursement made:</span>
+                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? 'N/A' : (details.lastDisbursementMade === 'Pending' ? 'N/A' : (details.lastDisbursementMade || 'N/A'))}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Years in execution<br className="lg:hidden" /> (since eligibility):</span>
@@ -806,7 +806,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                               )}
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-[12.6px] lg:text-sm font-bold text-zinc-800">Last disbursement:</span>
+                              <span className="text-[12.6px] lg:text-sm font-bold text-zinc-800">Disbursement expiration date:</span>
                               <span className="text-[12.6px] lg:text-sm text-zinc-600">
                                 {details.timeline.lastDisbursement.date}.<br />
                                 <span className="text-[12.6px] lg:text-sm text-zinc-500 font-normal">Extension: {details.timeline.extension.text}</span>
@@ -1071,14 +1071,16 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                       </div>
                     </div>
 
-                    <div>
-                      <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
-                      <div className="bg-white p-4 rounded-xl border border-zinc-100">
-                        <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                          {(project.qualitativeData?.probabilidadObjetivos || []).map((item, i) => <li key={i}>{item}</li>)}
-                        </ul>
+                    {project.id !== 'PN-L1172' && project.id !== 'PN-L1161' && (
+                      <div>
+                        <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
+                        <div className="bg-white p-4 rounded-xl border border-zinc-100">
+                          <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
+                            {(project.qualitativeData?.probabilidadObjetivos || []).map((item, i) => <li key={i}>{item}</li>)}
+                          </ul>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div>
                       <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Acciones sugeridas / Pedidos</h4>
@@ -1137,7 +1139,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                     </div>
                     <div className="flex flex-row justify-between items-start lg:items-center text-[12.6px] lg:text-sm gap-2">
                       <span className="font-bold text-zinc-900 text-left w-[45%] lg:w-auto whitespace-normal leading-snug pr-2">Time without disbursement (months):</span>
-                      <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0"></span>
+                      <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">{details.financial.timeWithoutDisbursements || 'N/A'}</span>
                     </div>
                     <div className="flex flex-row justify-between items-start lg:items-center text-[12.6px] lg:text-sm gap-2">
                       <span className="font-bold text-zinc-900 text-left w-[45%] lg:w-auto whitespace-normal leading-snug pr-2">Deadline for last Current Disbursement:</span>
@@ -1175,7 +1177,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                           style={{ width: `${details.financial.disbursedLifePercent}%` }}
                         >
                           <span className="relative z-10 text-[9px] lg:text-[10px] font-bold" style={{ color: '#ffffff' }}>
-                            {details.financial.disbursedLifePercent.toFixed(1)}%
+                            {project.id === 'EC-L1251' ? '99.78%' : project.id === 'PN-L1172' ? '10%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
                           </span>
                         </div>
                       </div>
@@ -1541,11 +1543,11 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Local contribution:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? '$ 0.00' : project.id === 'BR-L1656' ? '$5,875,000.00' : ''}</span>
+                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? '$ 0.00' : project.id === 'BR-L1656' ? '$5,875,000.00' : project.id === 'EC-L1251' ? '$3,840,000.00' : (project.id === 'PN-L1172' || project.id === 'PN-L1161') ? '$0.00' : ''}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Disbursed Life Amount:</span>
-                        <span className="text-zinc-500 font-medium">{details.disbursedLifePercent.toFixed(1)}%</span>
+                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '99.78%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Undisbursed Amount:</span>
@@ -1556,8 +1558,8 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                         <span className="text-zinc-500 font-medium">{details.monthsOfExtension || '0'}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
-                        <span className="font-bold text-zinc-900">Last disbursement date:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? 'N/A' : (details.timeline.lastDisbursement.date === 'Pending' ? 'N/A' : details.timeline.lastDisbursement.date)}</span>
+                        <span className="font-bold text-zinc-900">Last disbursement made:</span>
+                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? 'N/A' : (details.lastDisbursementMade === 'Pending' ? 'N/A' : (details.lastDisbursementMade || 'N/A'))}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Age in execution (since eligibility):</span>
@@ -1592,7 +1594,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                         { label: 'Effectiveness:', date: details.timeline.effectiveness.date, completed: details.timeline.effectiveness.status === 'completed' },
                         { label: 'Eligibility:', date: details.timeline.eligibility.date, completed: details.timeline.eligibility.status === 'completed' },
                         { label: 'First disbursement:', date: details.timeline.firstDisbursement.date, completed: details.timeline.firstDisbursement.status === 'completed' },
-                        { label: 'Last disbursement:', date: `${details.timeline.lastDisbursement.date}${details.timeline.extension.status === 'completed' ? `.\nExtension: ${details.timeline.extension.text}` : ''}`, completed: details.timeline.lastDisbursement.status === 'completed' },
+                        { label: 'Disbursement expiration date:', date: `${details.timeline.lastDisbursement.date}${details.timeline.extension.status === 'completed' ? `.\nExtension: ${details.timeline.extension.text}` : ''}`, completed: details.timeline.lastDisbursement.status === 'completed' },
                         { label: 'Closure:', date: details.timeline.closure.date, completed: details.timeline.closure.status === 'completed' },
                       ].map((step, index) => (
                         <div key={index} className="relative">
@@ -1641,7 +1643,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-bold text-zinc-900">Time without disbursement (months):</span>
-                      <span className="text-zinc-900 font-bold"></span>
+                      <span className="text-zinc-900 font-bold">{details.financial.timeWithoutDisbursements || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-bold text-zinc-900">Deadline for last Current Disbursement:</span>
@@ -1678,7 +1680,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                           style={{ width: `${details.financial.disbursedLifePercent}%` }}
                         >
                           <span className="relative z-10 text-xs font-bold" style={{ color: '#ffffff' }}>
-                            {details.financial.disbursedLifePercent.toFixed(1)}%
+                            {project.id === 'EC-L1251' ? '99.78%' : project.id === 'PN-L1172' ? '10%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
                           </span>
                         </div>
                       </div>
@@ -1919,14 +1921,16 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                 </div>
               </div>
 
-              <div className="break-inside-avoid">
-                <h4 className="text-sm font-bold text-zinc-900 mb-2">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
-                <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
-                  <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    <li>{(project.qualitativeData?.probabilidadObjetivos || []).join(' ')}</li>
-                  </ul>
+              {project.id !== 'PN-L1172' && project.id !== 'PN-L1161' && (
+                <div className="break-inside-avoid">
+                  <h4 className="text-sm font-bold text-zinc-900 mb-2">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
+                  <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
+                    <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
+                      <li>{(project.qualitativeData?.probabilidadObjetivos || []).join(' ')}</li>
+                    </ul>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="break-inside-avoid">
                 <h4 className="text-sm font-bold text-zinc-900 mb-2">Acciones sugeridas / Pedidos</h4>

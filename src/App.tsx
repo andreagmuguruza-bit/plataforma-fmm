@@ -8,6 +8,7 @@ import ProjectSelector from './components/ProjectSelector';
 import PortfolioLanding from './components/PortfolioLanding';
 import QualitativeProcess from './components/QualitativeProcess';
 import Alerts from './components/Alerts';
+import ClosureTable from './components/ClosureTable';
 import { Settings, User as UserIcon, HelpCircle, Database as DatabaseIcon, LogOut, Home, ClipboardCheck, X, ChevronDown, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePortfolioData } from './hooks/usePortfolioData';
@@ -530,8 +531,23 @@ export default function App() {
         )}
 
         {mainTab === 'CLOSURE' && (
-          <div className="flex-1 flex items-center justify-center text-zinc-500">
-            Closure Module - Coming Soon
+          <div className="p-6 max-w-7xl mx-auto w-full flex-1 flex flex-col bg-zinc-100/30">
+            <motion.div 
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5 }}
+              className="w-full"
+            >
+              <div className="mb-4 text-left">
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-black">
+                  PCR Results Projection
+                </h2>
+                <p className="text-zinc-500 text-base md:text-lg mt-2">
+                  This section displays the projected PCR results to be delivered within the next 9 months for investment projects (INV), or 12 months for policy-based loans (PBLs).
+                </p>
+              </div>
+              <ClosureTable />
+            </motion.div>
           </div>
         )}
       </main>

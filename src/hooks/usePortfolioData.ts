@@ -87,11 +87,13 @@ export interface ProjectDetails {
     extension: { text: string; status: 'completed' | 'pending' };
     closure: { date: string; status: 'completed' | 'pending' };
   };
+  lastDisbursementMade?: string;
   financial: {
     originalApprovedAmount: number;
     canceledAmount: number;
     currentApprovedAmount: number;
     deadlineLastDisbursement: string;
+    timeWithoutDisbursements?: string;
     currentApprovedAmountM: number;
     disbursedLifeAmountM: number;
     disbursedLifePercent: number;
@@ -134,9 +136,17 @@ const formatDate = (dateStr: string | undefined): string => {
   if (dateStr.includes('/')) {
     const parts = dateStr.split(' ')[0].split('/');
     if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
+      // By default, the Excel/CSV uses MM/DD/YYYY format.
+      let month = parseInt(parts[0], 10) - 1;
+      let day = parseInt(parts[1], 10);
       let year = parseInt(parts[2], 10);
+      
+      // If parts[0] is greater than 12, it must be the Day (DD/MM/YYYY format)
+      if (parseInt(parts[0], 10) > 12) {
+        day = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10) - 1;
+      }
+      
       if (year < 100) {
         year += 2000;
       }
@@ -150,12 +160,33 @@ const formatDate = (dateStr: string | undefined): string => {
 
   if (isNaN(date.getTime())) return 'Pending';
   
-  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
   const day = String(date.getDate()).padStart(2, '0');
   const month = months[date.getMonth()];
   const year = date.getFullYear();
   
   return `${day}/${month}/${year}`;
+};
+
+const formatExpDate = (dateStr: string | undefined): string => {
+  if (!dateStr || dateStr.toLowerCase() === 'pending' || dateStr === 'N/A') return dateStr || 'N/A';
+  
+  const parts = dateStr.split('/');
+  if (parts.length === 3) {
+    let day = parseInt(parts[0], 10);
+    let monthNum = parseInt(parts[1], 10) - 1;
+    let year = parseInt(parts[2], 10);
+    if (year < 100) {
+      year += 2000;
+    }
+    const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+    if (monthNum >= 0 && monthNum <= 11) {
+      const monthStr = months[monthNum];
+      const dayStr = String(day).padStart(2, '0');
+      return `${dayStr}/${monthStr}/${year}`;
+    }
+  }
+  return dateStr;
 };
 
 const getCountryName = (code: string, englishName: string): string => {
@@ -820,10 +851,13 @@ export function usePortfolioData() {
       });
     }
 
-    const totalApproved = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'Current Approved Amount')), 0);
-    const totalDisbursed = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'Disbursed Life Amount')), 0);
+    const totalApprovedVal = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'Current Approved Amount')), 0);
+    const totalDisbursedVal = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'Disbursed Life Amount')), 0);
     const totalOriginal = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'Original Approved Amount')), 0);
     const totalCanceled = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'Cancelled Amount')), 0);
+
+    const totalApproved = projectId === 'EC-L1251' ? 6818191.00 : (projectId === 'PN-L1172' ? 20000000.00 : totalApprovedVal);
+    const totalDisbursed = projectId === 'EC-L1251' ? 6803190.98 : (projectId === 'PN-L1172' ? 2024294.22 : totalDisbursedVal);
 
     const eligibilityDateStr = firstRecord['Total Eligibility Date'];
     let ageInExecution = '';
@@ -839,17 +873,96 @@ export function usePortfolioData() {
 
     const linkedLoans = projectRecords.map(r => r['Operation Number']).filter(Boolean);
 
+    const specialNoDisbData: Record<string, { lastDisbDate: string; months: string }> = {
+      'PN-L1172': { lastDisbDate: '14/MAR/2024', months: '27' },
+      'PN-L1161': { lastDisbDate: '27/FEB/2025', months: '15.3' },
+      'BR-L1513': { lastDisbDate: '12/MAR/2025', months: '14.9' },
+      'BL-L1031': { lastDisbDate: '09/JUN/2025', months: '11.9' },
+      'AR-L1248': { lastDisbDate: '23/JUN/2025', months: '11.5' },
+      'EC-L1253': { lastDisbDate: '16/SEP/2025', months: '8.6' },
+      'CO-L1164': { lastDisbDate: '18/SEP/2025', months: '8.6' },
+      'AR-L1285': { lastDisbDate: '09/OCT/2025', months: '7.9' },
+      'SU-L1060': { lastDisbDate: '15/OCT/2025', months: '7.7' },
+      'BR-L1501': { lastDisbDate: '22/OCT/2025', months: '7.4' },
+      'BR-L1525': { lastDisbDate: '03/NOV/2025', months: '7.0' },
+      'BL-L1038': { lastDisbDate: '17/NOV/2025', months: '6.6' },
+      'BR-L1517': { lastDisbDate: '02/DIC/2025', months: '6.1' },
+      'PR-L1150': { lastDisbDate: '03/DIC/2025', months: '6.0' }
+    };
+
+    const hasSpecialNoDisb = projectId in specialNoDisbData;
+
+    const lastDisbMadeRaw = hasSpecialNoDisb 
+      ? specialNoDisbData[projectId].lastDisbDate 
+      : formatDate(firstRecord['Totally Disbursement Date']);
+    const lastDisbursementMade = (lastDisbMadeRaw === 'Pending' || !lastDisbMadeRaw) ? 'N/A' : lastDisbMadeRaw;
+
+    const lastDisbExpirationDates: Record<string, string> = {
+      'EC-L1230': '31/12/25',
+      'EC-L1251': '18/11/25',
+      'PE-L1231': '21/05/27',
+      'UR-L1111': '6/01/26',
+      'BR-L1377': '28/12/25',
+      'PE-L1288': '27/08/27',
+      'AR-L1248': '22/03/26',
+      'PE-L1239': '31/12/26',
+      'BR-L1501': '30/09/26',
+      'BR-L1511': '16/12/25',
+      'AR-L1285': '4/09/26',
+      'CO-L1164': '25/10/27',
+      'BR-L1516': '21/11/26',
+      'BL-L1031': '1/11/26',
+      'BR-L1527': '30/09/27',
+      'CO-L1245': '24/12/28',
+      'PR-L1150': '19/01/28',
+      'BR-L1534': '7/12/25',
+      'PN-L1161': '12/12/27',
+      'PE-L1266': '26/07/27',
+      'BR-L1535': '13/12/26',
+      'BR-L1517': '28/12/26',
+      'BR-L1533': '19/04/27',
+      'BL-L1038': '27/05/27',
+      'PN-L1172': '19/08/26',
+      'BR-L1550': '29/11/27',
+      'EC-L1253': '23/01/28',
+      'SU-L1060': '23/01/28',
+      'BR-L1539': '10/03/28',
+      'BR-L1540': '26/05/28',
+      'UR-L1164': '29/08/28',
+      'UR-L1193': '31/05/28',
+      'BR-L1599': '27/11/28',
+      'BR-L1513': '29/12/26',
+      'BR-L1525': '27/12/28',
+      'CH-L1178': '30/12/28',
+      'BR-L1592': '3/01/29',
+      'AR-L1405': '30/12/29',
+      'PR-L1192': '20/02/31',
+      'BR-L1643': '16/07/31',
+      'BR-L1614': '30/12/30',
+      'PE-L1278': '13/05/30'
+    };
+
+    const expDate = lastDisbExpirationDates[projectId] || 'N/A';
+
     const timeline = {
       approval: { date: formatDate(firstRecord['Approval Date']), status: firstRecord['Approval Date'] ? 'completed' : 'pending' as any },
       effectiveness: { date: formatDate(firstRecord['Effective Date']), status: firstRecord['Effective Date'] ? 'completed' : 'pending' as any },
       eligibility: { date: formatDate(firstRecord['Total Eligibility Date']), status: firstRecord['Total Eligibility Date'] ? 'completed' : 'pending' as any },
       firstDisbursement: { date: formatDate(firstRecord['First Disbursement Date']), status: firstRecord['First Disbursement Date'] ? 'completed' : 'pending' as any },
-      lastDisbursement: { date: formatDate(firstRecord['Totally Disbursement Date']), status: firstRecord['Totally Disbursement Date'] ? 'completed' : 'pending' as any },
+      lastDisbursement: {
+        date: formatExpDate(expDate),
+        status: (projectId === 'EC-L1251' || projectId === 'PN-L1172' || projectId === 'PN-L1161') ? 'pending' as const : ((expDate !== 'N/A') ? 'completed' as const : 'pending' as const)
+      },
       extension: { 
         text: (projectId === 'AR-L1416' || projectId === 'BR-L1656') ? '0 months' : (firstRecord['Cumulative Extension (Months)'] ? `${firstRecord['Cumulative Extension (Months)']} months` : 'Pending'),
         status: (firstRecord['Cumulative Extension (Months)'] || projectId === 'AR-L1416' || projectId === 'BR-L1656') ? 'completed' : 'pending' as any
       },
-      closure: { date: formatDate(firstRecord['Closed For Operation Date']), status: firstRecord['Closed For Operation Date'] ? 'completed' : 'pending' as any }
+      closure: { 
+        date: projectId === 'BR-L1534' 
+          ? `${formatDate(firstRecord['Closed For Operation Date'])} (CO, pending COO)` 
+          : formatDate(firstRecord['Closed For Operation Date']), 
+        status: firstRecord['Closed For Operation Date'] ? 'completed' : 'pending' as any 
+      }
     };
 
     // Correct status if Pending
@@ -894,6 +1007,32 @@ export function usePortfolioData() {
                       projectId === 'UR-L1164' ? 'ALERT' : 
                       (firstRecord['PMR Classification'] || 'N/A');
 
+    const setPmrHistoryYear = (year: number, status: string, hoverText: string) => {
+      const idx = pmrHistory.findIndex(item => item.year === year);
+      if (idx !== -1) {
+        pmrHistory[idx].autoCalculatedStatus = status;
+        pmrHistory[idx].validatedStatus = status;
+      } else {
+        pmrHistory.push({
+          year,
+          autoCalculatedStatus: status,
+          validatedStatus: status,
+          hoverText
+        });
+      }
+    };
+
+    if (projectId === 'PE-L1278') {
+      setPmrHistoryYear(2025, 'PROBLEM', 'Second period Jan-Dec 2024');
+    } else if (projectId === 'CH-L1178') {
+      setPmrHistoryYear(2025, 'PROBLEM', 'Second period Jan-Dec 2024');
+    } else if (projectId === 'BR-L1592') {
+      setPmrHistoryYear(2024, 'ALERT', 'Second period Jan-Dec 2023');
+      setPmrHistoryYear(2025, 'SATISFACTORY', 'Second period Jan-Dec 2024');
+    } else if (projectId === 'BR-L1614') {
+      setPmrHistoryYear(2025, 'SATISFACTORY', 'Second period Jan-Dec 2024');
+    }
+
     if (timeline.eligibility.date !== 'Pending') {
       const auto2026 = projectId === 'EC-L1230' ? 'ALERT' : 
                        projectId === 'UR-L1164' ? 'PROBLEM' : 
@@ -907,6 +1046,9 @@ export function usePortfolioData() {
         hoverText: 'PMR March Cycle 2026'
       });
     }
+
+    // Sort to ensure chronological order
+    pmrHistory.sort((a, b) => a.year - b.year);
 
     return {
       id: projectId,
@@ -926,11 +1068,13 @@ export function usePortfolioData() {
       monthsOfExtension: String(firstRecord['Cumulative Extension (Months)'] || '0'),
       objective: consolidatedRecord ? consolidatedRecord.objtv_engl : '',
       timeline,
+      lastDisbursementMade,
       financial: {
         originalApprovedAmount: totalOriginal,
         canceledAmount: totalCanceled,
         currentApprovedAmount: totalApproved,
         deadlineLastDisbursement: formatDate(getVal(firstRecord, 'Current Disbursement Expiration Date')),
+        timeWithoutDisbursements: hasSpecialNoDisb ? specialNoDisbData[projectId].months : undefined,
         currentApprovedAmountM: totalApproved / 1000000,
         disbursedLifeAmountM: totalDisbursed / 1000000,
         disbursedLifePercent: totalApproved > 0 ? (totalDisbursed / totalApproved) * 100 : 0,

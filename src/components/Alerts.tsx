@@ -118,104 +118,168 @@ const getCardDetails = (cardNumber: number, list: Project[]) => {
           disbursementColor: 'bg-amber-100 text-amber-800 border-amber-200'
         }))
       };
-    case 4:
+    case 4: {
+      const redIds = ['PN-L1172', 'PN-L1161', 'BR-L1513'];
+      const yellowIds = ['BL-L1031', 'AR-L1248', 'CO-L1164', 'AR-L1285', 'SU-L1060', 'BR-L1501', 'BR-L1525', 'EC-L1253'];
+      const greenIds = ['BL-L1038', 'BR-L1517', 'PR-L1150'];
+
+      const redProjects = redIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        noDisbStatus: '+12 meses transcurridos',
+        noDisbColor: 'bg-red-100 text-red-800 border-red-200'
+      }));
+
+      const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        noDisbStatus: '7-12 meses transcurridos',
+        noDisbColor: 'bg-amber-100 text-amber-800 border-amber-200'
+      }));
+
+      const greenProjects = greenIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        noDisbStatus: '6 meses transcurridos',
+        noDisbColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      }));
+
       return {
-        description: "The indicator includes eligible projects that have not disbursed for more than 6 months since their eligibility.",
+        description: "The indicator includes eligible projects that have not disbursed for more than 6 months since their eligibility. Projects that have already disbursed 100% of their resources are not included.",
         columns: [
           { key: 'noDisbStatus', label: 'Tiempo sin desembolsos' }
         ],
-        projects: list.slice(8, 22).map((p, i) => {
-          let statusStr = '6 meses transcurridos';
-          let color = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-          if (i < 4) {
-            statusStr = '+12 meses transcurridos';
-            color = 'bg-red-100 text-red-800 border-red-200';
-          } else if (i < 11) {
-            statusStr = '7-12 meses transcurridos';
-            color = 'bg-amber-100 text-amber-800 border-amber-200';
-          }
-          return {
-            ...p,
-            noDisbStatus: statusStr,
-            noDisbColor: color
-          };
-        })
+        projects: [...redProjects, ...yellowProjects, ...greenProjects]
       };
-    case 5:
+    }
+    case 5: {
+      const yellowIds = ['PE-L1266', 'EC-L1253', 'PN-L1172'];
+      const greenIds = [
+        'UR-L1111', 'BR-L1377', 'BR-L1511', 'BR-L1534', 'EC-L1251',
+        'EC-L1230', 'BL-L1031', 'PE-L1231', 'BR-L1501', 'BR-L1516',
+        'PE-L1239', 'BR-L1527', 'AR-L1248', 'BR-L1535', 'BR-L1550',
+        'BR-L1533', 'BR-L1517', 'PR-L1150', 'BL-L1038', 'CO-L1164',
+        'CO-L1245', 'PN-L1161', 'AR-L1285'
+      ];
+
+      const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        lifeDisbPercent: '11%-25% Desembolsado',
+        lifeDisbColor: 'bg-amber-100 text-amber-800 border-amber-200'
+      }));
+
+      const greenProjects = greenIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        lifeDisbPercent: '>25% Desembolsado',
+        lifeDisbColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      }));
+
       return {
         description: "The indicator includes eligible projects with more than 36 months in execution. It classifies these projects according to their disbursed life amount as a percentage of their current approved amount.",
         columns: [
           { key: 'lifeDisbPercent', label: 'Porcentaje Desembolsado / Estatus' }
         ],
-        projects: list.slice(0, 26).map((p, i) => {
-          let val = i < 3 ? '11%-25% Desembolsado' : '>25% Desembolsado';
-          let color = i < 3 ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
-          return {
-            ...p,
-            lifeDisbPercent: val,
-            lifeDisbColor: color
-          };
-        })
+        projects: [...yellowProjects, ...greenProjects]
       };
-    case 6:
+    }
+    case 6: {
+      const yellowIds = [
+        'EC-L1230', 'AR-L1285', 'CO-L1164', 'CO-L1245', 'PN-L1161',
+        'PE-L1266', 'BL-L1038', 'PN-L1172', 'EC-L1253', 'UR-L1164',
+        'CH-L1178', 'BR-L1592', 'BR-L1614', 'PE-L1278'
+      ];
+      const greenIds = [
+        'AR-L1416', 'BR-L1629', 'BR-L1656', 'BR-L1658', 'ME-L1309',
+        'PE-L1288', 'UR-L1205', 'AR-L1248', 'UR-L1111', 'BR-L1377',
+        'PE-L1231', 'PE-L1239', 'BR-L1501', 'BR-L1511', 'BR-L1516',
+        'BL-L1031', 'EC-L1251', 'BR-L1527', 'PR-L1150', 'BR-L1534',
+        'BR-L1535', 'BR-L1517', 'BR-L1533', 'BR-L1550', 'SU-L1060',
+        'BR-L1539', 'BR-L1540', 'UR-L1193', 'BR-L1599', 'BR-L1513',
+        'BR-L1525', 'AR-L1405', 'PR-L1192', 'BR-L1643'
+      ];
+
+      const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        pmrPerfStatus: 'Con alerta o problema: 1-2',
+        pmrPerfColor: 'bg-amber-100 text-amber-800 border-amber-200'
+      }));
+
+      const greenProjects = greenIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        pmrPerfStatus: 'Sin alerta o problema',
+        pmrPerfColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      }));
+
       return {
         description: "Projects in the active portfolio (since COO approval) that have received at least one performance rating in the past three years are included. The warning is activated if the project is classified as alert or problem in at least one of the last three PMR cycles.",
         columns: [
           { key: 'pmrPerfStatus', label: 'Estatus PMR (Señales de Alerta)' }
         ],
-        projects: list.slice(0, 48).map((p, i) => {
-          let val = 'Sin alerta o problema';
-          let color = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-          if (i < 14) {
-            val = 'Con alerta o problema: 1-2';
-            color = 'bg-amber-100 text-amber-800 border-amber-200';
-          }
-          return {
-            ...p,
-            pmrPerfStatus: val,
-            pmrPerfColor: color
-          };
-        })
+        projects: [...yellowProjects, ...greenProjects]
       };
-    case 7:
+    }
+    case 7: {
+      const yellowIds = ['BR-L1377', 'UR-L1111'];
+      const redIds = ['EC-L1230', 'PE-L1231', 'EC-L1251'];
+      const greenIds = [
+        'AR-L1416', 'BR-L1629', 'BR-L1656', 'BR-L1658', 'ME-L1309',
+        'PE-L1288', 'UR-L1205', 'AR-L1248', 'PE-L1239', 'BR-L1501',
+        'BR-L1511', 'AR-L1285', 'CO-L1164', 'BR-L1516', 'BL-L1031',
+        'BR-L1527', 'CO-L1245', 'PR-L1150', 'BR-L1534', 'PN-L1161',
+        'PE-L1266', 'BR-L1535', 'BR-L1517', 'BR-L1533', 'BL-L1038',
+        'PN-L1172', 'BR-L1550', 'EC-L1253', 'SU-L1060', 'BR-L1539',
+        'BR-L1540', 'UR-L1164', 'UR-L1193', 'BR-L1599', 'BR-L1513',
+        'BR-L1525', 'CH-L1178', 'BR-L1592', 'AR-L1405', 'PR-L1192',
+        'BR-L1643', 'BR-L1614', 'PE-L1278'
+      ];
+
+      const redProjects = redIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        cancellationStatus: 'Cancelación > 15%',
+        cancellationColor: 'bg-red-100 text-red-800 border-red-200'
+      }));
+
+      const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        cancellationStatus: 'Cancelación Hasta 15%',
+        cancellationColor: 'bg-amber-100 text-amber-800 border-amber-200'
+      }));
+
+      const greenProjects = greenIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        cancellationStatus: 'Sin cancelación parcial',
+        cancellationColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      }));
+
       return {
         description: "The indicator includes projects in active portfolio that have cancelled a portion of their original approved amount. Projects that have canceled all of their resources are not included. The warning is activated when a project has a partial cancellation, regardless of the amount or the moment in which it was cancelled.",
         columns: [
           { key: 'cancellationStatus', label: 'Estatus de Cancelación' }
         ],
-        projects: list.slice(0, 48).map((p, i) => {
-          let statusStr = 'Sin cancelación parcial';
-          let color = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-          if (i < 3) {
-            statusStr = 'Cancelación > 15%';
-            color = 'bg-red-100 text-red-800 border-red-200';
-          } else if (i < 5) {
-            statusStr = 'Cancelación Hasta 15%';
-            color = 'bg-amber-100 text-amber-800 border-amber-200';
-          }
-          return {
-            ...p,
-            cancellationStatus: statusStr,
-            cancellationColor: color
-          };
-        })
+        projects: [...redProjects, ...yellowProjects, ...greenProjects]
       };
-    case 8:
+    }
+    case 8: {
+      const yellowIds = ['EC-L1251', 'BR-L1534', 'BR-L1511', 'BR-L1377', 'EC-L1230', 'UR-L1111'];
+      const greenIds = ['AR-L1248'];
+
+      const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        expiredDeadlineStatus: '5-12 meses atrasado',
+        expiredDeadlineColor: 'bg-amber-100 text-amber-800 border-amber-200'
+      }));
+
+      const greenProjects = greenIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
+        ...p,
+        expiredDeadlineStatus: '0-4 meses atrasado',
+        expiredDeadlineColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
+      }));
+
       return {
         description: "The indicator includes projects that have exceeded the term for the current last disbursement date, but have not justified 100% of the resources and its operational closure is pending. The warning is activated if 120 days after the date of the last current disbursement, the project has not achieved its operational closure (COO).",
         columns: [
           { key: 'expiredDeadlineStatus', label: 'Retraso de Plazo' }
         ],
-        projects: list.slice(10, 17).map((p, i) => {
-          let statusStr = i < 6 ? '5-12 meses atrasado' : '0-4 meses atrasado';
-          let color = i < 6 ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
-          return {
-            ...p,
-            expiredDeadlineStatus: statusStr,
-            expiredDeadlineColor: color
-          };
-        })
+        projects: [...yellowProjects, ...greenProjects]
       };
+    }
     default:
       return { description: '', columns: [], projects: [] };
   }
@@ -408,12 +472,12 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
   const card3YellowArc = describeArc(86, 86, 58, 0, 359.9);
   const card3YellowLabel = polarToCartesian(86, 86, 58, 180);
 
-  // Card 4 Donut: Red (0 to 102.8 deg), Yellow (102.8 to 282.8 deg), Green (282.8 to 360 deg)
-  const card4RedArc = describeArc(86, 86, 58, 0, 102.8);
-  const card4YellowArc = describeArc(86, 86, 58, 102.8, 282.8);
-  const card4GreenArc = describeArc(86, 86, 58, 282.8, 360);
-  const card4RedLabel = polarToCartesian(86, 86, 58, 51.4);
-  const card4YellowLabel = polarToCartesian(86, 86, 58, 192.8);
+  // Card 4 Donut: Red (0 to 77.1 deg), Yellow (77.1 to 282.9 deg), Green (282.9 to 360 deg)
+  const card4RedArc = describeArc(86, 86, 58, 0, 77.1);
+  const card4YellowArc = describeArc(86, 86, 58, 77.1, 282.9);
+  const card4GreenArc = describeArc(86, 86, 58, 282.9, 360);
+  const card4RedLabel = polarToCartesian(86, 86, 58, 38.6);
+  const card4YellowLabel = polarToCartesian(86, 86, 58, 180);
   const card4GreenLabel = polarToCartesian(86, 86, 58, 321.4);
 
   // Card 5 Donut: Yellow (0 to 41.5 deg), Green (41.5 to 360 deg)
@@ -571,8 +635,8 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
               className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
               strokeLinecap="butt" 
             />
-            <text x={card4RedLabel.x} y={card4RedLabel.y} transform={`rotate(90, ${card4RedLabel.x}, ${card4RedLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>4</text>
-            <text x={card4YellowLabel.x} y={card4YellowLabel.y} transform={`rotate(90, ${card4YellowLabel.x}, ${card4YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>7</text>
+            <text x={card4RedLabel.x} y={card4RedLabel.y} transform={`rotate(90, ${card4RedLabel.x}, ${card4RedLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>3</text>
+            <text x={card4YellowLabel.x} y={card4YellowLabel.y} transform={`rotate(90, ${card4YellowLabel.x}, ${card4YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>8</text>
             <text x={card4GreenLabel.x} y={card4GreenLabel.y} transform={`rotate(90, ${card4GreenLabel.x}, ${card4GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>3</text>
           </svg>
         );
@@ -585,11 +649,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
         );
         break;
       case 5:
-        subtitle = (
-          <p className="text-black font-semibold text-xs md:text-sm mt-3 text-center">
-            (Effectiveness – 36 months)
-          </p>
-        );
+        subtitle = null;
         projectsCount = 26;
         donutChart = (
           <svg width="172" height="172" className="transform -rotate-90">
@@ -626,11 +686,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
         );
         break;
       case 6:
-        subtitle = (
-          <p className="text-black font-semibold text-xs md:text-sm mt-3 text-center">
-            (Last 3 cycles)
-          </p>
-        );
+        subtitle = null;
         projectsCount = 48;
         donutChart = (
           <svg width="172" height="172" className="transform -rotate-90">
@@ -702,7 +758,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
             />
             <text x={card7RedLabel.x} y={card7RedLabel.y} transform={`rotate(90, ${card7RedLabel.x}, ${card7RedLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>3</text>
             <text x={card7YellowLabel.x} y={card7YellowLabel.y} transform={`rotate(90, ${card7YellowLabel.x}, ${card7YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>2</text>
-            <text x={card7GreenLabel.x} y={card7GreenLabel.y} transform={`rotate(90, ${card7GreenLabel.x}, ${card7GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>42</text>
+            <text x={card7GreenLabel.x} y={card7GreenLabel.y} transform={`rotate(90, ${card7GreenLabel.x}, ${card7GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>43</text>
           </svg>
         );
         legends = (
@@ -714,7 +770,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
         );
         break;
       case 8:
-        projectsCount = 6;
+        projectsCount = 7;
         donutChart = (
           <svg width="172" height="172" className="transform -rotate-90">
             <path 
@@ -1202,15 +1258,15 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
 
         {/* Card 6: PMR performance */}
         <div 
-          onClick={() => openAlertTab(6, "PMR performance")}
+          onClick={() => openAlertTab(6, "PMR performance (last 3 cycles)")}
           className="relative bg-[#fafafa] pt-[38px] pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
         >
           {/* Float Header Pill */}
-          <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 shadow-md border border-[#003d57]">
+          <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[95%] bg-[#005173] text-white py-2.5 px-2 md:px-3 rounded-xl flex items-center justify-center gap-2 shadow-md border border-[#003d57] whitespace-nowrap overflow-hidden">
             <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
               6
             </div>
-            <span className="font-extrabold text-white text-xs md:text-sm tracking-tight text-center">PMR performance</span>
+            <span className="font-extrabold text-white text-[10.5px] sm:text-xs md:text-sm tracking-tight text-center truncate">PMR performance (last 3 cycles)</span>
           </div>
           {renderIndicatorDonut(6)}
         </div>
