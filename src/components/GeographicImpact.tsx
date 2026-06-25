@@ -7,13 +7,13 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveCont
 const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 
 const geoImpactData = [
-  { country: 'BR', name: 'Brazil', region: 'CSC', amount: 1750, projects: 20, disbursed: 58, undisbursed: 42, disbursedVol: 1022, undisbursedVol: 727, flag: '🇧🇷', flagCode: 'br' },
-  { country: 'AR', name: 'Argentina', region: 'CSC', amount: 330, projects: 3, disbursed: 40, undisbursed: 60, disbursedVol: 133, undisbursedVol: 197, flag: '🇦🇷', flagCode: 'ar' },
-  { country: 'UR', name: 'Uruguay', region: 'CSC', amount: 204, projects: 4, disbursed: 42, undisbursed: 58, disbursedVol: 85, undisbursedVol: 119, flag: '🇺🇾', flagCode: 'uy' },
+  { country: 'BR', name: 'Brazil', region: 'CSC', amount: 1802, projects: 21, disbursed: 58, undisbursed: 42, disbursedVol: 1042, undisbursedVol: 760, flag: '🇧🇷', flagCode: 'br' },
+  { country: 'AR', name: 'Argentina', region: 'CSC', amount: 430, projects: 4, disbursed: 31, undisbursed: 69, disbursedVol: 134, undisbursedVol: 296, flag: '🇦🇷', flagCode: 'ar' },
+  { country: 'UR', name: 'Uruguay', region: 'CSC', amount: 204, projects: 4, disbursed: 46, undisbursed: 54, disbursedVol: 93, undisbursedVol: 111, flag: '🇺🇾', flagCode: 'uy' },
   { country: 'PR', name: 'Paraguay', region: 'CSC', amount: 55, projects: 2, disbursed: 29, undisbursed: 71, disbursedVol: 16, undisbursedVol: 39, flag: '🇵🇾', flagCode: 'py' },
-  { country: 'CH', name: 'Chile', region: 'CSC', amount: 20, projects: 1, disbursed: 27, undisbursed: 73, disbursedVol: 5, undisbursedVol: 15, flag: '🇨🇱', flagCode: 'cl' },
-  { country: 'CO', name: 'Colombia', region: 'CAN', amount: 300, projects: 2, disbursed: 32, undisbursed: 68, disbursedVol: 96, undisbursedVol: 204, flag: '🇨🇴', flagCode: 'co' },
-  { country: 'PE', name: 'Peru', region: 'CAN', amount: 204, projects: 4, disbursed: 45, undisbursed: 55, disbursedVol: 92, undisbursedVol: 111, flag: '🇵🇪', flagCode: 'pe' },
+  { country: 'CH', name: 'Chile', region: 'CSC', amount: 20, projects: 1, disbursed: 34, undisbursed: 66, disbursedVol: 7, undisbursedVol: 13, flag: '🇨🇱', flagCode: 'cl' },
+  { country: 'CO', name: 'Colombia', region: 'CAN', amount: 300, projects: 2, disbursed: 33, undisbursed: 67, disbursedVol: 99, undisbursedVol: 201, flag: '🇨🇴', flagCode: 'co' },
+  { country: 'PE', name: 'Peru', region: 'CAN', amount: 204, projects: 4, disbursed: 47, undisbursed: 53, disbursedVol: 96, undisbursedVol: 108, flag: '🇵🇪', flagCode: 'pe' },
   { country: 'EC', name: 'Ecuador', region: 'CAN', amount: 114, projects: 3, disbursed: 37, undisbursed: 63, disbursedVol: 42, undisbursedVol: 72, flag: '🇪🇨', flagCode: 'ec' },
   { country: 'SU', name: 'Suriname', region: 'CCB', amount: 50, projects: 1, disbursed: 13, undisbursed: 87, disbursedVol: 6, undisbursedVol: 44, flag: '🇸🇷', flagCode: 'sr' },
   { country: 'ME', name: 'Mexico', region: 'CID', amount: 500, projects: 1, disbursed: 0, undisbursed: 100, disbursedVol: 0, undisbursedVol: 500, flag: '🇲🇽', flagCode: 'mx' },
@@ -21,7 +21,7 @@ const geoImpactData = [
   { country: 'BL', name: 'Belize', region: 'CCB', amount: 22, projects: 2, disbursed: 75, undisbursed: 25, disbursedVol: 17, undisbursedVol: 5, flag: '🇧🇿', flagCode: 'bz' },
 ];
 
-const colorScale = scaleLinear<string>().domain([0, 1750]).range(["#e0f2fe", "#005274"]);
+const colorScale = scaleLinear<string>().domain([0, 1802]).range(["#e0f2fe", "#005274"]);
 
 // --- Componentes Customizados Gráfico 1 ---
 const CustomStackedLabel = (props: any) => {
@@ -139,7 +139,7 @@ export default function GeographicImpact() {
         <div className="w-full mb-6 px-4 md:px-6 lg:px-12 max-w-[1440px] mx-auto">
           <h2 className="text-2xl md:text-4xl font-bold text-zinc-900 tracking-tight text-center lg:text-left">Geographic Reach</h2>
           <p className="text-base md:text-xl text-zinc-700 leading-relaxed mt-4 text-center lg:text-left">
-            FMM operations span 12 countries. Brazil holds the largest share of FMM's portfolio with $1,750M allocated across 20 projects. In terms of execution, Belize has the highest disbursement rate at 75%, followed by Brazil (58%) and Peru (45%).
+            FMM operations span 12 countries. Brazil holds the largest share of FMM's portfolio with $1,802M allocated across 21 projects. In terms of execution, Belize has the highest disbursement rate at 75%, followed by Brazil (58%) and Peru (47%).
           </p>
         </div>
         
@@ -191,7 +191,7 @@ export default function GeographicImpact() {
               <div className="absolute bottom-8 right-2 bg-white/80 backdrop-blur-sm p-2 rounded-lg shadow-sm border border-zinc-200 text-[10px] z-10 pointer-events-none w-36 sm:w-44">
                 <p className="text-center mb-1"><span className="font-bold text-zinc-900">Investment Amount</span> <span className="text-zinc-500">($M)</span></p>
                 <div className="w-full h-2 bg-gradient-to-r from-[#e0f2fe] to-[#005274] mb-1"></div>
-                <div className="flex justify-between text-zinc-500 font-medium text-[10px]"><span>$0</span><span>$875</span><span>$1750</span></div>
+                <div className="flex justify-between text-zinc-500 font-medium text-[10px]"><span>$0</span><span>$901</span><span>$1802</span></div>
               </div>
             </div>
           </div>

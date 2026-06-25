@@ -71,14 +71,13 @@ export function LendingInstrumentsAndStages() {
   const pblCount = 1;
   const invAmount = 3761;
   const pblAmount = 600;
-  const stage1InvCount = metrics?.stage1InvCount || 7;
-  const stage2InvCount = metrics?.stage2InvCount || 34;
+  const stage1InvCount = metrics?.stage1InvCount || 6;
+  const stage2InvCount = metrics?.stage2InvCount || 37;
   const stage3InvCount = metrics?.stage3InvCount || 4;
-  const stage1InvAmount = metrics?.stage1InvAmount || 0;
-  const stage2InvAmountValue = metrics?.stage2InvAmount || 2435;
-  // User explicitly requested to replace 2400 with 2435 for Stage II
-  const stage2InvAmount = Math.round(stage2InvAmountValue) === 2400 ? 2435 : stage2InvAmountValue;
-  const stage3InvAmount = metrics?.stage3InvAmount || 0;
+  const stage1InvAmount = metrics?.stage1InvAmount || 981;
+  const stage2InvAmountValue = metrics?.stage2InvAmount || 2415;
+  const stage2InvAmount = stage2InvAmountValue;
+  const stage3InvAmount = metrics?.stage3InvAmount || 330;
 
   const activePortfolioData = [
     {

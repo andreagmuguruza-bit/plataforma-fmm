@@ -8,8 +8,10 @@ import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
   ComposedChart, Line, Legend, Area, LabelList
 } from 'recharts';
-import { History, CheckCircle2, RotateCcw } from 'lucide-react';
+import { History, CheckCircle2, RotateCcw, ClipboardCheck } from 'lucide-react';
 import { usePortfolioData } from '../hooks/usePortfolioData';
+import { AlertTriangles } from './AlertTriangles';
+import { getAlertsForProject, getAlertTagForProject } from '../utils/alertUtils';
 
 const getDotColor = (status: string) => {
   const s = String(status || '').toUpperCase().trim();
@@ -64,6 +66,8 @@ interface ProjectViewProps {
   project: Project;
   onBack: () => void;
   onUpdate: (project: Project) => void;
+  onNavigateToAlert?: (alertNumber: number, alertTitle: string) => void;
+  initialTab?: 'baseline' | 'interview' | 'qa' | 'midterm' | 'critical_procurement';
 }
 
 const CustomFileSearchIcon = ({ className }: { className?: string }) => (
@@ -110,9 +114,16 @@ const CustomChartTooltip = ({ active, payload, label }: any) => {
           const displayValue = entry.dataKey === 'baselineDisplay' ? entry.payload.baseline : entry.value;
           const isDisbursed = entry.name === 'Disbursed Amount ($M)' || entry.name === 'Cumulative Disbursed Amount' || entry.name === 'Disbursed Amount';
           const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+          
+          const code = entry.payload?.projectCode || entry.payload?.projectId;
+          const isCoCumulativeProjection = (code === 'CO-L1164') && (entry.name === 'Cumulative Baseline Projection' || entry.dataKey === 'cumulativeProjection');
+          const formattedValue = isCoCumulativeProjection 
+            ? (displayValue || 0).toFixed(1)
+            : Math.round(displayValue || 0).toLocaleString();
+
           return (
             <p key={index} className={`mb-1 ${isMobile ? 'text-[9.5px]' : 'text-xs'}`}>
-              <span className={`font-bold ${isDisbursed ? 'text-[#005173]' : 'text-zinc-500'}`}>{entry.name}:</span> ${Math.round(displayValue || 0).toLocaleString()}M
+              <span className={`font-bold ${isDisbursed ? 'text-[#005173]' : 'text-zinc-500'}`}>{entry.name}:</span> ${formattedValue}M
             </p>
           );
         })}
@@ -230,8 +241,11 @@ const renderCustomLineLabel = (props: any) => {
 };
 
 const renderProjectionLabel = (props: any) => {
-  const { x, y, value } = props;
+  const { x, y, value, payload, projectCode } = props;
   if (value == null || value === 0) return null;
+  
+  const code = projectCode || payload?.projectCode || payload?.projectId;
+  const formattedValue = (code === 'CO-L1164') ? value.toFixed(1) : Math.round(value);
   
   return (
     <text 
@@ -243,7 +257,7 @@ const renderProjectionLabel = (props: any) => {
       fontSize={typeof window !== 'undefined' && window.innerWidth < 1024 ? 8 : 11} 
       fontWeight={500}
     >
-      ${Math.round(value)}
+      ${formattedValue}
     </text>
   );
 };
@@ -320,7 +334,111 @@ const countryCodes: Record<string, string> = {
   'Nicaragua': 'ni',
 };
 
-export default function ProjectView({ project, onBack, onUpdate }: ProjectViewProps) {
+interface EvaluationPillar {
+  name: string;
+  findings: string[];
+  actions: string[];
+}
+
+const EVALUATION_DATA: Record<string, EvaluationPillar[]> = {
+  'PN-L1161': [
+    {
+      name: 'Gobernanza',
+      findings: [
+        'Escaso funcionamiento del Comité de Dirección Estratégica del Programa (CDEP).',
+        'Escasa articulación PATDAT con las Autoridades y con las áreas operativas de la DGI, lo cual afecta la gestión y la apropiación.'
+      ],
+      actions: [
+        'Promover el relanzamiento del CDEP.',
+        'Impulsar la involucración de la Alta Dirección.'
+      ]
+    },
+    {
+      name: 'Seguimiento de resultados',
+      findings: [
+        'Ejecución enfocada en los productos sin seguimiento indicadores de resultado e impacto.',
+        'No hay relevamiento de las fuentes de información necesarias.'
+      ],
+      actions: [
+        'Impulsar desde el Banco el seguimiento de los indicadores de resultados e impacto.',
+        'Brindar asistencia técnica, de ser necesaria.'
+      ]
+    },
+    {
+      name: 'Adquisiciones',
+      findings: [
+        'Procesos con gran cantidad de pasos debido a normativa. El diseño no contempló adecuadamente esta restricción.',
+        'TDR de productos tecnológicos complejos para el Ejecutor.'
+      ],
+      actions: [
+        'Plan de Acción simplificado seleccionando productos clave.',
+        'Asistencia técnica para la elaboración de TDR complejos.'
+      ]
+    }
+  ],
+  'PN-L1172': [
+    {
+      name: 'Gobernanza',
+      findings: [
+        'Existe muy buen nivel de direccionamiento estratégico e involucración de parte del Viceministerio de Economía. Ello genera momentum, decisión y apropiación.'
+      ],
+      actions: [
+        'Seguimiento de este modelo de gestión de la gobernanza.',
+        'Apoyar desde el Banco en lo que sea necesario.'
+      ]
+    },
+    {
+      name: 'Seguimiento de resultados',
+      findings: [
+        'Ejecución enfocada en los productos sin seguimiento indicadores de resultado e impacto.',
+        'No hay relevamiento de las fuentes de información necesarias.'
+      ],
+      actions: [
+        'Impulsar desde el Banco el seguimiento de los indicadores de resultados e impacto.',
+        'Brindar asistencia técnica.'
+      ]
+    },
+    {
+      name: 'Adquisiciones',
+      findings: [
+        'Procesos con gran cantidad de revisiones que inciden en los plazos de contratación y, con ello, en la ejecución.'
+      ],
+      actions: [
+        'Identificar los motivos por los cuales los procesos deben ser revisados múltiples veces.'
+      ]
+    },
+    {
+      name: 'Capacidades',
+      findings: [
+        'Al comenzar el trabajo se identificaron diferencias sustantivas de capacidades tecnológicas y de recursos humanos entre entidades'
+      ],
+      actions: [
+        'Favorecer, desde el proyecto, el fortalecimiento de capacidades tecnológicas de organismos del EFI.'
+      ]
+    },
+    {
+      name: 'Enfoque y modalidad de ejecución',
+      findings: [
+        'La modificación de la modalidad y el enfoque de la ejecución, en 2025, facilitó alinear las expectativas estratégicas de las Autoridades'
+      ],
+      actions: [
+        'Continuar apoyando esta modalidad de ejecución.'
+      ]
+    },
+    {
+      name: 'Coordinación estratégica de operaciones del Banco',
+      findings: [
+        'Hay 3 operaciones que abordan la digitalización e interoperabilidad desde el banco. Es necesario fortalecer la articulación entre estas.'
+      ],
+      actions: [
+        'Identificar posibilidades de mejora en la articulación y sinergia entre proyectos.'
+      ]
+    }
+  ]
+};
+
+export default function ProjectView({ project, onBack, onUpdate, onNavigateToAlert, initialTab }: ProjectViewProps) {
+  const projectCode = project.id;
   const { getProjectDetails, loading: dataLoading } = usePortfolioData();
   const details = getProjectDetails(project.id);
   const currentYear = new Date().getFullYear();
@@ -345,7 +463,39 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
     ? (splitIndex / (historicalData.length - 1)) * 100 
     : 100;
 
-  const [activeTab, setActiveTab] = useState<'baseline' | 'interview' | 'qa'>('baseline');
+  const [activeTab, setActiveTab] = useState<'baseline' | 'interview' | 'qa' | 'midterm' | 'critical_procurement'>(initialTab || 'baseline');
+  const lastInitRef = React.useRef<{ projectId: string; initialTab?: string } | null>(null);
+
+  // Sync activeTab with initialTab when initialTab or project changes
+  React.useEffect(() => {
+    const isMidtermSupported = project.id === 'PN-L1161' || project.id === 'PN-L1172';
+    const isCriticalProcurementSupported = project.id === 'PN-L1161' || project.id === 'PN-L1172';
+    
+    const needsInit = !lastInitRef.current || 
+                      lastInitRef.current.projectId !== project.id || 
+                      lastInitRef.current.initialTab !== initialTab;
+                      
+    if (needsInit) {
+      lastInitRef.current = { projectId: project.id, initialTab };
+      if (initialTab) {
+        if (initialTab === 'midterm' && !isMidtermSupported) {
+          setActiveTab('baseline');
+        } else if (initialTab === 'critical_procurement' && !isCriticalProcurementSupported) {
+          setActiveTab('baseline');
+        } else {
+          setActiveTab(initialTab);
+        }
+      } else {
+        setActiveTab('baseline');
+      }
+    } else {
+      if (activeTab === 'midterm' && !isMidtermSupported) {
+        setActiveTab('baseline');
+      } else if (activeTab === 'critical_procurement' && !isCriticalProcurementSupported) {
+        setActiveTab('baseline');
+      }
+    }
+  }, [initialTab, project.id, activeTab]);
   const [historicalView, setHistoricalView] = useState<'graph' | 'values'>('graph');
   const [monthlyView, setMonthlyView] = useState<'graph' | 'values'>('graph');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -411,7 +561,9 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
       const pdf = new jsPDF('l', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const pageIds = ['pdf-page-1', 'pdf-page-2'];
+      const pageIds = (project.id === 'PN-L1161' || project.id === 'PN-L1172') 
+        ? ['pdf-page-1', 'pdf-page-2', 'pdf-page-3'] 
+        : ['pdf-page-1', 'pdf-page-2'];
 
       for (let i = 0; i < pageIds.length; i++) {
         const pageElement = document.getElementById(pageIds[i]);
@@ -448,10 +600,15 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
     }
   };
 
+  const isMidtermSupported = project.id === 'PN-L1161' || project.id === 'PN-L1172';
+  const isCriticalProcurementSupported = project.id === 'PN-L1161' || project.id === 'PN-L1172';
+
   const tabs = [
     { id: 'baseline', label: 'General Details', icon: <CustomFileSearchIcon className="w-4 h-4" /> },
     { id: 'qa', label: 'Financial Progress', icon: <DollarIcon className="w-4 h-4" /> },
     { id: 'interview', label: 'PMR Performance', icon: <TrendingUp className="w-4 h-4" /> },
+    ...(isMidtermSupported ? [{ id: 'midterm', label: 'Mid-Term Evaluation', icon: <FileText className="w-4 h-4" /> } as const] : []),
+    ...(isCriticalProcurementSupported ? [{ id: 'critical_procurement', label: 'Critical Procurement Processes', icon: <ClipboardCheck className="w-4 h-4" /> } as const] : []),
   ] as const;
 
   return (
@@ -586,10 +743,71 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
         </div>
       </div>
 
+      {/* Active Alerts Ribbon */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-start gap-3 mx-4 lg:mx-0 mb-4 pl-0 lg:pl-10">
+        <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider shrink-0 select-none">ACTIVE ALERTS:</span>
+        {(() => {
+          const activeAlerts = (getAlertsForProject(project.id) || []).filter(
+            a => a.color === 'red' || a.color === 'yellow'
+          );
+          if (activeAlerts.length === 0) {
+            return (
+              <div className="flex items-center gap-1.5 text-zinc-500 font-semibold text-xs select-none bg-white border border-zinc-200/80 rounded-lg px-2.5 py-1.5 shadow-xs">
+                <CheckCircle2 className="w-4 h-4 stroke-white shrink-0" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
+                <span>No active alerts</span>
+              </div>
+            );
+          }
+          return (
+            <div className="flex flex-wrap items-center gap-[10px] select-none">
+              {activeAlerts.map(alert => {
+                const info = getAlertTagForProject(project.id, alert.number);
+                let boxColor = '#cccccc';
+                if (info.color === 'red') boxColor = '#e53935';
+                else if (info.color === 'yellow') boxColor = '#ffb300';
+                else if (info.color === 'green') boxColor = '#00b04f';
+
+                const cleanTitle = alert.title.replace(' (last 3 cycles)', '');
+                return (
+                  <button 
+                    key={alert.number} 
+                    onClick={() => {
+                      if (onNavigateToAlert) {
+                        onNavigateToAlert(alert.number, alert.title);
+                      }
+                    }}
+                    className="flex items-center gap-2 bg-white border border-zinc-200/80 rounded-lg px-2.5 py-1.5 shadow-xs whitespace-nowrap hover:bg-zinc-50 hover:border-zinc-300 transition-colors cursor-pointer text-left focus:outline-none"
+                  >
+                    {/* [Cuadrado de color] */}
+                    <div 
+                      className="w-3.5 h-3.5 rounded-sm shrink-0 shadow-xs" 
+                      style={{ backgroundColor: boxColor }} 
+                    />
+
+                    {/* [font-bold text-slate-800: #ID y Nombre en inglés] */}
+                    <span className="text-slate-800 text-[12px] font-bold shrink-0">
+                      {alert.number}. {cleanTitle}
+                    </span>
+
+                    {/* [separador textual ':'] */}
+                    <span className="text-zinc-400 font-normal text-[12px] -ml-0.5">:</span>
+
+                    {/* [font-medium text-zinc-500: Detalle del problema] */}
+                    <span className="text-zinc-500 font-medium text-[12px]">
+                      {info.tag}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
+      </div>
+
       <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 pb-12">
         {/* Sidebar Navigation */}
-        <div className="lg:col-span-3 px-4 lg:px-0">
-          <div className="bg-white rounded-xl shadow-sm border border-zinc-200 p-1 lg:p-2 lg:sticky lg:top-6 grid grid-cols-3 lg:flex lg:flex-col overflow-hidden lg:overflow-x-visible no-scrollbar whitespace-normal items-stretch">
+        <div className="lg:col-span-3 px-4 lg:px-0 lg:pl-10">
+          <div className="bg-white rounded-xl shadow-sm border border-zinc-200 p-1 lg:p-2 lg:sticky lg:top-6 grid grid-cols-4 lg:flex lg:flex-col overflow-hidden lg:overflow-x-visible no-scrollbar whitespace-normal items-stretch">
             {tabs.map(tab => (
               <button
                 key={tab.id}
@@ -606,8 +824,12 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                     <>General<span className="lg:hidden"><br /></span><span className="hidden lg:inline"> </span>Details</>
                   ) : tab.id === 'qa' ? (
                     <>Financial<span className="lg:hidden"><br /></span><span className="hidden lg:inline"> </span>Progress</>
-                  ) : (
+                  ) : tab.id === 'interview' ? (
                     <>PMR<span className="lg:hidden"><br /></span><span className="hidden lg:inline"> </span>Performance</>
+                  ) : tab.id === 'midterm' ? (
+                    <>Mid-Term<span className="lg:hidden"><br /></span><span className="hidden lg:inline"> </span>Evaluation</>
+                  ) : (
+                    <>Critical Procurement<span className="lg:hidden"><br /></span><span className="hidden lg:inline"> </span>Processes</>
                   )}
                 </span>
                 {tab.id === 'baseline' && project.history && <CheckCircle className="w-3.5 h-3.5 ml-auto text-emerald-500 hidden lg:block" />}
@@ -648,19 +870,19 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Current<br className="lg:hidden" /> Approved<br className="lg:hidden" /> Amount:</span>
-                        <span className="text-zinc-500 font-medium">{formatCurrency(details.currentApprovedAmount)}</span>
+                        <span className="text-zinc-500 font-medium">{formatCurrencyM(details.currentApprovedAmount / 1000000)}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Local contribution:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? '$ 0.00' : project.id === 'BR-L1656' ? '$5,875,000.00' : project.id === 'EC-L1251' ? '$3,840,000.00' : (project.id === 'PN-L1172' || project.id === 'PN-L1161') ? '$0.00' : ''}</span>
+                        <span className="text-zinc-500 font-medium">{details.localContribution || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Disbursed Life<br className="lg:hidden" /> Amount:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '99.78%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
+                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '100%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Undisbursed Amount:</span>
-                        <span className="text-zinc-500 font-medium">{formatCurrency(details.currentApprovedAmount - details.disbursedLifeAmount)}</span>
+                        <span className="text-zinc-500 font-medium">{details.undisbursedAmountStr || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Months of extensions:</span>
@@ -668,7 +890,11 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Last disbursement made:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? 'N/A' : (details.lastDisbursementMade === 'Pending' ? 'N/A' : (details.lastDisbursementMade || 'N/A'))}</span>
+                        <span className="text-zinc-500 font-medium">{details.lastDisbursementMade || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
+                        <span className="font-bold text-zinc-900">Time without<br className="lg:hidden" /> disbursement (months):</span>
+                        <span className="text-zinc-500 font-medium">{details.financial.timeWithoutDisbursements || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Years in execution<br className="lg:hidden" /> (since eligibility):</span>
@@ -692,16 +918,14 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                     
                     <div className="space-y-0.5 max-w-sm mx-auto lg:mx-0">
                       {/* Stage I */}
-                      <div className="flex gap-0.5">
+                      <div className="flex gap-0.5 relative z-40">
                         <div className="w-6 bg-[#BFBFBF] rounded-sm flex items-center justify-center shrink-0">
                           <span className="text-white text-[6.3px] lg:text-[7px] font-bold uppercase tracking-wider" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Stage I</span>
                         </div>
-                        <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm space-y-6 relative pl-14 z-30">
+                        <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm space-y-6 relative pl-14 z-40">
                           {/* Approval */}
                           <div className="relative">
-                            {details.timeline.approval.status === 'completed' && (
-                              <div className="absolute -left-[31px] top-[28px] bottom-[-20px] w-0.5 bg-[#4EA72E]" />
-                            )}
+                            <div className="absolute -left-[31px] top-[30px] bottom-[-20px] w-0.5 z-50" style={{ backgroundColor: (details.timeline.approval.status === 'completed' && details.timeline.effectiveness.status === 'completed') ? '#4EA72E' : '#71717a' }} />
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
                               {details.timeline.approval.status === 'completed' ? (
                                 <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
@@ -718,9 +942,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                           </div>
                           {/* Effectiveness */}
                           <div className="relative">
-                            {details.timeline.effectiveness.status === 'completed' && (
-                              <div className="absolute -left-[31px] top-[28px] bottom-[-48px] w-0.5 bg-[#4EA72E] z-50" />
-                            )}
+                            <div className="absolute -left-[31px] top-[30px] bottom-[-48px] w-0.5 z-50" style={{ backgroundColor: (details.timeline.effectiveness.status === 'completed' && details.timeline.eligibility.status === 'completed') ? '#4EA72E' : '#71717a' }} />
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
                               {details.timeline.effectiveness.status === 'completed' ? (
                                 <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
@@ -739,16 +961,14 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                       </div>
 
                       {/* Stage II */}
-                      <div className="flex gap-0.5">
+                      <div className="flex gap-0.5 relative z-30">
                         <div className="w-6 bg-[#BFBFBF] rounded-sm flex items-center justify-center shrink-0">
                           <span className="text-white text-[6.3px] lg:text-[7px] font-bold uppercase tracking-wider" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Stage II</span>
                         </div>
-                        <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm space-y-6 relative pl-14 z-20">
+                        <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm space-y-6 relative pl-14 z-30">
                           {/* Eligibility */}
                           <div className="relative">
-                            {details.timeline.eligibility.status === 'completed' && (
-                              <div className="absolute -left-[31px] top-[28px] bottom-[-20px] w-0.5 bg-[#4EA72E]" />
-                            )}
+                            <div className="absolute -left-[31px] top-[30px] bottom-[-20px] w-0.5 z-50" style={{ backgroundColor: (details.timeline.eligibility.status === 'completed' && details.timeline.firstDisbursement.status === 'completed') ? '#4EA72E' : '#71717a' }} />
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
                               {details.timeline.eligibility.status === 'completed' ? (
                                 <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
@@ -765,9 +985,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                           </div>
                           {/* First disbursement */}
                           <div className="relative">
-                            {details.timeline.firstDisbursement.status === 'completed' && (
-                              <div className="absolute -left-[31px] top-[28px] bottom-[-48px] w-0.5 bg-[#4EA72E] z-50" />
-                            )}
+                            <div className="absolute -left-[31px] top-[30px] bottom-[-48px] w-0.5 z-50" style={{ backgroundColor: (details.timeline.firstDisbursement.status === 'completed' && details.timeline.lastDisbursement.status === 'completed') ? '#4EA72E' : '#71717a' }} />
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
                               {details.timeline.firstDisbursement.status === 'completed' ? (
                                 <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
@@ -786,16 +1004,14 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                       </div>
 
                       {/* Stage III */}
-                      <div className="flex gap-0.5">
+                      <div className="flex gap-0.5 relative z-20">
                         <div className="w-6 bg-[#BFBFBF] rounded-sm flex items-center justify-center shrink-0">
                           <span className="text-white text-[6.3px] lg:text-[7px] font-bold uppercase tracking-wider" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>Stage III</span>
                         </div>
-                        <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm relative pl-14 z-10">
+                        <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm relative pl-14 z-20">
                           {/* Last disbursement */}
                           <div className="relative">
-                            {details.timeline.lastDisbursement.status === 'completed' && (
-                              <div className="absolute -left-[31px] top-[28px] bottom-[-45px] w-0.5 bg-[#4EA72E]" />
-                            )}
+                            <div className="absolute -left-[31px] top-[30px] bottom-[-48px] w-0.5 z-50" style={{ backgroundColor: (details.timeline.lastDisbursement.status === 'completed' && details.timeline.closure.status === 'completed') ? '#4EA72E' : '#71717a' }} />
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
                               {details.timeline.lastDisbursement.status === 'completed' ? (
                                 <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
@@ -806,22 +1022,27 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                               )}
                             </div>
                             <div className="flex flex-col">
-                              <span className="text-[12.6px] lg:text-sm font-bold text-zinc-800">Disbursement expiration date:</span>
-                              <span className="text-[12.6px] lg:text-sm text-zinc-600">
-                                {details.timeline.lastDisbursement.date}.<br />
-                                <span className="text-[12.6px] lg:text-sm text-zinc-500 font-normal">Extension: {details.timeline.extension.text}</span>
-                              </span>
+                              <span className="text-[12.6px] lg:text-sm font-bold text-zinc-800">Totally disbursed:</span>
+                              <div className="text-[12.6px] lg:text-sm text-zinc-600">
+                                {details.timeline.lastDisbursement.date}
+                                <div className="text-[12.6px] lg:text-sm text-zinc-500 font-normal mt-0.5">
+                                  Extension: {details.timeline.extension.text}
+                                </div>
+                                <div className="text-[12.6px] lg:text-sm text-zinc-500 font-normal mt-0.5">
+                                  Current deadline: {details.timeline.lastDisbursement.currentDeadline || 'N/A'}
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </div>
 
                       {/* Closure (CLOSURE Stage) */}
-                      <div className="flex gap-0.5">
+                      <div className="flex gap-0.5 relative z-10">
                         <div className="w-6 bg-[#BFBFBF] rounded-sm flex items-center justify-center shrink-0">
                           <span className="text-white text-[6.3px] lg:text-[7px] font-bold uppercase tracking-wider" style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>CLOSURE</span>
                         </div>
-                        <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm relative pl-14 z-10">
+                        <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm relative pl-14 z-10" >
                           <div className="relative">
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
                               {details.timeline.closure.status === 'completed' ? (
@@ -1063,6 +1284,15 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                     </div>
 
                     <div>
+                      <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Acciones sugeridas / Pedidos</h4>
+                      <div className="bg-white p-4 rounded-xl border border-zinc-100">
+                        <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
+                          {(project.qualitativeData?.accionesSugeridas || []).map((item, i) => <li key={i}>{item}</li>)}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div>
                       <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Productos destacados/innovadores del proyecto</h4>
                       <div className="bg-white p-4 rounded-xl border border-zinc-100">
                         <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
@@ -1081,15 +1311,6 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                         </div>
                       </div>
                     )}
-
-                    <div>
-                      <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Acciones sugeridas / Pedidos</h4>
-                      <div className="bg-white p-4 rounded-xl border border-zinc-100">
-                        <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                          {(project.qualitativeData?.accionesSugeridas || []).map((item, i) => <li key={i}>{item}</li>)}
-                        </ul>
-                      </div>
-                    </div>
 
                     <div>
                       <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Fecha evaluación intermedia</h4>
@@ -1138,10 +1359,6 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                       <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">{formatCurrency(details.financial.currentApprovedAmount)}</span>
                     </div>
                     <div className="flex flex-row justify-between items-start lg:items-center text-[12.6px] lg:text-sm gap-2">
-                      <span className="font-bold text-zinc-900 text-left w-[45%] lg:w-auto whitespace-normal leading-snug pr-2">Time without disbursement (months):</span>
-                      <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">{details.financial.timeWithoutDisbursements || 'N/A'}</span>
-                    </div>
-                    <div className="flex flex-row justify-between items-start lg:items-center text-[12.6px] lg:text-sm gap-2">
                       <span className="font-bold text-zinc-900 text-left w-[45%] lg:w-auto whitespace-normal leading-snug pr-2">Deadline for last Current Disbursement:</span>
                       <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">{details.financial.deadlineLastDisbursement}</span>
                     </div>
@@ -1177,7 +1394,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                           style={{ width: `${details.financial.disbursedLifePercent}%` }}
                         >
                           <span className="relative z-10 text-[9px] lg:text-[10px] font-bold" style={{ color: '#ffffff' }}>
-                            {project.id === 'EC-L1251' ? '99.78%' : project.id === 'PN-L1172' ? '10%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
+                            {project.id === 'EC-L1251' ? '100%' : project.id === 'PN-L1172' ? '10%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
                           </span>
                         </div>
                       </div>
@@ -1279,7 +1496,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                         </ResponsiveContainer>
                       ) : (
                         <div className="px-1 lg:px-8 pb-4 overflow-x-auto">
-                          <table className="w-full border-collapse">
+                          <table className="w-full min-w-full border-collapse" style={{ boxSizing: 'border-box', width: '100%' }}>
                             <thead>
                               <tr className="bg-zinc-100 border-b border-zinc-200">
                                 <th className="py-2 px-1 lg:px-4 text-left text-[9px] lg:text-xs font-bold text-zinc-600 uppercase">Year</th>
@@ -1375,7 +1592,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                               </div>
                             )}/>
                             <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulativeProjection" name="Cumulative Baseline Projection" stroke="#94a3b8" strokeWidth={1} strokeDasharray="5 5" dot={false} isAnimationActive={false}>
-                              <LabelList dataKey="cumulativeProjection" content={renderProjectionLabel} />
+                              <LabelList dataKey="cumulativeProjection" content={(props: any) => renderProjectionLabel({ ...props, projectCode: project.id })} />
                             </Line>
                             <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulativeDisbursed" name="Cumulative Disbursed Amount" stroke="#FFB800" strokeWidth={2} dot={{r: 4, fill: '#FFB800', strokeWidth: 0}} isAnimationActive={false}>
                               <LabelList dataKey="cumulativeDisbursed" position="top" offset={10} content={renderCustomLineLabel} />
@@ -1384,7 +1601,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                         </ResponsiveContainer>
                       ) : (
                         <div className="px-1 lg:px-8 pb-4 overflow-x-auto">
-                          <table className="w-full border-collapse">
+                          <table className="w-full min-w-full border-collapse" style={{ boxSizing: 'border-box', width: '100%' }}>
                             <thead>
                               <tr className="bg-zinc-100 border-b border-zinc-200">
                                 <th className="py-2 px-1 lg:px-4 text-left text-[9px] lg:text-xs font-bold text-zinc-600 uppercase">Month</th>
@@ -1400,7 +1617,16 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                                     {row.cumulativeProjection !== null ? (row.cumulativeProjection * 1000000).toLocaleString() : '-'}
                                   </td>
                                   <td className="py-2 px-1 lg:px-4 text-[10px] lg:text-sm text-right text-zinc-600 font-medium">
-                                    {row.cumulativeDisbursed !== null ? (row.cumulativeDisbursed * 1000000).toLocaleString() : '-'}
+                                    {(() => {
+                                      const val = row.cumulativeDisbursedReal !== undefined && row.cumulativeDisbursedReal !== null 
+                                        ? row.cumulativeDisbursedReal 
+                                        : row.cumulativeDisbursed;
+                                      if (val === null) return '-';
+                                      const num = val * 1000000;
+                                      return Number.isInteger(num) 
+                                        ? num.toLocaleString() 
+                                        : num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                    })()}
                                   </td>
                                 </tr>
                               ))}
@@ -1416,6 +1642,339 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
               </div>
             </div>
           )}
+
+          {activeTab === 'midterm' && (
+            <div className="p-8 flex flex-col h-full">
+              <div className="flex items-center gap-3 mb-6">
+                <FileText className="w-6 h-6 text-zinc-900" />
+                <div>
+                  <h3 className="text-xl font-semibold tracking-tight">Mid-Term Evaluation</h3>
+                </div>
+              </div>
+
+              {/* Table Container */}
+              <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-full border-collapse">
+                    <thead>
+                      <tr className="bg-zinc-50 border-b border-zinc-200">
+                        <th className="py-3 px-6 text-left text-xs lg:text-sm font-bold text-black uppercase tracking-wider w-[20%]">Pillar</th>
+                        <th className="py-3 px-6 text-center text-xs lg:text-sm font-bold text-black uppercase tracking-wider w-[45%]">Main findings</th>
+                        <th className="py-3 px-6 text-center text-xs lg:text-sm font-bold text-black uppercase tracking-wider w-[35%]">Recommended actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {EVALUATION_DATA[project.id] ? (
+                        EVALUATION_DATA[project.id].map((item, index) => (
+                          <tr key={index} className="border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
+                            <td className="py-4 px-6 align-top text-xs lg:text-sm font-bold text-zinc-900">
+                              {item.name}
+                            </td>
+                            <td className="py-4 px-6 align-top text-xs lg:text-sm text-zinc-700">
+                              <ul className="list-disc pl-5 space-y-1">
+                                {item.findings.map((finding, idx) => (
+                                  <li key={idx}>{finding}</li>
+                                ))}
+                              </ul>
+                            </td>
+                            <td className="py-4 px-6 align-top text-xs lg:text-sm text-zinc-700">
+                              <ul className="list-disc pl-5 space-y-1">
+                                {item.actions.map((action, idx) => (
+                                  <li key={idx}>{action}</li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="py-12 px-6 text-center text-xs lg:text-sm text-zinc-500 font-medium">
+                            No evaluation data available yet for this project.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="hidden">
+                {/* Project Name */}
+                <div className="border-b border-zinc-200 pb-4">
+                  <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1 select-none">Project Name</span>
+                  <h2 className="text-xl lg:text-2xl font-bold tracking-tight text-black leading-tight">
+                    {project.name}
+                  </h2>
+                </div>
+
+                {/* Row 1 metadata */}
+                <div>
+                  <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3 select-none">Project Metadata</span>
+                  <div className="bg-white p-6 rounded-xl border border-zinc-200/80 shadow-xs flex flex-wrap gap-y-4 gap-x-6 items-center text-xs text-zinc-600 font-medium">
+                    
+                    {/* Project ID */}
+                    <div className="flex flex-col gap-1 pr-4 border-r border-zinc-100 last:border-0">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider select-none">Project ID</span>
+                      <span className="text-zinc-800 font-semibold">{project.id}</span>
+                    </div>
+
+                    {/* Operation ID */}
+                    {details.linkedLoans.length > 0 && (
+                      <div className="flex flex-col gap-1 pr-4 border-r border-zinc-100 last:border-0">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider select-none">Operation ID</span>
+                        <span className="text-zinc-800 font-semibold whitespace-pre-line">
+                          {project.id === 'EC-L1253' ? '5598/OC-EC\n5599/OC-EC' : details.linkedLoans.join(', ')}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Country */}
+                    <div className="flex flex-col gap-1 pr-4 border-r border-zinc-100 last:border-0">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider select-none">Country</span>
+                      <div className="flex items-center gap-1.5 text-zinc-800 font-semibold">
+                        {project.countryName && countryCodes[project.countryName] ? (
+                          <img 
+                            src={`https://flagcdn.com/w40/${countryCodes[project.countryName]}.png`} 
+                            className="w-5 h-auto shadow-sm shrink-0" 
+                            crossOrigin="anonymous"
+                            referrerPolicy="no-referrer" 
+                            alt={project.countryName || 'Country flag'}
+                          />
+                        ) : project.countryCode ? (
+                          <img 
+                            src={`https://flagcdn.com/w40/${project.countryCode.toLowerCase()}.png`} 
+                            className="w-5 h-auto shadow-sm shrink-0" 
+                            crossOrigin="anonymous"
+                            referrerPolicy="no-referrer" 
+                            alt={project.countryName || 'Country flag'}
+                          />
+                        ) : (
+                          '🏳️'
+                        )}
+                        <span>{project.countryName}</span>
+                      </div>
+                    </div>
+
+                    {/* TTL */}
+                    <div className="flex flex-col gap-1 pr-4 border-r border-zinc-100 last:border-0">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider select-none">TTL</span>
+                      <span className="text-zinc-800 font-semibold">
+                        {(() => {
+                          const ttlStr = project.ttl || '';
+                          if (['BR-L1377', 'BR-L1534'].includes(project.id)) return 'MARIA CRISTINA';
+                          if (ttlStr.toUpperCase() === 'YARYGINA UDOVENKO, ANASTASIYA') return 'ANASTASIYA';
+                          
+                          const isEcuador = project.countryName === 'Ecuador';
+                          if (isEcuador && ttlStr.toUpperCase().includes('ARIEL')) return 'ARIEL';
+                          
+                          return ttlStr;
+                        })()}
+                      </span>
+                    </div>
+
+                    {/* Status */}
+                    <div className="flex flex-col gap-1 pr-4 border-r border-zinc-100 last:border-0">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider select-none">Status</span>
+                      <span className="text-zinc-800 font-semibold">{details.operationStatus}</span>
+                    </div>
+
+                    {/* PMR March Cycle */}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider select-none">PMR March Cycle 2026</span>
+                      <div className="flex items-center gap-1.5 text-zinc-800 font-semibold">
+                        <span 
+                          className="w-2.5 h-2.5 rounded-full shrink-0" 
+                          style={{ 
+                            backgroundColor: getDotColor(details.pmrStatus)
+                          }}
+                        ></span> 
+                        <span>{formatPMR(details.pmrStatus)}</span>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* Row 2 active alerts */}
+                <div>
+                  <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3 select-none">Active Alerts</span>
+                  <div className="bg-white p-6 rounded-xl border border-zinc-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-start gap-3">
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider shrink-0 select-none">ACTIVE ALERTS:</span>
+                    {(() => {
+                      const activeAlerts = (getAlertsForProject(project.id) || []).filter(
+                        a => a.color === 'red' || a.color === 'yellow'
+                      );
+                      if (activeAlerts.length === 0) {
+                        return (
+                          <div className="flex items-center gap-1.5 text-zinc-500 font-semibold text-xs select-none bg-zinc-50 border border-zinc-200/80 rounded-lg px-2.5 py-1.5">
+                            <CheckCircle2 className="w-4 h-4 stroke-white shrink-0" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
+                            <span>No active alerts</span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="flex flex-wrap items-center gap-[10px] select-none">
+                          {activeAlerts.map(alert => {
+                            const info = getAlertTagForProject(project.id, alert.number);
+                            let boxColor = '#cccccc';
+                            if (info.color === 'red') boxColor = '#e53935';
+                            else if (info.color === 'yellow') boxColor = '#ffb300';
+                            else if (info.color === 'green') boxColor = '#00b04f';
+
+                            const cleanTitle = alert.title.replace(' (last 3 cycles)', '');
+                            return (
+                              <div 
+                                key={alert.number} 
+                                className="flex items-center gap-2 bg-zinc-50 border border-zinc-200/80 rounded-lg px-2.5 py-1.5 text-left"
+                              >
+                                {/* [Cuadrado de color] */}
+                                <div 
+                                  className="w-3.5 h-3.5 rounded-sm shrink-0" 
+                                  style={{ backgroundColor: boxColor }} 
+                                />
+
+                                {/* [font-bold text-slate-800: #ID y Nombre en inglés] */}
+                                  <span className="text-slate-800 text-[12px] font-bold shrink-0">
+                                    {alert.number}. {cleanTitle}
+                                  </span>
+
+                                  {/* [separador textual ':'] */}
+                                  <span className="text-zinc-400 font-normal text-[12px] -ml-0.5">:</span>
+
+                                  {/* [font-medium text-zinc-500: Detalle del problema] */}
+                                  <span className="text-zinc-500 font-medium text-[12px]">
+                                    {info.tag}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'critical_procurement' && (
+              <div className="p-8 flex flex-col h-full">
+                <div className="flex items-center gap-3 mb-6">
+                  <ClipboardCheck className="w-6 h-6 text-zinc-900" />
+                  <div>
+                    <h3 className="text-xl font-semibold tracking-tight">Critical Procurement Processes</h3>
+                  </div>
+                </div>
+                
+                <div className="space-y-12">
+                  {((project.id === 'PN-L1172') ? [
+                    {
+                      number: "1",
+                      title: "Diseño y acompañamiento técnico para la implementación del Ecosistema Fiscal Inteligente (EFI)",
+                      processCode: "PN-L1172-P00027",
+                      amount: "$ 1.2 MM (6%)*",
+                      status: "En ejecución",
+                      actions: [
+                        "Contrato en ejecución desde enero de 2026, con fecha de finalización en 2027. La firma consultora maneja un cronograma normal y otro acelerado que podría terminar en febrero de 2027.",
+                        "Este contrato es crítico no tanto por el monto como por su alcance: la FC debe acompañar al ejecutor en todos los pasos de la implementación. Un área crucial es identificar las necesidades de inversión que demandarán cada una de las instituciones que integran el EFI. Adicionalmente, el MEF creó un comité de de Gobernanza del EFI, con MEF, AIG, Contraloría, BID y la FC, a fin de acelerar la identificación de necesidades y toma de decisiones alineados a los objetivos del EFI. Se espera una propuesta detallada de necesidades de inversión al cierre de agosto 2026 que reordenará el plan de adquisiciones del EFI. El Banco ha recibido una solicitud de extensión del plazo contractual por 2 años más allá del 18 de agosto de 2026."
+                      ]
+                    }
+                  ] : [
+                    {
+                      number: "1",
+                      title: "Diagnóstico, diseño, desarrollo e implementación para la modernización del Sistema Tributario (e-Tax 2.0)",
+                      processCode: "PN-L1161-P00074",
+                      amount: "$ 6 MM (15%)*",
+                      status: "Recepción de ofertas",
+                      actions: [
+                        "Proceso fue publicado y se encuentra en etapa de recibimiento de ofertas (técnicas y económicas, LPI).",
+                        "Se fortaleció la UEP, en especial en el área de Adquisiciones, para que los documentos contractuales tengan una altísima calidad.",
+                        "Adicionalmente, se ha instruido a la UEP para que pueda apoyar a la Comisión Evaluadora del proceso, con base a los lineamientos y políticas de adquisiciones del BID, con la finalidad de tener un informe de evaluación de alta calidad que permita asignar el contrato con seguridad. Se espera dar inicio en ejecución 1Q 2027."
+                      ]
+                    },
+                    {
+                      number: "2",
+                      title: "Adquisición de licenciamiento, implementación, soporte y mantenimiento de plataforma de base de datos ORACLE",
+                      processCode: "PN-L1161-P00062",
+                      amount: "$ 10 MM (25%)*",
+                      status: "Por iniciar licitación",
+                      actions: [
+                        "Se cuenta con el visto bueno de las instancias técnicas del Gobierno (AIG) para pasarlo a no objeción del BID e iniciar enseguida el proceso de licitación.",
+                        "El proceso llevaba dos años en discusiones internas entre el Departamento de Tecnología de la Dirección General Impositiva y el área de tecnología del MEF (recordemos que la DGI está integrada en la estructura del MEF).",
+                        "El equipo técnico del Banco (el Asociado Senior de Sectores – Arquitectura de Datos y Sistemas de IFD/FMM y un Consultor PEC) facilitaron sesiones de trabajo conjuntas con los departamentos del Gobierno y finalmente se cuenta con el VoBo de ambas instancias. Se espera dar inicio a la ejecución en 1Q 2027."
+                      ]
+                    },
+                    {
+                      number: "3",
+                      title: "Adquisición, implementación, soporte y mantenimiento para el fortalecimiento de infraestructura tecnológica (balanceadores)",
+                      processCode: "PN-L1161-P00067",
+                      amount: "$ 2.3 MM (6%)*",
+                      status: "Por iniciar licitación",
+                      actions: [
+                        "Fue enviado el 9 de junio para no objeción al BID. Se iniciará el proceso de licitación de modo inmediato.",
+                        "Al igual que el proceso anterior, este llevaba un año en negociaciones internas entre departamento de tecnología de DGI y MEF.",
+                        "Finalmente se cuenta con el VoBo de ambas instancias tras sesiones de trabajo conjuntas con el equipo técnico del Banco. Se espera dar inicio en ejecución 2Q 2027."
+                      ]
+                    }
+                  ]).map((item, index) => (
+                    <div key={index} className="bg-zinc-50 p-6 lg:p-8 rounded-2xl border border-zinc-200 shadow-xs relative overflow-hidden">
+                      {/* Title block with deep blue border accent */}
+                      <div className="border-l-4 border-[#005173] pl-4 mb-6">
+                        <h4 className="text-base lg:text-lg font-bold text-zinc-900 leading-snug">
+                          {item.number}. {item.title}
+                        </h4>
+                      </div>
+
+                      {/* Info Badges */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                        <div className="bg-[#005173] text-white py-2 px-3 rounded-xl shadow-xs text-center flex items-center justify-center">
+                          <span className="text-[10px] sm:text-[11px] lg:text-[12px] tracking-tight select-none">
+                            <span className="font-bold text-white">Process code: </span>
+                            <span className="font-normal text-white">{item.processCode}</span>
+                          </span>
+                        </div>
+                        <div className="bg-[#005173] text-white py-2 px-3 rounded-xl shadow-xs text-center flex items-center justify-center">
+                          <span className="text-[10px] sm:text-[11px] lg:text-[12px] tracking-tight select-none">
+                            <span className="font-bold text-white">Amount: </span>
+                            <span className="font-normal text-white">{item.amount}</span>
+                          </span>
+                        </div>
+                        <div className="bg-[#005173] text-white py-2 px-3 rounded-xl shadow-xs text-center flex items-center justify-center">
+                          <span className="text-[10px] sm:text-[11px] lg:text-[12px] tracking-tight select-none">
+                            <span className="font-bold text-white">Status: </span>
+                            <span className="font-normal text-white">{item.status}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions Container */}
+                      <div className="border border-zinc-200 rounded-xl overflow-hidden bg-white shadow-xs">
+                        <div className="bg-zinc-100 border-b border-zinc-200 px-5 py-2.5">
+                          <span className="text-xs font-bold text-black uppercase tracking-wider select-none">ACTIONS</span>
+                        </div>
+                        <div className="p-5 lg:p-6">
+                          <ul className="list-disc pl-5 space-y-3.5 text-xs lg:text-sm text-zinc-700 leading-relaxed">
+                            {item.actions.map((act, actIdx) => (
+                              <li key={actIdx} className="marker:text-[#005173]">
+                                {act}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Footnote */}
+                  <div className="pt-4 border-t border-zinc-200">
+                    <p className="text-xs italic text-zinc-500 font-medium">
+                      *% la licitación sobre el monto total actual del proyecto.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1465,10 +2024,13 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
             color: inherit;
             border-color: inherit;
           }
+          .pdf-blue-badge, .pdf-blue-badge * {
+            color: #FFFFFF !important;
+          }
         `}</style>
         <div id="pdf-page-1" className="bg-white p-8 w-[1600px] min-h-[1130px] flex flex-col break-inside-avoid">
           {/* PDF Header */}
-          <div className="mb-6">
+          <div className="mb-1">
             <div className="mb-4">
               <img src={titleImage} alt={details.name} style={{ height: 'auto', maxWidth: '100%' }} />
             </div>
@@ -1507,14 +2069,69 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                 {formatPMR(details.pmrStatus)}
               </span>
             </div>
+
+            {/* Active Alerts Ribbon in PDF */}
+            <div className="flex flex-row items-center justify-start gap-4 mt-3">
+              <span className="text-sm font-bold text-zinc-500 uppercase tracking-wider shrink-0 select-none">ACTIVE ALERTS:</span>
+              {(() => {
+                const activeAlerts = (getAlertsForProject(details.id) || []).filter(
+                  a => a.color === 'red' || a.color === 'yellow'
+                );
+                if (activeAlerts.length === 0) {
+                  return (
+                    <div className="flex items-center gap-1.5 text-zinc-500 font-semibold text-sm select-none bg-white border border-zinc-200/80 rounded-lg px-2.5 py-1.5 shadow-xs">
+                      <CheckCircle2 className="w-4 h-4 stroke-white shrink-0" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
+                      <span>No active alerts</span>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="flex flex-wrap items-center gap-[10px] select-none">
+                    {activeAlerts.map(alert => {
+                      const info = getAlertTagForProject(details.id, alert.number);
+                      let boxColor = '#cccccc';
+                      if (alert.color === 'red') boxColor = '#dc2626';
+                      if (alert.color === 'yellow') boxColor = '#f59e0b';
+
+                      const cleanTitle = alert.title.replace(' (last 3 cycles)', '');
+                      return (
+                        <div 
+                          key={alert.number} 
+                          className="flex items-center gap-2 bg-white border border-zinc-200/80 rounded-lg px-2.5 py-1.5 shadow-xs whitespace-nowrap animate-none"
+                        >
+                          {/* [Cuadrado de color] */}
+                          <div 
+                            className="w-3.5 h-3.5 rounded-sm shrink-0 shadow-xs animate-none" 
+                            style={{ backgroundColor: boxColor }} 
+                          />
+
+                          {/* [font-bold text-slate-800: #ID y Nombre en inglés] */}
+                          <span className="text-slate-800 text-[12px] font-bold shrink-0 animate-none">
+                            {alert.number}. {cleanTitle}
+                          </span>
+
+                          {/* [separador textual ':'] */}
+                          <span className="text-zinc-400 font-normal text-[12px] -ml-0.5 animate-none">:</span>
+
+                          {/* [font-medium text-zinc-500: Detalle del problema] */}
+                          <span className="text-zinc-500 font-medium text-[12px] animate-none">
+                            {info.tag}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
           </div>
 
-          <div className="grid grid-cols-12 gap-6 mt-6 flex-1">
+          <div className="grid grid-cols-12 gap-6 mt-2 flex-1">
             {/* COLUMNA IZQUIERDA: General Details & Financial Progress */}
-            <div className="col-span-7 flex flex-col gap-6">
+            <div className="col-span-7 flex flex-col gap-4">
               {/* Section 1: General Details */}
               <div>
-                <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-3 mb-2">
                   <FileText className="w-8 h-8 text-black" />
                   <div className="mt-1.5">
                     <img src={generalDetailsImage} alt="General Details" style={{ height: '28px', width: 'auto' }} />
@@ -1523,8 +2140,8 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                 
                 <div className="grid grid-cols-2 gap-6">
                   {/* Left Card: All Details */}
-                  <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 space-y-6">
-                    <div className="space-y-4">
+                  <div className="bg-zinc-50 p-5 rounded-2xl border border-zinc-200 space-y-4">
+                    <div className="space-y-3">
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Operation status:</span>
                         <span className="text-zinc-500 font-medium">{details.operationStatus}</span>
@@ -1539,19 +2156,19 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Current Approved Amount:</span>
-                        <span className="text-zinc-500 font-medium">{formatCurrency(details.currentApprovedAmount)}</span>
+                        <span className="text-zinc-500 font-medium">{formatCurrencyM(details.currentApprovedAmount / 1000000)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Local contribution:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? '$ 0.00' : project.id === 'BR-L1656' ? '$5,875,000.00' : project.id === 'EC-L1251' ? '$3,840,000.00' : (project.id === 'PN-L1172' || project.id === 'PN-L1161') ? '$0.00' : ''}</span>
+                        <span className="text-zinc-500 font-medium">{details.localContribution || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Disbursed Life Amount:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '99.78%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
+                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '100%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Undisbursed Amount:</span>
-                        <span className="text-zinc-500 font-medium">{formatCurrency(details.currentApprovedAmount - details.disbursedLifeAmount)}</span>
+                        <span className="text-zinc-500 font-medium">{details.undisbursedAmountStr || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Months of extensions:</span>
@@ -1559,16 +2176,20 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Last disbursement made:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'AR-L1416' ? 'N/A' : (details.lastDisbursementMade === 'Pending' ? 'N/A' : (details.lastDisbursementMade || 'N/A'))}</span>
+                        <span className="text-zinc-500 font-medium">{details.lastDisbursementMade || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="font-bold text-zinc-900">Time without disbursement (months):</span>
+                        <span className="text-zinc-500 font-medium">{details.financial.timeWithoutDisbursements || 'N/A'}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Age in execution (since eligibility):</span>
                         <span className="text-zinc-500 font-medium">{details.ageInExecution || 'N/A'}</span>
                       </div>
                     </div>
-
-                    <div className="space-y-6">
-                      <div className="space-y-3">
+ 
+                    <div className="space-y-4">
+                      <div className="space-y-2">
                         <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">OBJECTIVE</h4>
                         <p className="text-sm text-zinc-500 font-medium leading-relaxed text-justify">
                           {details.objective ? (details.objective.split('.')[0] + '.') : 'No objective provided.'}
@@ -1576,58 +2197,66 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                       </div>
                     </div>
                   </div>
-
+ 
                   {/* Right Card: Progress */}
-                  <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200">
-                    <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-wider mb-6">PROGRESS</h4>
+                  <div className="bg-zinc-50 p-5 rounded-2xl border border-zinc-200">
+                    <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-wider mb-4">PROGRESS</h4>
                     
                     <div className="relative space-y-6 pl-10">
-                      {/* Vertical Line */}
-                      <div className="absolute left-[11px] top-2 bottom-2 w-0.5 flex flex-col">
-                        <div className="h-[80%]" style={{ backgroundColor: '#4EA72E' }}></div>
-                        <div className="flex-1 border-l-2 border-dashed border-zinc-400"></div>
-                      </div>
-
                       {/* Steps */}
-                      {[
-                        { label: 'Approval:', date: details.timeline.approval.date, completed: details.timeline.approval.status === 'completed' },
-                        { label: 'Effectiveness:', date: details.timeline.effectiveness.date, completed: details.timeline.effectiveness.status === 'completed' },
-                        { label: 'Eligibility:', date: details.timeline.eligibility.date, completed: details.timeline.eligibility.status === 'completed' },
-                        { label: 'First disbursement:', date: details.timeline.firstDisbursement.date, completed: details.timeline.firstDisbursement.status === 'completed' },
-                        { label: 'Disbursement expiration date:', date: `${details.timeline.lastDisbursement.date}${details.timeline.extension.status === 'completed' ? `.\nExtension: ${details.timeline.extension.text}` : ''}`, completed: details.timeline.lastDisbursement.status === 'completed' },
-                        { label: 'Closure:', date: details.timeline.closure.date, completed: details.timeline.closure.status === 'completed' },
-                      ].map((step, index) => (
-                        <div key={index} className="relative">
-                          <div className="absolute -left-[39px] top-0 p-0.5 bg-zinc-50 z-10">
-                            {step.completed ? (
-                              <CheckCircle2 className="w-6 h-6" style={{ color: '#4EA72E' }} />
-                            ) : (
-                              <div className="w-6 h-6 rounded-full bg-zinc-500 flex items-center justify-center">
-                                <RotateCcw className="w-3 h-3" style={{ color: '#ffffff' }} />
-                              </div>
+                      {(() => {
+                        const stepList = [
+                          { label: 'Approval:', date: details.timeline.approval.date, completed: details.timeline.approval.status === 'completed' },
+                          { label: 'Effectiveness:', date: details.timeline.effectiveness.date, completed: details.timeline.effectiveness.status === 'completed' },
+                          { label: 'Eligibility:', date: details.timeline.eligibility.date, completed: details.timeline.eligibility.status === 'completed' },
+                          { label: 'First disbursement:', date: details.timeline.firstDisbursement.date, completed: details.timeline.firstDisbursement.status === 'completed' },
+                          { label: 'Totally disbursed:', date: `${details.timeline.lastDisbursement.date}\nExtension: ${details.timeline.extension.text}\nCurrent deadline: ${details.timeline.lastDisbursement.currentDeadline || 'N/A'}`, completed: details.timeline.lastDisbursement.status === 'completed' },
+                          { label: 'Closure:', date: details.timeline.closure.date, completed: details.timeline.closure.status === 'completed' },
+                        ];
+                        return stepList.map((step, index) => (
+                          <div key={index} className="relative">
+                            {index < stepList.length - 1 && (
+                              <div 
+                                className="absolute w-0.5 z-0" 
+                                style={{ 
+                                  left: '-28px', 
+                                  top: '12px', 
+                                  bottom: '-36px', 
+                                  backgroundColor: (step.completed && stepList[index + 1].completed) ? '#4EA72E' : '#71717a'
+                                }} 
+                              />
                             )}
+                            <div className="absolute -left-[41px] top-0 p-1 bg-zinc-50 z-10">
+                              {step.completed ? (
+                                <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
+                              ) : (
+                                <div className="w-6 h-6 rounded-full bg-zinc-500 flex items-center justify-center">
+                                  <RotateCcw className="w-3.5 h-3.5" style={{ color: '#ffffff' }} />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="text-sm font-bold text-zinc-800">{step.label}</span>
+                              <span className="text-sm text-zinc-600 whitespace-pre-line">{step.date}</span>
+                            </div>
                           </div>
-                          <div className="flex flex-col">
-                            <span className="text-sm font-bold text-zinc-800">{step.label}</span>
-                            <span className="text-sm text-zinc-600 whitespace-pre-line">{step.date}</span>
-                          </div>
-                        </div>
-                      ))}
+                        ));
+                      })()}
                     </div>
                   </div>
                 </div>
               </div>
-
+ 
               {/* Section 2: Financial Progress */}
               <div>
-                <div className="flex items-center gap-1.5 mb-4">
+                <div className="flex items-center gap-1.5 mb-2">
                   <DollarIcon className="w-8 h-8 text-black text-2xl" />
                   <div className="mt-1.5">
                     <img src={financialProgressImage} alt="Financial Progress" style={{ height: '28px', width: 'auto' }} />
                   </div>
                 </div>
                 
-                <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 grid grid-cols-2 gap-8">
+                <div className="bg-zinc-50 p-5 rounded-2xl border border-zinc-200 grid grid-cols-2 gap-6">
                   <div className="space-y-[15.3px] flex flex-col justify-center">
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-bold text-zinc-900">Original Approved Amount:</span>
@@ -1640,10 +2269,6 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-bold text-zinc-900">Current Approved Amount:</span>
                       <span className="text-zinc-900 font-bold">{formatCurrency(details.financial.currentApprovedAmount)}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="font-bold text-zinc-900">Time without disbursement (months):</span>
-                      <span className="text-zinc-900 font-bold">{details.financial.timeWithoutDisbursements || 'N/A'}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-bold text-zinc-900">Deadline for last Current Disbursement:</span>
@@ -1680,7 +2305,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                           style={{ width: `${details.financial.disbursedLifePercent}%` }}
                         >
                           <span className="relative z-10 text-xs font-bold" style={{ color: '#ffffff' }}>
-                            {project.id === 'EC-L1251' ? '99.78%' : project.id === 'PN-L1172' ? '10%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
+                            {project.id === 'EC-L1251' ? '100%' : project.id === 'PN-L1172' ? '10%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
                           </span>
                         </div>
                       </div>
@@ -1748,7 +2373,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                         <XAxis dataKey="month" axisLine={{ stroke: '#e4e4e7' }} tickLine={false} tick={{fill: '#52525b', fontSize: 12, fontWeight: 'bold'}} interval={0} dy={10} />
                         <YAxis hide domain={[0, 'dataMax + 1']} />
                         <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulativeProjection" name="Cumulative Baseline Projection" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false}>
-                          <LabelList dataKey="cumulativeProjection" content={renderProjectionLabel} />
+                          <LabelList dataKey="cumulativeProjection" content={(props: any) => renderProjectionLabel({ ...props, projectCode: project.id })} />
                         </Line>
                         <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulativeDisbursed" name="Cumulative Disbursed Amount" stroke="#FFB800" strokeWidth={3} dot={{r: 5, fill: '#FFB800', strokeWidth: 0}} isAnimationActive={false}>
                           <LabelList dataKey="cumulativeDisbursed" position="top" offset={10} content={renderCustomLineLabel} />
@@ -1794,6 +2419,7 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                 <span className="text-sm font-bold text-zinc-700">Problem</span>
               </div>
             </div>
+          </div>
           </div>
           
           <div className="bg-zinc-50 p-8 rounded-2xl border border-zinc-200 flex flex-col gap-6 break-inside-avoid">
@@ -1913,6 +2539,15 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
               </div>
 
               <div className="break-inside-avoid">
+                <h4 className="text-sm font-bold text-zinc-900 mb-2">Acciones sugeridas / Pedidos</h4>
+                <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
+                  <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
+                    <li>{(project.qualitativeData?.accionesSugeridas || []).join(' ')}</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="break-inside-avoid">
                 <h4 className="text-sm font-bold text-zinc-900 mb-2">Productos destacados/innovadores del proyecto</h4>
                 <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
@@ -1931,15 +2566,6 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
                   </div>
                 </div>
               )}
-
-              <div className="break-inside-avoid">
-                <h4 className="text-sm font-bold text-zinc-900 mb-2">Acciones sugeridas / Pedidos</h4>
-                <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
-                  <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    <li>{(project.qualitativeData?.accionesSugeridas || []).join(' ')}</li>
-                  </ul>
-                </div>
-              </div>
 
               <div className="break-inside-avoid">
                 <h4 className="text-sm font-bold text-zinc-900 mb-2 uppercase tracking-tight">Fecha evaluación intermedia</h4>
@@ -1962,7 +2588,221 @@ export default function ProjectView({ project, onBack, onUpdate }: ProjectViewPr
             </div>
           </div>
         </div>
-      </div>
+
+        {['PN-L1161', 'PN-L1172'].includes(projectCode) && (
+          <div 
+            id="pdf-page-3" 
+            className="bg-white p-8 w-[1600px] min-h-[1130px] flex flex-col mt-4 break-inside-avoid"
+            style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { pageBreakBefore: 'always' } : undefined}
+          >
+            {/* Page Header */}
+            <div className="mb-6">
+              <div className="mb-4">
+                <img src={titleImage} alt={details.name} style={{ height: 'auto', maxWidth: '100%' }} />
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-base text-black font-medium pb-4 border-b border-zinc-200">
+                <span>{details.id}</span>
+                <span className="flex items-center gap-1">
+                  {details.countryName && countryCodes[details.countryName] ? (
+                    <img 
+                      src={`https://flagcdn.com/w40/${countryCodes[details.countryName]}.png`} 
+                      className="w-5 h-auto shadow-sm" 
+                      crossOrigin="anonymous"
+                      referrerPolicy="no-referrer" 
+                      alt={details.countryName || 'Country flag'}
+                    />
+                  ) : details.countryCode ? (
+                    <img 
+                      src={`https://flagcdn.com/w40/${details.countryCode.toLowerCase()}.png`} 
+                      className="w-5 h-auto shadow-sm" 
+                      crossOrigin="anonymous"
+                      referrerPolicy="no-referrer" 
+                      alt={details.countryName || 'Country flag'}
+                    />
+                  ) : (
+                    '🏳️'
+                  )}
+                  {details.countryName}
+                </span>
+                <span>|</span>
+                <span>TTL: {details.ttl}</span>
+                <span>|</span>
+                <span>Status: {details.operationStatus}.</span>
+                <span>|</span>
+                <span className="flex items-center gap-1">
+                  PMR March Cycle 2026: 
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getDotColor(details.pmrStatus) }}></div> 
+                  {formatPMR(details.pmrStatus)}
+                </span>
+              </div>
+            </div>
+
+            {/* Grid Content */}
+            <div className="grid grid-cols-2 gap-8 flex-1">
+              {/* Left Column: Mid-Term Evaluation */}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-3 mb-4">
+                  <FileText className="w-7 h-7 text-[#005173]" />
+                  <h3 className="text-xl font-bold text-[#005173]">Mid-Term Evaluation</h3>
+                </div>
+
+                <div 
+                  className={`bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs ${
+                    ['PN-L1161', 'PN-L1172'].includes(projectCode) ? 'h-fit' : 'flex-1'
+                  }`}
+                  style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { height: 'fit-content' } : undefined}
+                >
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-zinc-50 border-b border-zinc-200">
+                        <th className="py-2.5 px-4 text-left text-xs font-bold text-black uppercase tracking-wider w-[25%]">Pillar</th>
+                        <th className="py-2.5 px-4 text-center text-xs font-bold text-black uppercase tracking-wider w-[40%]">Main findings</th>
+                        <th className="py-2.5 px-4 text-center text-xs font-bold text-black uppercase tracking-wider w-[35%]">Recommended actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100">
+                      {EVALUATION_DATA[project.id] ? (
+                        EVALUATION_DATA[project.id].map((item, index) => (
+                          <tr key={index}>
+                            <td className="py-3 px-4 align-top text-xs font-bold text-zinc-900 leading-tight">
+                              {item.name}
+                            </td>
+                            <td className="py-3 px-4 align-top text-[11px] text-zinc-700 leading-normal">
+                              <ul className="list-disc pl-4 space-y-1">
+                                {item.findings.map((finding, idx) => (
+                                  <li key={idx}>{finding}</li>
+                                ))}
+                              </ul>
+                            </td>
+                            <td className="py-3 px-4 align-top text-[11px] text-zinc-700 leading-normal">
+                              <ul className="list-disc pl-4 space-y-1">
+                                {item.actions.map((action, idx) => (
+                                  <li key={idx}>{action}</li>
+                                ))}
+                              </ul>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={3} className="py-8 px-4 text-center text-xs text-zinc-500 font-medium">
+                            No evaluation data available yet for this project.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Right Column: Critical Procurement Processes */}
+              <div className="flex flex-col">
+                <div className="flex items-center gap-3 mb-4">
+                  <ClipboardCheck className="w-7 h-7 text-[#005173]" />
+                  <h3 className="text-xl font-bold text-[#005173]">Critical Procurement Processes</h3>
+                </div>
+
+                <div className="space-y-4 flex-1">
+                  {((project.id === 'PN-L1172') ? [
+                    {
+                      number: "1",
+                      title: "Diseño y acompañamiento técnico para la implementación del Ecosistema Fiscal Inteligente (EFI)",
+                      processCode: "PN-L1172-P00027",
+                      amount: "$ 1.2 MM (6%)*",
+                      status: "En ejecución",
+                      actions: [
+                        "Contrato en ejecución desde enero de 2026, con fecha de finalización en 2027. La firma consultora maneja un cronograma normal y otro acelerado que podría terminar en febrero de 2027.",
+                        "Este contrato es crítico no tanto por el monto como por su alcance: la FC debe acompañar al ejecutor en todos los pasos de la implementación. Un área crucial es identificar las necesidades de inversión que demandarán cada una de las instituciones que integran el EFI. Adicionalmente, el MEF creó un comité de de Gobernanza del EFI, con MEF, AIG, Contraloría, BID y la FC, a fin de acelerar la identificación de necesidades y toma de decisiones alineados a los objetivos del EFI. Se espera una propuesta detallada de necesidades de inversión al cierre de agosto 2026 que reordenará el plan de adquisiciones del EFI. El Banco ha recibido una solicitud de extensión del plazo contractual por 2 años más allá del 18 de agosto de 2026."
+                      ]
+                    }
+                  ] : [
+                    {
+                      number: "1",
+                      title: "Diagnóstico, diseño, desarrollo e implementación para la modernización del Sistema Tributario (e-Tax 2.0)",
+                      processCode: "PN-L1161-P00074",
+                      amount: "$ 6 MM (15%)*",
+                      status: "Recepción de ofertas",
+                      actions: [
+                        "Proceso fue publicado y se encuentra en etapa de recibimiento de ofertas (técnicas y económicas, LPI).",
+                        "Se fortaleció la UEP, en especial en el área de Adquisiciones, para que los documentos contractuales tengan una altísima calidad.",
+                        "Adicionalmente, se ha instruido a la UEP para que pueda apoyar a la Comisión Evaluadora del proceso, con base a los lineamientos y políticas de adquisiciones del BID, con la finalidad de tener un informe de evaluación de alta calidad que permita asignar el contrato con seguridad. Se espera dar inicio en ejecución 1Q 2027."
+                      ]
+                    },
+                    {
+                      number: "2",
+                      title: "Adquisición de licenciamiento, implementación, soporte y mantenimiento de plataforma de base de datos ORACLE",
+                      processCode: "PN-L1161-P00062",
+                      amount: "$ 10 MM (25%)*",
+                      status: "Por iniciar licitación",
+                      actions: [
+                        "Se cuenta con el visto bueno de las instancias técnicas del Gobierno (AIG) para pasarlo a no objeción del BID e iniciar enseguida el proceso de licitación.",
+                        "El proceso llevaba dos años en discusiones internas entre el Departamento de Tecnología de la Dirección General Impositiva y el área de tecnología del MEF (recordemos que la DGI está integrada en la estructura del MEF).",
+                        "El equipo técnico del Banco (el Asociado Senior de Sectores – Arquitectura de Datos y Sistemas de IFD/FMM y un Consultor PEC) facilitaron sesiones de trabajo conjuntas con los departamentos del Gobierno y finalmente se cuenta con el VoBo de ambas instancias. Se espera dar inicio a la ejecución en 1Q 2027."
+                      ]
+                    },
+                    {
+                      number: "3",
+                      title: "Adquisición, implementación, soporte y mantenimiento para el fortalecimiento de infraestructura tecnológica (balanceadores)",
+                      processCode: "PN-L1161-P00067",
+                      amount: "$ 2.3 MM (6%)*",
+                      status: "Por iniciar licitación",
+                      actions: [
+                        "Fue enviado el 9 de junio para no objeción al BID. Se iniciará el proceso de licitación de modo inmediato.",
+                        "Al igual que el proceso anterior, este llevaba un año en negociaciones internas entre departamento de tecnología de DGI y MEF.",
+                        "Finalmente se cuenta con el VoBo de ambas instancias tras sesiones de trabajo conjuntas con el equipo técnico del Banco. Se espera dar inicio en ejecución 2Q 2027."
+                      ]
+                    }
+                  ]).map((item, index) => (
+                    <div key={index} className="bg-zinc-50 p-4 rounded-xl border border-zinc-200 shadow-xs">
+                      {/* Title block with deep blue border accent */}
+                      <div className="border-l-4 border-[#005173] pl-3 mb-3">
+                        <h4 className="text-xs font-bold text-zinc-900 leading-snug">
+                          {item.number}. {item.title}
+                        </h4>
+                      </div>
+
+                      {/* Info Badges */}
+                      <div className="grid grid-cols-3 gap-2 mb-3">
+                        <div className={`bg-[#005173] text-white py-1.5 px-2 rounded-lg text-center flex items-center justify-center ${['PN-L1161', 'PN-L1172'].includes(projectCode) ? 'pdf-blue-badge' : ''}`} style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>
+                          <span className="text-[9px] tracking-tight text-white" style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>
+                            <span className="font-bold text-white" style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>Process code: </span>
+                            <span className="font-normal text-white" style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>{item.processCode}</span>
+                          </span>
+                        </div>
+                        <div className={`bg-[#005173] text-white py-1.5 px-2 rounded-lg text-center flex items-center justify-center ${['PN-L1161', 'PN-L1172'].includes(projectCode) ? 'pdf-blue-badge' : ''}`} style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>
+                          <span className="text-[9px] tracking-tight text-white" style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>
+                            <span className="font-bold text-white" style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>Amount: </span>
+                            <span className="font-normal text-white" style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>{item.amount}</span>
+                          </span>
+                        </div>
+                        <div className={`bg-[#005173] text-white py-1.5 px-2 rounded-lg text-center flex items-center justify-center ${['PN-L1161', 'PN-L1172'].includes(projectCode) ? 'pdf-blue-badge' : ''}`} style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>
+                          <span className="text-[9px] tracking-tight text-white" style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>
+                            <span className="font-bold text-white" style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>Status: </span>
+                            <span className="font-normal text-white" style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { color: '#FFFFFF' } : undefined}>{item.status}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Actions Box */}
+                      <div className="border border-zinc-200 rounded-lg overflow-hidden bg-white shadow-xs">
+                        <div className="bg-zinc-100 border-b border-zinc-200 px-3 py-1.5">
+                          <span className="text-[10px] font-bold text-black uppercase tracking-wider">ACTIONS</span>
+                        </div>
+                        <div className="p-3">
+                          <ul className="list-disc pl-4 space-y-1 text-[10px] text-zinc-700 leading-normal">
+                            {item.actions.map((action, actionIdx) => (
+                              <li key={actionIdx}>{action}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

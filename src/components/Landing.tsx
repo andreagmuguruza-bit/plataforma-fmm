@@ -7,10 +7,12 @@ interface LandingProps {
   onSelectPortfolio: (instrument: 'INV' | 'PBL', isPmr?: boolean) => void;
   onSelectProjectLevel: () => void;
   onSelectAlerts?: () => void;
+  onSelectMidTermEvaluations?: () => void;
+  onSelectCriticalProcurement?: () => void;
   totalProjects?: number;
 }
 
-export default function Landing({ onSelectPortfolio, onSelectProjectLevel, onSelectAlerts, totalProjects }: LandingProps) {
+export default function Landing({ onSelectPortfolio, onSelectProjectLevel, onSelectAlerts, onSelectMidTermEvaluations, onSelectCriticalProcurement, totalProjects }: LandingProps) {
   const projectCount = totalProjects || 48; // Default to 48 as requested by user if not loaded yet
 
   return (
@@ -38,7 +40,7 @@ export default function Landing({ onSelectPortfolio, onSelectProjectLevel, onSel
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
-        className="flex flex-col sm:flex-row justify-center gap-4 w-full"
+        className="flex flex-col sm:flex-row flex-wrap justify-center gap-4 w-full"
       >
         <motion.button 
           onClick={onSelectAlerts}
@@ -60,6 +62,20 @@ export default function Landing({ onSelectPortfolio, onSelectProjectLevel, onSel
           className="bg-[#005173] text-[#FAFAFA] px-5 py-2.5 sm:px-6 sm:py-3 rounded-lg font-bold text-base sm:text-lg flex items-center justify-center gap-2 hover:bg-[#003d57] transition-all shadow-md min-w-[200px] sm:min-w-[240px]"
         >
           PMR March Cycle 2026 <ArrowRight className="w-5 h-5" />
+        </motion.button>
+        <motion.button 
+          onClick={onSelectMidTermEvaluations}
+          whileHover={{ scale: 1.05 }}
+          className="bg-[#005173] text-[#FAFAFA] px-5 py-2.5 sm:px-6 sm:py-3 rounded-lg font-bold text-base sm:text-lg flex items-center justify-center gap-2 hover:bg-[#003d57] transition-all shadow-md min-w-[200px] sm:min-w-[240px]"
+        >
+          Mid-term Evaluations <ArrowRight className="w-5 h-5" />
+        </motion.button>
+        <motion.button 
+          onClick={onSelectCriticalProcurement}
+          whileHover={{ scale: 1.05 }}
+          className="bg-[#005173] text-[#FAFAFA] px-5 py-2.5 sm:px-6 sm:py-3 rounded-lg font-bold text-base sm:text-lg flex items-center justify-center gap-2 hover:bg-[#003d57] transition-all shadow-md min-w-[200px] sm:min-w-[240px]"
+        >
+          Critical Procurement Processes <ArrowRight className="w-5 h-5" />
         </motion.button>
       </motion.div>
     </div>

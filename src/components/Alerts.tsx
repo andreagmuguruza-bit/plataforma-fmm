@@ -7,6 +7,7 @@ interface AlertsProps {
   projects: Project[];
   onBack: () => void;
   onSelectProject?: (id: string) => void;
+  backLabel?: string;
   initialState?: {
     openTabs: { id: string; number: number; title: string }[];
     activeTabId: string;
@@ -119,9 +120,9 @@ const getCardDetails = (cardNumber: number, list: Project[]) => {
         }))
       };
     case 4: {
-      const redIds = ['PN-L1172', 'PN-L1161', 'BR-L1513'];
-      const yellowIds = ['BL-L1031', 'AR-L1248', 'CO-L1164', 'AR-L1285', 'SU-L1060', 'BR-L1501', 'BR-L1525', 'EC-L1253'];
-      const greenIds = ['BL-L1038', 'BR-L1517', 'PR-L1150'];
+      const redIds = ['PN-L1172', 'PN-L1161', 'BL-L1031'];
+      const yellowIds = ['AR-L1248', 'AR-L1285', 'SU-L1060', 'BR-L1525', 'BL-L1038'];
+      const greenIds = ['BR-L1517', 'PR-L1150', 'PR-L1192', 'BR-L1527'];
 
       const redProjects = redIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
         ...p,
@@ -161,7 +162,7 @@ const getCardDetails = (cardNumber: number, list: Project[]) => {
 
       const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
         ...p,
-        lifeDisbPercent: '11%-25% Desembolsado',
+        lifeDisbPercent: '10%-25% Desembolsado',
         lifeDisbColor: 'bg-amber-100 text-amber-800 border-amber-200'
       }));
 
@@ -257,7 +258,7 @@ const getCardDetails = (cardNumber: number, list: Project[]) => {
       };
     }
     case 8: {
-      const yellowIds = ['EC-L1251', 'BR-L1534', 'BR-L1511', 'BR-L1377', 'EC-L1230', 'UR-L1111'];
+      const yellowIds = ['BR-L1534', 'BR-L1511', 'BR-L1377', 'EC-L1230', 'UR-L1111'];
       const greenIds = ['AR-L1248'];
 
       const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
@@ -285,7 +286,7 @@ const getCardDetails = (cardNumber: number, list: Project[]) => {
   }
 };
 
-export default function Alerts({ projects, onBack, onSelectProject, initialState, onStateChange }: AlertsProps) {
+export default function Alerts({ projects, onBack, onSelectProject, initialState, onStateChange, backLabel }: AlertsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAlertLevel, setSelectedAlertLevel] = useState<string>('ALL');
 
@@ -333,15 +334,22 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
     setDragOverIndex(null);
   };
 
-  const [tabFilters, setTabFilters] = useState<Record<string, string[]>>(
-    initialState?.tabFilters || {
+  const [tabFilters, setTabFilters] = useState<Record<string, string[]>>(() => {
+    const defaults = {
       id: [],
       name: [],
       country: [],
       ttl: [],
       status: []
+    };
+    if (initialState?.tabFilters) {
+      return {
+        ...defaults,
+        ...initialState.tabFilters
+      };
     }
-  );
+    return defaults;
+  });
   const [openTabFilter, setOpenTabFilter] = useState<string | null>(null);
   const [tabSortConfig, setTabSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' | null }>(
     initialState?.tabSortConfig || { key: '', direction: null }
@@ -472,13 +480,13 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
   const card3YellowArc = describeArc(86, 86, 58, 0, 359.9);
   const card3YellowLabel = polarToCartesian(86, 86, 58, 180);
 
-  // Card 4 Donut: Red (0 to 77.1 deg), Yellow (77.1 to 282.9 deg), Green (282.9 to 360 deg)
-  const card4RedArc = describeArc(86, 86, 58, 0, 77.1);
-  const card4YellowArc = describeArc(86, 86, 58, 77.1, 282.9);
-  const card4GreenArc = describeArc(86, 86, 58, 282.9, 360);
-  const card4RedLabel = polarToCartesian(86, 86, 58, 38.6);
-  const card4YellowLabel = polarToCartesian(86, 86, 58, 180);
-  const card4GreenLabel = polarToCartesian(86, 86, 58, 321.4);
+  // Card 4 Donut: Red (0 to 90 deg), Yellow (90 to 240 deg), Green (240 to 360 deg)
+  const card4RedArc = describeArc(86, 86, 58, 0, 90);
+  const card4YellowArc = describeArc(86, 86, 58, 90, 240);
+  const card4GreenArc = describeArc(86, 86, 58, 240, 360);
+  const card4RedLabel = polarToCartesian(86, 86, 58, 45);
+  const card4YellowLabel = polarToCartesian(86, 86, 58, 165);
+  const card4GreenLabel = polarToCartesian(86, 86, 58, 300);
 
   // Card 5 Donut: Yellow (0 to 41.5 deg), Green (41.5 to 360 deg)
   const card5YellowArc = describeArc(86, 86, 58, 0, 41.5);
@@ -500,11 +508,11 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
   const card7YellowLabel = polarToCartesian(86, 86, 58, 30.5);
   const card7GreenLabel = polarToCartesian(86, 86, 58, 199);
 
-  // Card 8 Donut: Yellow (0 to 308.6 deg), Green (308.6 to 360 deg)
-  const card8YellowArc = describeArc(86, 86, 58, 0, 308.6);
-  const card8GreenArc = describeArc(86, 86, 58, 308.6, 360);
-  const card8YellowLabel = polarToCartesian(86, 86, 58, 154.3);
-  const card8GreenLabel = polarToCartesian(86, 86, 58, 334.3);
+  // Card 8 Donut: Yellow (0 to 300 deg), Green (300 to 360 deg)
+  const card8YellowArc = describeArc(86, 86, 58, 0, 300);
+  const card8GreenArc = describeArc(86, 86, 58, 300, 360);
+  const card8YellowLabel = polarToCartesian(86, 86, 58, 150);
+  const card8GreenLabel = polarToCartesian(86, 86, 58, 330);
 
   const renderIndicatorDonut = (cardNumber: number, isInsideTab: boolean = false) => {
     let subtitle: React.ReactNode = null;
@@ -602,7 +610,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
         );
         break;
       case 4:
-        projectsCount = 14;
+        projectsCount = 12;
         donutChart = (
           <svg width="172" height="172" className="transform -rotate-90">
             <path 
@@ -636,8 +644,8 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
               strokeLinecap="butt" 
             />
             <text x={card4RedLabel.x} y={card4RedLabel.y} transform={`rotate(90, ${card4RedLabel.x}, ${card4RedLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>3</text>
-            <text x={card4YellowLabel.x} y={card4YellowLabel.y} transform={`rotate(90, ${card4YellowLabel.x}, ${card4YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>8</text>
-            <text x={card4GreenLabel.x} y={card4GreenLabel.y} transform={`rotate(90, ${card4GreenLabel.x}, ${card4GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>3</text>
+            <text x={card4YellowLabel.x} y={card4YellowLabel.y} transform={`rotate(90, ${card4YellowLabel.x}, ${card4YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>5</text>
+            <text x={card4GreenLabel.x} y={card4GreenLabel.y} transform={`rotate(90, ${card4GreenLabel.x}, ${card4GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>4</text>
           </svg>
         );
         legends = (
@@ -667,9 +675,9 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
               d={card5YellowArc} 
               fill="none" 
               stroke="#ffb300" 
-              strokeWidth={isSelected('11%-25% Desembolsado') ? 35 : 29} 
-              opacity={getOpacity('11%-25% Desembolsado', isInsideTab)}
-              onClick={() => handleSliceClick('11%-25% Desembolsado', isInsideTab)}
+              strokeWidth={isSelected('10%-25% Desembolsado') ? 35 : 29} 
+              opacity={getOpacity('10%-25% Desembolsado', isInsideTab)}
+              onClick={() => handleSliceClick('10%-25% Desembolsado', isInsideTab)}
               className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
               strokeLinecap="butt" 
             />
@@ -680,7 +688,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
         legends = (
           <div className="space-y-1 w-full">
             {renderLegendItem('#e60000', '0%-10%', '0%-10%', isInsideTab)}
-            {renderLegendItem('#ffb300', '11%-25%', '11%-25% Desembolsado', isInsideTab)}
+            {renderLegendItem('#ffb300', '10%-25%', '10%-25% Desembolsado', isInsideTab)}
             {renderLegendItem('#00b04f', '>25%', '>25% Desembolsado', isInsideTab)}
           </div>
         );
@@ -770,7 +778,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
         );
         break;
       case 8:
-        projectsCount = 7;
+        projectsCount = 6;
         donutChart = (
           <svg width="172" height="172" className="transform -rotate-90">
             <path 
@@ -793,7 +801,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
               className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
               strokeLinecap="butt" 
             />
-            <text x={card8YellowLabel.x} y={card8YellowLabel.y} transform={`rotate(90, ${card8YellowLabel.x}, ${card8YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>6</text>
+            <text x={card8YellowLabel.x} y={card8YellowLabel.y} transform={`rotate(90, ${card8YellowLabel.x}, ${card8YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>5</text>
             <text x={card8GreenLabel.x} y={card8GreenLabel.y} transform={`rotate(90, ${card8GreenLabel.x}, ${card8GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>1</text>
           </svg>
         );
@@ -1083,7 +1091,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
           onClick={onBack}
           className="flex items-center gap-2 text-zinc-600 hover:text-zinc-900 font-medium transition-colors mb-6"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Execution
+          <ArrowLeft className="w-4 h-4" /> {backLabel || "Back to Execution"}
         </button>
 
         {/* Header with strictly black font color */}
@@ -1349,7 +1357,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
                 {/* High-Fidelity Table */}
                 <div className="bg-white rounded-none sm:rounded-xl shadow-sm border-y sm:border border-zinc-200 overflow-hidden">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse border-spacing-0">
+                    <table className="w-full min-w-full text-left border-collapse border-spacing-0" style={{ boxSizing: 'border-box', width: '100%' }}>
                       <thead>
                         <tr className="bg-zinc-100 border-b-2 border-zinc-200 text-[10px] font-bold text-zinc-900 uppercase tracking-wider">
                           {renderTabColumnHeader('index', 'N', [], false, 'w-8')}

@@ -184,7 +184,7 @@ export default function ClosureTable() {
       {/* Table Container styled strictly matching Dashboard tables */}
       <div className="bg-white rounded-none sm:rounded-xl shadow-sm border-y sm:border border-zinc-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse border-spacing-0 min-w-[1000px]">
+          <table className="w-full min-w-full text-left border-collapse border-spacing-0 md:min-w-[1000px]" style={{ boxSizing: 'border-box', width: '100%' }}>
             <thead className="bg-zinc-100 border-b-2 border-zinc-200 text-[10px] font-bold text-zinc-900 uppercase tracking-wider">
               {/* Header Row 1 */}
               <tr>
@@ -453,7 +453,7 @@ export default function ClosureTable() {
       {/* Tabla Otros proyectos */}
       <div className="bg-white rounded-none sm:rounded-xl shadow-sm border-y sm:border border-zinc-200 overflow-hidden mb-6">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse border-spacing-0 min-w-[800px]">
+          <table className="w-full min-w-full text-left border-collapse border-spacing-0 md:min-w-[800px]" style={{ boxSizing: 'border-box', width: '100%' }}>
             <thead className="bg-zinc-100 border-b-2 border-zinc-200 text-[10px] font-bold text-zinc-900 uppercase tracking-wider">
               <tr>
                 <th className="px-3 py-3 text-center text-zinc-400 font-bold text-[10px] w-12 border-r border-zinc-200">

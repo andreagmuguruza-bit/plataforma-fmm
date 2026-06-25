@@ -44,14 +44,14 @@ const historicalData = [
   { year: '2023', projection: 753, disbursed: 1117, projected_disbursed: null, percentage: '+48%' },
   { year: '2024', projection: 1913, disbursed: 2961, projected_disbursed: null, percentage: '+55%' },
   { year: '2025', projection: 2131, disbursed: 2502, projected_disbursed: 2502, percentage: '+17%' },
-  { year: '2026', projection: 960, disbursed: null, projected_disbursed: 623, percentage: null },
+  { year: '2026', projection: 960, disbursed: null, projected_disbursed: 629.5, percentage: null },
 ];
 
 const ifdDisbursementsData = [
-  { name: 'ICS', baseline: 286, actual: 265, disbursed: 17 },
-  { name: 'CMF', baseline: 891, actual: 894, disbursed: 616 },
-  { name: 'CIS', baseline: 229, actual: 225, disbursed: 10 },
-  { name: 'FMM', baseline: 960, actual: 963, disbursed: 623 },
+  { name: 'ICS', baseline: 286, actual: 287, disbursed: 34 },
+  { name: 'CMF', baseline: 891, actual: 906, disbursed: 637 },
+  { name: 'CIS', baseline: 229, actual: 425, disbursed: 17 },
+  { name: 'FMM', baseline: 960, actual: 1450, disbursed: 630 },
 ];
 
 const CustomIFDBarLabel = (props: any) => {
@@ -447,7 +447,7 @@ export default function PortfolioLanding() {
           >
             <h2 className="text-2xl md:text-4xl font-bold text-zinc-900 mb-4 md:mb-6 tracking-tight text-center lg:text-left">Historical Disbursements</h2>
             <p className="text-base md:text-xl text-zinc-700 leading-relaxed mt-4 text-center lg:text-left">
-              In 2025, FMM’s disbursements reached $2,502 M, outperforming the annual projection by 17%. For 2026, FMM projects <strong className="font-bold text-zinc-900">$960 M</strong> in total disbursements, with <strong className="font-bold text-zinc-900">$623 M</strong> (65%) disbursed year-to-date.
+              In 2025, FMM’s disbursements reached $2,502 M, outperforming the annual projection by 17%. For 2026, FMM projected <strong className="font-bold text-zinc-900">$960 M</strong> in total disbursements, with <strong className="font-bold text-zinc-900">$630 M</strong> (66%) disbursed year-to-date.
             </p>
           </motion.div>
       {/* Contenedor de dos gráficos */}
@@ -457,7 +457,6 @@ export default function PortfolioLanding() {
         <div className={`w-full ${isMobile ? 'h-[450px]' : 'h-[320px]'} lg:h-full flex flex-col`}>
                   <h3 className={`font-bold text-[#005274] mb-6 text-center flex flex-col ${isMobile ? 'text-[14.5px]' : 'text-lg'}`}>
             <span>IFD: Disbursements ($M) in 2026, by Division</span>
-            <span>(INV, PBL and SDL)</span>
           </h3>
           <div className="flex-1">
             <ResponsiveContainer width="100%" height="100%">
@@ -507,7 +506,6 @@ export default function PortfolioLanding() {
         <div className={`w-full ${isMobile ? 'h-[450px]' : 'h-[320px]'} lg:h-full flex flex-col`}>
           <h3 className={`font-bold text-[#005274] mb-6 text-center flex flex-col ${isMobile ? 'text-[14.5px]' : 'text-lg'}`}>
             <span>FMM: Historical Disbursements ($M), by Year</span>
-            <span>(INV, PBL and SDL)</span>
           </h3>
           <div className="flex-1 mt-2">
             <ResponsiveContainer width="100%" height="100%">

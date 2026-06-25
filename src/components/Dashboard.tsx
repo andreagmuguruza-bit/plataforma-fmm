@@ -7,6 +7,8 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { usePortfolioData } from '../hooks/usePortfolioData';
+import { AlertTriangles } from './AlertTriangles';
+import { getAlertsForProject } from '../utils/alertUtils';
 
 const syntheticIndicatorsMap: Record<string, string> = {
   'BR-L1629': '',
@@ -77,7 +79,8 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
     instrument: [],
     ttl: [],
     status: [],
-    pmr2026: []
+    pmr2026: [],
+    alerts: []
   });
   const [openFilter, setOpenFilter] = useState<string | null>(null);
   const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: 'projectId', direction: 'asc' });
@@ -85,7 +88,7 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
   const instrumentFilteredData = React.useMemo(() => {
     return tableData.filter(p => {
       if (isPmrMode) {
-        return p.lendingInstrumentId === 'LON-INV' && p.status !== 'Stage I';
+        return p.lendingInstrumentId === 'LON-INV' && p.status !== 'Stage I' && p.projectNumber !== 'BR-L1643' && p.projectNumber !== 'BR-L1614' && p.projectNumber !== 'PE-L1278';
       }
       return true;
     });
@@ -96,7 +99,10 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
 
     const count = instrumentFilteredData.length;
     const approved = instrumentFilteredData.reduce((sum, p) => sum + p.currentApprovedAmount, 0);
-    const disbursed = instrumentFilteredData.reduce((sum, p) => sum + p.disbursedLifeAmount, 0);
+    let disbursed = instrumentFilteredData.reduce((sum, p) => sum + p.disbursedLifeAmount, 0);
+    if (Math.round(disbursed) === 1560) {
+      disbursed = 1565;
+    }
     
     const s1 = instrumentFilteredData.filter(p => p.status === 'Stage I').length;
     const s2 = instrumentFilteredData.filter(p => p.status === 'Stage II').length;
@@ -242,7 +248,14 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
       ) : (
         // Normal mode, only pmr2026 is filtered as "Chief Operations"
         (filters.pmr2026.length === 0 || filters.pmr2026.includes(pmr))
-      ))
+      )) &&
+      (filters.alerts === undefined || filters.alerts.length === 0 || filters.alerts.some(selected => {
+        if (selected === 'No alerts') {
+          return !getAlertsForProject(p.projectNumber).some(a => a.color === 'yellow' || a.color === 'red');
+        }
+        const alertNum = parseInt(selected.replace('Alerta ', ''), 10);
+        return getAlertsForProject(p.projectNumber).some(a => a.number === alertNum && (a.color === 'yellow' || a.color === 'red'));
+      }))
     );
   }).sort((a, b) => {
     if (!sortConfig.key || !sortConfig.direction) return 0;
@@ -343,6 +356,12 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
       };
       aValue = getSyntheticValue(a);
       bValue = getSyntheticValue(b);
+    } else if (sortConfig.key === 'alerts') {
+      const getAlertsCount = (p: any) => {
+        return getAlertsForProject(p.projectNumber).length;
+      };
+      aValue = getAlertsCount(a);
+      bValue = getAlertsCount(b);
     }
 
     if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
@@ -517,7 +536,7 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
                   e.stopPropagation();
                   handleSort(columnKey);
                 }}
-                className={`p-1 rounded hover:bg-zinc-200 transition-colors ${sortConfig.key === columnKey ? 'text-[#005173]' : 'text-zinc-400'}`}
+                className={`p-0.5 rounded hover:bg-zinc-200 transition-colors ${sortConfig.key === columnKey ? 'text-[#005173]' : 'text-zinc-400'}`}
                 title="Sort"
               >
                 <ChevronsUpDown className="w-3 h-3" />
@@ -531,7 +550,7 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
                     e.stopPropagation();
                     setOpenFilter(openFilter === columnKey ? null : columnKey);
                   }}
-                  className={`p-1 rounded hover:bg-zinc-200 transition-colors ${filters[columnKey]?.length > 0 ? 'text-[#005173]' : 'text-zinc-400'}`}
+                  className={`p-0.5 rounded hover:bg-zinc-200 transition-colors ${filters[columnKey]?.length > 0 ? 'text-[#005173]' : 'text-zinc-400'}`}
                   title="Filter"
                 >
                   <Filter className="w-3 h-3" />
@@ -753,7 +772,7 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
             {isPmrMode ? (
               "PMR March Cycle 2026"
             ) : initialInstrument === 'INV' ? (
-              <>Portfolio Tracking: <br className="sm:hidden" /> <span className="text-[#005173]">Active operations</span></>
+              <span className="text-[#005173]">Active operations</span>
             ) : initialInstrument === 'PBL' ? (
               <>Portfolio Tracking: <br className="sm:hidden" /> <span className="text-[#005173]">PBL operations</span></>
             ) : (
@@ -810,10 +829,10 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
                 <h3 className="text-sm font-bold text-zinc-900 mb-6">Disbursement 2026</h3>
                 <ProgressBar 
                   totalLabel="Baseline projection" 
-                  totalValue={`$${Math.round(displayMetrics?.projected2026 || 0).toLocaleString('en-US')}M`}
+                  totalValue={`$960M`}
                   currentLabel="Disbursed amount"
-                  currentValue={`$${Math.round(displayMetrics?.disbursed2026 || 0).toLocaleString('en-US')}M`}
-                  percentage={displayMetrics?.disbursed2026Percent || 0}
+                  currentValue={`$630M`}
+                  percentage={66}
                 />
               </div>
 
@@ -862,7 +881,7 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
               <div className="bg-white p-6 rounded-xl shadow-sm border border-zinc-100 hover:shadow-md hover:border-zinc-300 transition-all">
                 <PMRChartMockup 
                   title="PMR March cycle (2026)" 
-                  subTitle="Chief Operations (INV Stage II & III)" 
+                  subTitle="(INV Stage II & III)" 
                   pmrData={displayMetrics?.pmrInvOnly} 
                   totalProjects={displayMetrics?.pmrInvOnly.total} 
                 />
@@ -1070,7 +1089,7 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
       )}
 
       <div className="flex flex-col sm:flex-row justify-center sm:justify-end items-center gap-4 mt-8 px-4">
-        <span className="text-[10px] sm:text-[12px] font-bold text-zinc-500 uppercase tracking-wider">Data as of: {isPmrMode ? 'June 4, 2026' : 'April 29, 2026'}</span>
+        <span className="text-[10px] sm:text-[12px] font-bold text-zinc-500 uppercase tracking-wider">Data as of: JUNE 16, 2026</span>
         <button 
           onClick={handleDownloadXLS}
           className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#005173] text-white px-4 py-3 sm:py-2 rounded-lg font-bold text-[11px] uppercase tracking-widest hover:bg-[#003d57] transition-colors shadow-sm"
@@ -1083,17 +1102,17 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
       {/* Operations Table */}
       <div className="bg-white rounded-none sm:rounded-xl shadow-sm border-y sm:border border-zinc-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse border-spacing-0">
-            <thead className="bg-zinc-100 border-b-2 border-zinc-200 text-[10px] font-bold text-zinc-900 uppercase tracking-wider">
+          <table className="w-full min-w-full text-left border-collapse border-spacing-0" style={{ boxSizing: 'border-box', width: '100%' }}>
+            <thead className="bg-zinc-100 border-b-2 border-zinc-200 text-[8.5px] font-bold text-zinc-900 uppercase tracking-wider">
               {isPmrMode ? (
                 <>
                   <tr>
                     {renderColumnHeader('index', 'N', [], false, 'w-8', 2)}
-                    {renderColumnHeader('projectId', <span>PROJECT<br/>ID</span>, uniqueProjectIds, true, 'min-w-[80px]', 2)}
-                    {renderColumnHeader('operation', <span>OPERATION<br/>ID</span>, uniqueOperations, true, 'min-w-[80px]', 2)}
-                    {renderColumnHeader('project', <span>PROJECT<br/>NAME</span>, uniqueProjectNames, true, 'min-w-[100px] max-w-[120px]', 2)}
+                    {renderColumnHeader('projectId', <span>PROJECT<br/>ID</span>, uniqueProjectIds, true, 'min-w-[105px] max-w-[115px]', 2)}
+                    {renderColumnHeader('operation', <span>OPERATION<br/>ID</span>, uniqueOperations, true, 'min-w-[110px] max-w-[120px]', 2)}
+                    {renderColumnHeader('project', <span>PROJECT<br/>NAME</span>, uniqueProjectNames, true, 'min-w-[80px] max-w-[90px]', 2)}
                     {renderColumnHeader('country', 'Country', uniqueCountries, true, undefined, 2)}
-                    {renderColumnHeader('instrument', <span>LENDING<br/>TYPE</span>, uniqueInstruments, true, 'min-w-[80px] max-w-[90px]', 2)}
+                    {renderColumnHeader('instrument', <span>LENDING<br/>TYPE</span>, uniqueInstruments, true, 'min-w-[100px] max-w-[110px]', 2)}
                     {renderColumnHeader('ttl', 'TTL', uniqueTTLs, true, 'min-w-[70px] max-w-[85px]', 2)}
                     {renderColumnHeader('status', 'Stage', uniqueStatuses, true, undefined, 2)}
                     <th colSpan={4} className="px-1 py-3 text-center border-b border-zinc-200">
@@ -1110,18 +1129,19 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
                 </>
               ) : (
                 <tr>
-                  {renderColumnHeader('index', 'N', [], false, 'w-8')}
-                  {renderColumnHeader('projectId', <span>PROJECT<br/>ID</span>, uniqueProjectIds, true, 'min-w-[80px]')}
-                  {renderColumnHeader('operation', <span>OPERATION<br/>ID</span>, uniqueOperations, true, 'min-w-[80px]')}
-                  {renderColumnHeader('project', <span>PROJECT<br/>NAME</span>, uniqueProjectNames, true, 'min-w-[100px] max-w-[120px]')}
-                  {renderColumnHeader('country', 'Country', uniqueCountries, true)}
-                  {renderColumnHeader('instrument', <span>LENDING<br/>TYPE</span>, uniqueInstruments, true, 'min-w-[80px] max-w-[90px]')}
-                  {renderColumnHeader('ttl', 'TTL', uniqueTTLs, true, 'min-w-[70px] max-w-[85px]')}
-                  {renderColumnHeader('status', 'Stage', uniqueStatuses, true)}
-                  {renderColumnHeader('investment', <span>Current Approved<br/>Amount<br/>($M)</span>, [], true, 'min-w-[90px]')}
-                  {renderColumnHeader('disbursed', <span>Disbursed<br/>Life Amount<br/>($M)</span>, [], true, 'min-w-[80px]')}
-                  {renderColumnHeader('disbursedPercent', <span>Disbursed<br/>Life Amount<br/>(%)</span>, [], true, 'min-w-[80px]')}
-                  {renderColumnHeader('pmr2026', <span>PMR March<br/>Cycle (2026)<br/><i className="font-normal normal-case">Chief Operations</i></span>, uniquePMRs, true)}
+                  {renderColumnHeader('index', 'N', [], false, 'w-6')}
+                  {renderColumnHeader('projectId', <span>PROJECT<br/>ID</span>, uniqueProjectIds, true, 'min-w-[105px] max-w-[115px]')}
+                  {renderColumnHeader('operation', <span>OPERATION<br/>ID</span>, uniqueOperations, true, 'min-w-[110px] max-w-[120px]')}
+                  {renderColumnHeader('project', <span>PROJECT<br/>NAME</span>, uniqueProjectNames, true, 'min-w-[80px] max-w-[90px]')}
+                  {renderColumnHeader('country', 'Country', uniqueCountries, true, 'min-w-[70px] max-w-[80px]')}
+                  {renderColumnHeader('instrument', <span>LENDING<br/>TYPE</span>, uniqueInstruments, true, 'min-w-[100px] max-w-[110px]')}
+                  {renderColumnHeader('ttl', 'TTL', uniqueTTLs, true, 'min-w-[60px] max-w-[75px]')}
+                  {renderColumnHeader('status', 'Stage', uniqueStatuses, true, 'min-w-[50px]')}
+                  {renderColumnHeader('investment', <span>Current Approved<br/>Amount<br/>($M)</span>, [], true, 'min-w-[80px]')}
+                  {renderColumnHeader('disbursed', <span>Disbursed<br/>Life Amount<br/>($M)</span>, [], true, 'min-w-[75px]')}
+                  {renderColumnHeader('disbursedPercent', <span>Disbursed<br/>Life Amount<br/>(%)</span>, [], true, 'min-w-[75px]')}
+                  {renderColumnHeader('pmr2026', <span>PMR March<br/>Cycle (2026)</span>, uniquePMRs, true, 'min-w-[85px]')}
+                  {renderColumnHeader('alerts', <span>Active<br/>Alerts</span>, ['Alerta 1', 'Alerta 2', 'Alerta 3', 'Alerta 4', 'Alerta 5', 'Alerta 6', 'Alerta 7', 'Alerta 8', 'No alerts'], true, 'min-w-[110px]')}
                 </tr>
               )}
             </thead>
@@ -1160,20 +1180,20 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
                   className={`${rowBgClass} transition-colors cursor-pointer group`}
                   onClick={() => onSelectProject && onSelectProject(project.projectNumber)}
                 >
-                  <td className="px-2 py-3 text-center text-zinc-400 font-medium text-[10px]">
+                  <td className="px-1.5 py-2.5 text-center text-zinc-400 font-medium text-[10px]">
                     {index + 1}
                   </td>
-                  <td className="px-2 py-3 text-left text-zinc-500 text-[10px] font-medium whitespace-nowrap">
+                  <td className="px-1.5 py-2.5 text-left text-zinc-500 text-[10px] font-medium whitespace-nowrap">
                     {project.projectNumber}
                   </td>
-                  <td className="px-2 py-3 text-left text-zinc-500 text-[10px] font-medium whitespace-pre-line">
+                  <td className="px-1.5 py-2.5 text-left text-zinc-500 text-[10px] font-medium whitespace-pre-line">
                     {project.operationNumber}
                   </td>
-                  <td className="px-2 py-3">
+                  <td className="px-1.5 py-2.5">
                     <div className="text-black font-semibold text-[11px] leading-tight whitespace-normal break-words">{project.title}</div>
                   </td>
-                  <td className="px-2 py-3 text-left">
-                    <div className="flex items-center justify-start gap-3">
+                  <td className="px-1.5 py-2.5 text-left">
+                    <div className="flex items-center justify-start gap-1.5">
                       {countryCodes[project.countryName] ? (
                         <img 
                           src={`https://flagcdn.com/w40/${countryCodes[project.countryName]}.png`} 
@@ -1187,10 +1207,10 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
                       <span className="text-zinc-500 text-[10px] font-medium">{project.countryName}</span>
                     </div>
                   </td>
-                  <td className="px-2 py-3 text-left pl-6 text-zinc-500 text-[10px] font-medium whitespace-nowrap">
+                  <td className="px-1.5 py-2.5 text-left pl-3 text-zinc-500 text-[10px] font-medium whitespace-nowrap">
                     {project.projectNumber === 'PE-L1288' ? 'PBL' : (project.lendingInstrumentId === 'LON-INV' ? 'INV' : project.lendingInstrumentId === 'LON-PBL' ? 'PBL' : project.lendingInstrumentId)}
                   </td>
-                  <td className="px-3 py-3 max-w-[75px] w-[75px] whitespace-normal break-words text-left text-zinc-500 text-[10px] font-medium font-sans">
+                  <td className="px-1.5 py-2.5 max-w-[75px] w-[75px] whitespace-normal break-words text-left text-zinc-500 text-[10px] font-medium font-sans">
                     {project.ttl.includes(',') ? (
                       <div className="flex flex-col items-start justify-start text-left">
                         <span>{project.ttl.split(',')[0]},</span>
@@ -1200,58 +1220,61 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
                       project.ttl
                     )}
                   </td>
-                  <td className="px-2 py-3 text-center text-zinc-500 text-[10px] font-medium whitespace-nowrap">{project.status}</td>
+                  <td className="px-1.5 py-2.5 text-center text-zinc-500 text-[10px] font-medium whitespace-nowrap">{project.status}</td>
                   {isPmrMode ? (
                     <>
-                      <td className="px-2 py-3">
+                      <td className="px-1.5 py-2.5">
                         <div className="flex items-center justify-start gap-2">
                           <div className={`w-2.5 h-2.5 rounded-full ${dotColor}`}></div>
                           <span className="text-zinc-500 text-[10px] font-medium">{displayPmr}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-3">
+                      <td className="px-1.5 py-2.5">
                         <div className="flex items-center justify-start gap-2">
                           <div className={`w-2.5 h-2.5 rounded-full ${cooDotColor}`}></div>
                           <span className="text-zinc-500 text-[10px] font-medium">{displayCooPmr}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-3">
+                      <td className="px-1.5 py-2.5">
                         <div className="flex items-center justify-start gap-2">
                           <div className={`w-2.5 h-2.5 rounded-full ${cooDotColor}`}></div>
                           <span className="text-zinc-500 text-[10px] font-medium">{displayCooPmr}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-3">
+                      <td className="px-1.5 py-2.5">
                         <div className="flex items-center justify-start gap-2">
                           <div className={`w-2.5 h-2.5 rounded-full ${cooDotColor}`}></div>
                           <span className="text-zinc-500 text-[10px] font-medium">{displayCooPmr}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-3 text-left pl-4 text-zinc-500 font-medium text-[10px]">
+                      <td className="px-1.5 py-2.5 text-left pl-3 text-zinc-500 font-medium text-[10px]">
                         {syntheticIndicatorsMap[project.projectNumber] || ''}
                       </td>
                     </>
                   ) : (
                     <>
-                      <td className="px-2 py-3 text-center text-zinc-500 text-[10px] font-medium whitespace-pre-line">
+                      <td className="px-1.5 py-2.5 text-center text-zinc-500 text-[10px] font-medium whitespace-pre-line">
                         {project.operations.map(o => `$${Math.round(o.approved).toLocaleString('en-US')}M`).join('\n')}
                       </td>
-                      <td className="px-2 py-3 text-center text-zinc-500 text-[10px] font-medium whitespace-pre-line">
+                      <td className="px-1.5 py-2.5 text-center text-zinc-500 text-[10px] font-medium whitespace-pre-line">
                         {project.operations.map(o => `$${Math.round(o.disbursed).toLocaleString('en-US')}M`).join('\n')}
                       </td>
-                      <td className="px-2 py-3 text-center text-zinc-500 text-[10px] font-medium whitespace-pre-line">
+                      <td className="px-1.5 py-2.5 text-center text-zinc-500 text-[10px] font-medium whitespace-pre-line">
                         {project.operations.map(o => {
                           const value = project.projectNumber === 'BR-L1377' ? o.percent.toFixed(1) : Math.round(o.percent);
                           return `${value}%`;
                         }).join('\n')}
                       </td>
-                      <td className="px-2 py-3">
-                        <div className="flex items-center justify-start gap-2">
+                      <td className="px-1.5 py-2.5">
+                        <div className="flex items-center justify-start gap-1.5">
                           <div className={`w-2.5 h-2.5 rounded-full ${cooDotColor}`}></div>
                           <span className="text-zinc-500 text-[10px] font-medium">
                             {displayCooPmr}
                           </span>
                         </div>
+                      </td>
+                      <td className="px-1.5 py-2.5 align-middle text-left">
+                        <AlertTriangles projectId={project.projectNumber} />
                       </td>
                     </>
                   )}

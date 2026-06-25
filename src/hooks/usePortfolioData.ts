@@ -83,11 +83,13 @@ export interface ProjectDetails {
     effectiveness: { date: string; status: 'completed' | 'pending' };
     eligibility: { date: string; status: 'completed' | 'pending' };
     firstDisbursement: { date: string; status: 'completed' | 'pending' };
-    lastDisbursement: { date: string; status: 'completed' | 'pending' };
+    lastDisbursement: { date: string; status: 'completed' | 'pending'; currentDeadline?: string };
     extension: { text: string; status: 'completed' | 'pending' };
     closure: { date: string; status: 'completed' | 'pending' };
   };
   lastDisbursementMade?: string;
+  localContribution?: string;
+  undisbursedAmountStr?: string;
   financial: {
     originalApprovedAmount: number;
     canceledAmount: number;
@@ -115,6 +117,7 @@ export interface ProjectDetails {
     month: string;
     cumulativeProjection: number;
     cumulativeDisbursed: number | null;
+    cumulativeDisbursedReal?: number | null;
   }[];
 }
 
@@ -160,12 +163,70 @@ const formatDate = (dateStr: string | undefined): string => {
 
   if (isNaN(date.getTime())) return 'Pending';
   
-  const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   const day = String(date.getDate()).padStart(2, '0');
   const month = months[date.getMonth()];
   const year = date.getFullYear();
   
   return `${day}/${month}/${year}`;
+};
+
+const parseMDYDateToTime = (str: string): number => {
+  if (!str) return 0;
+  const trimmed = str.trim().split(' ')[0];
+  const parts = trimmed.split('/');
+  if (parts.length === 3) {
+    const m = parseInt(parts[0], 10);
+    const d = parseInt(parts[1], 10);
+    const y = parseInt(parts[2], 10);
+    if (!isNaN(m) && !isNaN(d) && !isNaN(y)) {
+      return new Date(y, m - 1, d).getTime();
+    }
+  }
+  const fallback = new Date(str);
+  return !isNaN(fallback.getTime()) ? fallback.getTime() : 0;
+};
+
+const formatCustomSpanishDate = (dateStr: string | undefined): string => {
+  if (!dateStr) return 'N/A';
+  const trimmed = dateStr.trim();
+  if (trimmed === '' || trimmed.toLowerCase() === 'pending' || trimmed.toLowerCase() === 'n/a') return 'N/A';
+  
+  const spMonths = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  
+  // Try splitting as M/D/YYYY first
+  const datePart = trimmed.split(' ')[0];
+  const parts = datePart.split('/');
+  if (parts.length === 3) {
+    const month = parseInt(parts[0], 10);
+    const day = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+    if (!isNaN(month) && !isNaN(day) && !isNaN(year)) {
+      if (parts[0].length === 4) {
+        // YYYY/MM/DD
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const d = parseInt(parts[2], 10);
+        const monthAbbr = spMonths[(m - 1 + 12) % 12];
+        const dayStr = String(d).padStart(2, '0');
+        return `${dayStr}/${monthAbbr}/${y}`;
+      } else {
+        const monthAbbr = spMonths[(month - 1 + 12) % 12];
+        const dayStr = String(day).padStart(2, '0');
+        return `${dayStr}/${monthAbbr}/${year}`;
+      }
+    }
+  }
+  
+  // Fallback to standard javascript date
+  const d = new Date(trimmed);
+  if (!isNaN(d.getTime())) {
+    const dayStr = String(d.getDate()).padStart(2, '0');
+    const monthAbbr = spMonths[d.getMonth()];
+    return `${dayStr}/${monthAbbr}/${d.getFullYear()}`;
+  }
+  
+  return trimmed;
 };
 
 const formatExpDate = (dateStr: string | undefined): string => {
@@ -179,7 +240,7 @@ const formatExpDate = (dateStr: string | undefined): string => {
     if (year < 100) {
       year += 2000;
     }
-    const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
     if (monthNum >= 0 && monthNum <= 11) {
       const monthStr = months[monthNum];
       const dayStr = String(day).padStart(2, '0');
@@ -235,7 +296,17 @@ const OPERATION_STATUS_MAP: Record<string, string> = {
 };
 
 const getVal = (row: any, col: string): string => {
-  return row[col] || '';
+  if (!row) return '';
+  if (row[col] !== undefined) return row[col];
+  
+  const lowerCol = col.toLowerCase().replace(/[\s_()\-]/g, '');
+  for (const k of Object.keys(row)) {
+    const lowerK = k.toLowerCase().replace(/[\s_()\-]/g, '');
+    if (lowerCol === lowerK) {
+      return row[k];
+    }
+  }
+  return '';
 };
 
 export function usePortfolioData() {
@@ -280,163 +351,179 @@ export function usePortfolioData() {
 
         const activeData = activeParsed.data as any[];
         
-        // Inject 2 new projects
-        activeData.push(
-          {
-            "Project Number": "AR-L1416",
-            "Status": "ACTIVE",
-            "Operation Number": "6139/OC-AR",
-            "Reporting Currency": "USD",
-            "Product Code": "LON",
-            "Fund Code": "ORC",
-            "Department Code": "IFD",
-            "Division Code": "IFD/FMM",
-            "Modality Code": "ESP",
-            "Sector": "RM-FIS",
-            "Lending Type Code": "SG",
-            "TL PCM": "JGOMEZREINO",
-            "Team Leader": "GOMEZ REINO, JUAN LUIS",
-            "Region": "CSC",
-            "Country Code": "AR",
-            "Operation Status Sorting": "2",
-            "Operation Status Code": "AF",
-            "External Operation": "Valid",
-            "Effective Date": "",
-            "Ratification Date": "",
-            "Signature Date": "",
-            "Closed For Operation Date": "",
-            "First Eligibility Date": "",
-            "Final Amortization Date": "",
-            "Current Disbursement Expiration Date": "29/04/46 0:00",
-            "Original Disbursement Expiration Date": "",
-            "Total Eligibility Date": "",
-            "First Disbursement Date": "",
-            "Totally Disbursement Date": "",
-            "Current Year Disb Projection": "20000000",
-            "Next Year Disb Projection": "25000000",
-            "Available Amount": "100000000",
-            "Current Approved Amount": "100000000",
-            "Disbursed Life Amount": "0",
-            "Cancelled Amount": "0",
-            "Undisbursed Amount": "100000000",
-            "Committed Amount": "0",
-            "Disbursed YTD": "0",
-            "Original Approved Amount": "100000000",
-            "Projected Available Amount": "100000000",
-            "Title (English)": "Federal Tax Administration Reform Program",
-            "Lending Instrument ID": "LON-INV",
-            "Relation Number": "AR-L1416",
-            "Approval Date": "29/04/26 0:00",
-            "Approval Year": "2026",
-            "Stage": "APPS",
-            "Title (Spanish)": "Programa de Reforma de la Administración Tributaria Federal",
-            "PMR Classification": "N/A",
-            "PMR Classification (Spanish)": "",
-            "Executor Name": "MINISTERIO DE ECONOMIA",
-            "Executor Name (Spanish)": "MINISTERIO DE ECONOMIA",
-            "Cumulative Extension (Months)": "",
-            "Product (English)": "LON - Loan Operation",
-            "Product (Spanish)": "LON - Operación de Préstamo",
-            "Fund (English)": "ORC - Ordinary Capital",
-            "Fund (Spanish)": "ORC - Ordinary Capital",
-            "Division (English)": "IFD/FMM - Fiscal Management Division",
-            "Division (Spanish)": "IFD/FMM - Not defined",
-            "Modality (English)": "ESP - ESP (Specific Investment Operation)",
-            "Modality (Spanish)": "ESP - ESP (Operación de inversión específica)",
-            "Sector (English)": "RM-FIS - REFORM / MODERNIZATION OF THE STATE-FISCAL POLICY FOR SUSTAINABILITY AND GROWTH",
-            "Lending Type (English)": "SG - Sovereign Guaranteed",
-            "Lending Type (Spanish)": "SG - SG",
-            "Country (English)": "AR - Argentina",
-            "Country (Spanish)": "AR - Argentina",
-            "Operation Status (English)": "AF - APPROVED BY THE BOARD AND FUNDED BY FINANCE",
-            "Operation Status (Spanish)": "AF - APROBADO POR DIRECTORIO Y FINANCIADO POR FINANZAS",
-            "Sector (Spanish)": "RM-FIS - REFORMA/MODERNIZACIÓN DEL ESTADO-POLÍTICA FISCAL PARA LA SOSTENIBILIDAD Y EL CRECIMIENTO",
-            "Lending Instrument Code": "INV",
-            "Lending Instrument (English)": "INV - Investment Loan",
-            "Lending Instrument (Spanish)": "INV - Préstamo de Inversión",
-            "Department": "IFD - Institutions for Development",
-            "UDR Code": "CSC/CAR",
-            "UDR Full Name": "CSC/CAR - Country Office Argentina",
-            "UDR Full Name (Spanish)": "CSC/CAR - Representación Argentina"
-          },
-          {
-            "Project Number": "BR-L1656",
-            "Status": "ACTIVE",
-            "Operation Number": "6141/OC-BR",
-            "Reporting Currency": "USD",
-            "Product Code": "LON",
-            "Fund Code": "ORC",
-            "Department Code": "IFD",
-            "Division Code": "IFD/FMM",
-            "Modality Code": "ESP",
-            "Sector": "RM-SUB",
-            "Lending Type Code": "SG",
-            "TL PCM": "ANASTASIYAY",
-            "Team Leader": "YARYGINA UDOVENKO, ANASTASIYA",
-            "Region": "CSC",
-            "Country Code": "BR",
-            "Operation Status Sorting": "2",
-            "Operation Status Code": "AF",
-            "External Operation": "Valid",
-            "Effective Date": "",
-            "Ratification Date": "",
-            "Signature Date": "",
-            "Closed For Operation Date": "",
-            "First Eligibility Date": "",
-            "Final Amortization Date": "",
-            "Current Disbursement Expiration Date": "22/05/51 0:00",
-            "Original Disbursement Expiration Date": "",
-            "Total Eligibility Date": "",
-            "First Disbursement Date": "",
-            "Totally Disbursement Date": "",
-            "Current Year Disb Projection": "0",
-            "Next Year Disb Projection": "0",
-            "Available Amount": "52875000",
-            "Current Approved Amount": "52875000",
-            "Disbursed Life Amount": "0",
-            "Cancelled Amount": "0",
-            "Undisbursed Amount": "52875000",
-            "Committed Amount": "0",
-            "Disbursed YTD": "0",
-            "Original Approved Amount": "52875000",
-            "Projected Available Amount": "52875000",
-            "Title (English)": "Fiscal Management Modernization Project of the State of Maranhão - PROFISCO III MA",
-            "Lending Instrument ID": "LON-INV",
-            "Relation Number": "BR-L1656",
-            "Approval Date": "22/05/26 0:00",
-            "Approval Year": "2026",
-            "Stage": "APPLA",
-            "Title (Spanish)": "Proyecto de Modernización de la Gestión Fiscal del Estado de Maranhão - PROFISCO III MA",
-            "PMR Classification": "N/A",
-            "PMR Classification (Spanish)": "",
-            "Executor Name": "SECRETARIA DE ESTADO DE HACIENDA DE MARANAO",
-            "Executor Name (Spanish)": "SECRETARIA DE ESTADO DE HACIENDA DE MARANAO",
-            "Cumulative Extension (Months)": "",
-            "Product (English)": "LON - Loan Operation",
-            "Product (Spanish)": "LON - Operación de Préstamo",
-            "Fund (English)": "ORC - Ordinary Capital",
-            "Fund (Spanish)": "ORC - Ordinary Capital",
-            "Division (English)": "IFD/FMM - Fiscal Management Division",
-            "Division (Spanish)": "IFD/FMM - Not defined",
-            "Modality (English)": "ESP - ESP (Specific Investment Operation)",
-            "Modality (Spanish)": "ESP - ESP (Operación de inversión específica)",
-            "Sector (English)": "RM-SUB - REFORM / MODERNIZATION OF THE STATE-SUBNATIONAL AND LOCAL GOVERNMENTS",
-            "Lending Type (English)": "SG - Sovereign Guaranteed",
-            "Lending Type (Spanish)": "SG - SG",
-            "Country (English)": "BR - Brazil",
-            "Country (Spanish)": "BR - Brasil",
-            "Operation Status (English)": "AF - APPROVED BY THE BOARD AND FUNDED BY FINANCE",
-            "Operation Status (Spanish)": "AF - APROBADO POR DIRECTORIO Y FINANCIADO POR FINANZAS",
-            "Sector (Spanish)": "RM-SUB - REFORMA/MODERNIZACIÓN DEL ESTADO-GOBIERNOS SUBNACIONALES Y LOCALES",
-            "Lending Instrument Code": "INV",
-            "Lending Instrument (English)": "INV - Investment Loan",
-            "Lending Instrument (Spanish)": "INV - Préstamo de Inversión",
-            "Department": "IFD - Institutions for Development",
-            "UDR Code": "CSC/CBR",
-            "UDR Full Name": "CSC/CBR - Country Office Brazil",
-            "UDR Full Name (Spanish)": "CSC/CBR - Representación Brasil"
-          }
-        );
+        // Inject 2 new projects only if they are not already in active_portfolio.csv
+        const hasAR = activeData.some(row => {
+          const num = String(row['Project Number'] || row['project_number'] || '').toUpperCase().trim();
+          return num === 'AR-L1416';
+        });
+        const hasBR = activeData.some(row => {
+          const num = String(row['Project Number'] || row['project_number'] || '').toUpperCase().trim();
+          return num === 'BR-L1656';
+        });
+
+        if (!hasAR) {
+          activeData.push(
+            {
+              "project_number": "AR-L1416",
+              "status": "ACTIVE",
+              "operation_number": "6139/OC-AR",
+              "reporting_currency": "USD",
+              "product_code": "LON",
+              "fund_code": "ORC",
+              "department_code": "IFD",
+              "division_code": "IFD/FMM",
+              "modality_code": "ESP",
+              "sector": "RM-FIS",
+              "lending_type_code": "SG",
+              "tl_pcm": "JGOMEZREINO",
+              "team_leader": "GOMEZ REINO, JUAN LUIS",
+              "region": "CSC",
+              "country_code": "AR",
+              "operation_status_sorting": "2",
+              "operation_status_code": "AF",
+              "external_operation": "Valid",
+              "effective_date": "",
+              "ratification_date": "",
+              "signature_date": "",
+              "closed_for_operation_date": "",
+              "first_eligibility_date": "",
+              "final_amortization_date": "",
+              "current_disbursement_expiration_date": "29/04/46 0:00",
+              "original_disbursement_expiration_date": "",
+              "total_eligibility_date": "",
+              "first_disbursement_date": "",
+              "totally_disbursement_date": "",
+              "current_year_disb_projection": "20000000",
+              "next_year_disb_projection": "25000000",
+              "available_amount": "100000000",
+              "current_approved_amount": "100000000",
+              "disbursed_life_amount": "0",
+              "cancelled_amount": "0",
+              "undisbursed_amount": "100000000",
+              "committed_amount": "0",
+              "disbursed_ytd": "0",
+              "original_approved_amount": "100000000",
+              "projected_available_amount": "100000000",
+              "title_english": "Federal Tax Administration Reform Program",
+              "lending_instrument_id": "LON-INV",
+              "relation_number": "AR-L1416",
+              "approval_date": "29/04/26 0:00",
+              "approval_year": "2026",
+              "stage": "APPS",
+              "title_spanish": "Programa de Reforma de la Administración Tributaria Federal",
+              "pmr_classification": "N/A",
+              "pmr_classification_spanish": "",
+              "executor_name": "MINISTERIO DE ECONOMIA",
+              "executor_name_spanish": "MINISTERIO DE ECONOMIA",
+              "cumulative_extension_months": "",
+              "product_english": "LON - Loan Operation",
+              "product_spanish": "LON - Operación de Préstamo",
+              "fund_english": "ORC - Ordinary Capital",
+              "fund_spanish": "ORC - Ordinary Capital",
+              "division_english": "IFD/FMM - Fiscal Management Division",
+              "division_spanish": "IFD/FMM - Not defined",
+              "modality_english": "ESP - ESP (Specific Investment Operation)",
+              "modality_spanish": "ESP - ESP (Operación de inversión específica)",
+              "sector_english": "RM-FIS - REFORM / MODERNIZATION OF THE STATE-FISCAL POLICY FOR SUSTAINABILITY AND GROWTH",
+              "lending_type_english": "SG - Sovereign Guaranteed",
+              "lending_type_spanish": "SG - SG",
+              "country_english": "AR - Argentina",
+              "country_spanish": "AR - Argentina",
+              "operation_status_english": "AF - APPROVED BY THE BOARD AND FUNDED BY FINANCE",
+              "operation_status_spanish": "AF - APROBADO POR DIRECTORIO Y FINANCIADO POR FINANZAS",
+              "sector_spanish": "RM-FIS - REFORMA/MODERNIZACIÓN DEL ESTADO-POLÍTICA FISCAL PARA LA SOSTENIBILIDAD Y EL CRECIMIENTO",
+              "lending_instrument_code": "INV",
+              "lending_instrument_english": "INV - Investment Loan",
+              "lending_instrument_spanish": "INV - Préstamo de Inversión",
+              "department": "IFD - Institutions for Development",
+              "udr_code": "CSC/CAR",
+              "udr_full_name": "CSC/CAR - Country Office Argentina",
+              "udr_full_name_spanish": "CSC/CAR - Representación Argentina"
+            }
+          );
+        }
+
+        if (!hasBR) {
+          activeData.push(
+            {
+              "project_number": "BR-L1656",
+              "status": "ACTIVE",
+              "operation_number": "6141/OC-BR",
+              "reporting_currency": "USD",
+              "product_code": "LON",
+              "fund_code": "ORC",
+              "department_code": "IFD",
+              "division_code": "IFD/FMM",
+              "modality_code": "ESP",
+              "sector": "RM-SUB",
+              "lending_type_code": "SG",
+              "tl_pcm": "ANASTASIYAY",
+              "team_leader": "YARYGINA UDOVENKO, ANASTASIYA",
+              "region": "CSC",
+              "country_code": "BR",
+              "operation_status_sorting": "2",
+              "operation_status_code": "AF",
+              "external_operation": "Valid",
+              "effective_date": "",
+              "ratification_date": "",
+              "signature_date": "",
+              "closed_for_operation_date": "",
+              "first_eligibility_date": "",
+              "final_amortization_date": "",
+              "current_disbursement_expiration_date": "22/05/51 0:00",
+              "original_disbursement_expiration_date": "",
+              "total_eligibility_date": "",
+              "first_disbursement_date": "",
+              "totally_disbursement_date": "",
+              "current_year_disb_projection": "0",
+              "next_year_disb_projection": "0",
+              "available_amount": "52875000",
+              "current_approved_amount": "52875000",
+              "disbursed_life_amount": "0",
+              "cancelled_amount": "0",
+              "undisbursed_amount": "52875000",
+              "committed_amount": "0",
+              "disbursed_ytd": "0",
+              "original_approved_amount": "52875000",
+              "projected_available_amount": "52875000",
+              "title_english": "Fiscal Management Modernization Project of the State of Maranhão - PROFISCO III MA",
+              "lending_instrument_id": "LON-INV",
+              "relation_number": "BR-L1656",
+              "approval_date": "22/05/26 0:00",
+              "approval_year": "2026",
+              "stage": "APPLA",
+              "title_spanish": "Proyecto de Modernización de la Gestión Fiscal del Estado de Maranhão - PROFISCO III MA",
+              "pmr_classification": "N/A",
+              "pmr_classification_spanish": "",
+              "executor_name": "SECRETARIA DE ESTADO DE HACIENDA DE MARANAO",
+              "executor_name_spanish": "SECRETARIA DE ESTADO DE HACIENDA DE MARANAO",
+              "cumulative_extension_months": "",
+              "product_english": "LON - Loan Operation",
+              "product_spanish": "LON - Operación de Préstamo",
+              "fund_english": "ORC - Ordinary Capital",
+              "fund_spanish": "ORC - Ordinary Capital",
+              "division_english": "IFD/FMM - Fiscal Management Division",
+              "division_spanish": "IFD/FMM - Not defined",
+              "modality_english": "ESP - ESP (Specific Investment Operation)",
+              "modality_spanish": "ESP - ESP (Operación de inversión específica)",
+              "sector_english": "RM-SUB - REFORM / MODERNIZATION OF THE STATE-SUBNATIONAL AND LOCAL GOVERNMENTS",
+              "lending_type_english": "SG - Sovereign Guaranteed",
+              "lending_type_spanish": "SG - SG",
+              "country_english": "BR - Brazil",
+              "country_spanish": "BR - Brasil",
+              "operation_status_english": "AF - APPROVED BY THE BOARD AND FUNDED BY FINANCE",
+              "operation_status_spanish": "AF - APROBADO POR DIRECTORIO Y FINANCIADO POR FINANZAS",
+              "sector_spanish": "RM-SUB - REFORMA/MODERNIZACIÓN DEL ESTADO-GOBIERNOS SUBNACIONALES Y LOCALES",
+              "lending_instrument_code": "INV",
+              "lending_instrument_english": "INV - Investment Loan",
+              "lending_instrument_spanish": "INV - Préstamo de Inversión",
+              "department": "IFD - Institutions for Development",
+              "udr_code": "CSC/CBR",
+              "udr_full_name": "CSC/CBR - Country Office Brazil",
+              "udr_full_name_spanish": "CSC/CBR - Representación Brasil"
+            }
+          );
+        }
         const disbRecords = disbParsed.data as any[];
         const consolidatedData = consolidatedParsed.data as any[];
         const workflowData = workflowParsed.data as any[];
@@ -452,22 +539,22 @@ export function usePortfolioData() {
 
         // GLOBAL CONTEXT 1
         const filteredActive = activeData.filter(row => {
-          const status = String(row['Status'] || '').toUpperCase().trim();
-          const div = String(row['Division Code'] || '').toUpperCase().trim();
-          const lend = String(row['Lending Instrument ID'] || '').toUpperCase().trim();
+          const status = String(row['status'] || row['Status'] || '').toUpperCase().trim();
+          const div = String(row['division_code'] || row['Division Code'] || '').toUpperCase().trim();
+          const lend = String(row['lending_instrument_id'] || row['Lending Instrument ID'] || '').toUpperCase().trim();
           
           return status.includes('ACTIVE') && 
                  div.includes('IFD/FMM') && 
                  (lend.includes('LON-INV') || lend.includes('LON-PBL'));
         });
 
-        const validProjectNumbers = new Set(filteredActive.map(row => row['Project Number']));
+        const validProjectNumbers = new Set(filteredActive.map(row => row['project_number'] || row['Project Number']));
 
         // GLOBAL CONTEXT 2
         const filteredDisb = disbRecords.filter(row => {
-          const resp = String(row['Responsible Unit'] || '').toUpperCase().trim();
-          const lend = String(row['Lending Instrument'] || '').toUpperCase().trim();
-          const proj = row['Project Number'];
+          const resp = String(getVal(row, 'Responsible Unit') || '').toUpperCase().trim();
+          const lend = String(getVal(row, 'Lending Instrument') || '').toUpperCase().trim();
+          const proj = getVal(row, 'project_number');
 
           return resp.includes('IFD/FMM') && 
                  (lend.includes('INV') || lend.includes('PBL')) &&
@@ -500,12 +587,15 @@ export function usePortfolioData() {
         const uniqueProjectsMap = new Map<string, any>();
 
         filteredActive.forEach(row => {
-          const projNum = row['Project Number'];
-          const approved = parseAmountM(row['Current Approved Amount']);
-          const disbursed = parseAmountM(row['Disbursed Life Amount']);
-          let lend = String(row['Lending Instrument ID'] || '').toUpperCase().trim();
-          const statusCode = String(row['Operation Status Code'] || '').toUpperCase().trim();
-          const statusTextRaw = String(row['Operation Status (Spanish)'] || '');
+          const projNum = row['project_number'] || row['Project Number'];
+          const approved = parseAmountM(row['current_approved_amount'] || row['Current Approved Amount']);
+          let disbursed = parseAmountM(row['disbursed_life_amount'] || row['Disbursed Life Amount']);
+          if (projNum === 'EC-L1251') {
+            disbursed = approved;
+          }
+          let lend = String(row['lending_instrument_id'] || row['Lending Instrument ID'] || '').toUpperCase().trim();
+          const statusCode = String(row['operation_status_code'] || row['Operation Status Code'] || '').toUpperCase().trim();
+          const statusTextRaw = String(row['operation_status_spanish'] || row['Operation Status (Spanish)'] || '');
           const statusUpper = statusTextRaw.toUpperCase().trim();
           
           let stage = '';
@@ -519,9 +609,9 @@ export function usePortfolioData() {
             stage = 'Stage III';
           }
 
-          // Temporary override for BR-L1643
-          if (projNum === 'BR-L1643') {
-            stage = 'Stage I';
+          // Temporary override for BR-L1643 and PE-L1278
+          if (projNum === 'BR-L1643' || projNum === 'PE-L1278') {
+            stage = 'Stage II';
           }
 
           currentApprovedAmount += approved;
@@ -535,7 +625,7 @@ export function usePortfolioData() {
               lendingInstrumentId: lend,
               stage: stage,
               operations: [{
-                number: row['Operation Number'] || '',
+                number: row['operation_number'] || row['Operation Number'] || '',
                 approved: approved,
                 disbursed: disbursed,
                 percent: approved > 0 ? (disbursed / approved) * 100 : 0
@@ -565,16 +655,17 @@ export function usePortfolioData() {
             else if (stage === 'Stage II') stage2Count++;
             else if (stage === 'Stage III') stage3Count++;
 
-            let pmr = String(row['PMR Classification'] || '').toUpperCase().trim();
+            let pmr = String(row['pmr_classification'] || row['PMR Classification'] || '').toUpperCase().trim();
             if (projNum === 'EC-L1230') pmr = 'SATISFACTORY';
             if (projNum === 'UR-L1164') pmr = 'ALERT';
+            if (projNum === 'BR-L1614') pmr = 'PROBLEM';
             
             if (pmr === 'SATISFACTORY') pmrCounts.satisfactory++;
             else if (pmr === 'ALERT') pmrCounts.alert++;
             else if (pmr === 'PROBLEM') pmrCounts.problem++;
             else pmrCounts.na++;
 
-            if (lend.includes('LON-INV') && (stage === 'Stage II' || stage === 'Stage III')) {
+            if (lend.includes('LON-INV') && (stage === 'Stage II' || stage === 'Stage III') && projNum !== 'BR-L1643' && projNum !== 'BR-L1614' && projNum !== 'PE-L1278') {
               pmrInvOnlyTotal++;
               if (pmr === 'SATISFACTORY') pmrInvOnlyCounts.satisfactory++;
               else if (pmr === 'ALERT') pmrInvOnlyCounts.alert++;
@@ -586,7 +677,7 @@ export function usePortfolioData() {
             existing.currentApprovedAmount += approved;
             existing.disbursedLifeAmount += disbursed;
             existing.operations.push({
-              number: row['Operation Number'] || '',
+              number: row['operation_number'] || row['Operation Number'] || '',
               approved: approved,
               disbursed: disbursed,
               percent: approved > 0 ? (disbursed / approved) * 100 : 0
@@ -624,8 +715,8 @@ export function usePortfolioData() {
         const metrics: DashboardMetrics = {
           totalProjects,
           currentApprovedAmount,
-          disbursedLifeAmount,
-          disbursedLifePercent,
+          disbursedLifeAmount: 1565,
+          disbursedLifePercent: currentApprovedAmount > 0 ? (1565 / currentApprovedAmount) * 100 : 0,
           projected2026,
           disbursed2026,
           disbursed2026Percent,
@@ -664,9 +755,9 @@ export function usePortfolioData() {
           const approved = row.currentApprovedAmount;
           const disbursed = row.disbursedLifeAmount;
 
-          let statusText = String(row['Operation Status (Spanish)'] || '');
+          let statusText = String(row['operation_status_spanish'] || row['Operation Status (Spanish)'] || '');
           const statusUpper = statusText.toUpperCase().trim();
-          const statusCode = String(row['Operation Status Code'] || '').toUpperCase().trim();
+          const statusCode = String(row['operation_status_code'] || row['Operation Status Code'] || '').toUpperCase().trim();
           
           if (statusCode === 'AF' || statusCode === 'EF' || statusCode === 'EL' || statusCode === 'SI' ||
               statusUpper.includes('AF - APROBADO POR DIRECTORIO') || statusUpper.includes('EF - EFECTIVO') || statusUpper.includes('EL - ELEGIBLE PARA EL DESEMBOLSO')) {
@@ -678,17 +769,18 @@ export function usePortfolioData() {
             statusText = 'Stage III';
           }
 
-          // Temporary override for BR-L1643
-          if (projNum === 'BR-L1643') {
-            statusText = 'Stage I';
+          // Temporary override for BR-L1643 and PE-L1278
+          if (projNum === 'BR-L1643' || projNum === 'PE-L1278') {
+            statusText = 'Stage II';
           }
 
-          let pmrClass = String(row['PMR Classification'] || '').trim();
+          let pmrClass = String(row['pmr_classification'] || row['PMR Classification'] || '').trim();
           if (projNum === 'EC-L1230') pmrClass = 'Satisfactory';
           if (projNum === 'UR-L1164') pmrClass = 'Alert';
+          if (projNum === 'BR-L1614') pmrClass = 'Problem';
           if (!pmrClass) pmrClass = 'N/A';
 
-          const eligibilityDateStr = row['Total Eligibility Date'];
+          const eligibilityDateStr = row['total_eligibility_date'] || row['Total Eligibility Date'];
           let ageInExecution = 'N/A';
           if (eligibilityDateStr && eligibilityDateStr !== '1/1/1901 00:00') {
             const eligibilityDate = new Date(eligibilityDateStr);
@@ -698,18 +790,18 @@ export function usePortfolioData() {
             }
           }
 
-          const monthsOfExtension = row['Cumulative Extension (Months)'] || '0';
+          const monthsOfExtension = row['cumulative_extension_months'] || row['Cumulative Extension (Months)'] || '0';
 
           const operationNumber = row.operations.map((o: any) => o.number).filter(Boolean).join('\n');
 
           tableRows.push({
             index: index++,
             projectNumber: projNum,
-            title: String(row['Title (English)'] || ''),
+            title: String(row['title_english'] || row['Title (English)'] || ''),
             operationNumber: operationNumber,
-            countryCode: String(row['Country Code'] || ''),
-            countryName: getCountryName(String(row['Country Code'] || ''), String(row['Country (English)'] || '')),
-            ttl: cleanTTLName(String(row['Team Leader'] || '')),
+            countryCode: String(row['country_code'] || row['Country Code'] || ''),
+            countryName: getCountryName(String(row['country_code'] || row['Country Code'] || ''), String(row['country_english'] || row['Country (English)'] || '')),
+            ttl: cleanTTLName(String(row['team_leader'] || row['Team Leader'] || '')),
             status: statusText,
             currentApprovedAmount: row.currentApprovedAmount,
             disbursedLifeAmount: row.disbursedLifeAmount,
@@ -821,11 +913,19 @@ export function usePortfolioData() {
     let cumulativeActual = 0;
 
     for (let m = 1; m <= 12; m++) {
-      const monthRecords = projectDisbRecords.filter(r => 
-        parseInt(getVal(r, 'Transaction Year')) === currentYear && 
-        parseInt(getVal(r, 'Transaction Month')) === m &&
-        getVal(r, 'IS Parent Child Operation').trim() === 'Parent Operation'
-      );
+      const monthRecords = projectDisbRecords.filter(r => {
+        let tYear = parseInt(getVal(r, 'Transaction Year'));
+        let tMonth = parseInt(getVal(r, 'Transaction Month'));
+        if (projectId === 'EC-L1251' && tYear === 2026 && tMonth === 5) {
+          const disbAmt = parseAmount(getVal(r, 'Disbursed Amount (USEQ)'));
+          if (disbAmt < 0) {
+            tMonth = 6;
+          }
+        }
+        return tYear === currentYear && 
+               tMonth === m &&
+               getVal(r, 'IS Parent Child Operation').trim() === 'Parent Operation';
+      });
       
       const monthProj = monthRecords.reduce((sum, r) => {
         if (getVal(r, 'IS Projection')?.trim().toUpperCase() === 'Y') {
@@ -844,22 +944,32 @@ export function usePortfolioData() {
       cumulativeProjection += monthProj;
       cumulativeActual += monthDisb;
       
+      let cumulativeDisbursedRealVal = m <= currentMonth ? cumulativeActual / 1000000 : null;
+      if (projectId === 'BR-L1377' && m <= currentMonth) {
+        if (m < 4) {
+          cumulativeDisbursedRealVal = Math.max(0, cumulativeActual) / 1000000;
+        }
+      }
+
       monthlyMonitoringData.push({
         month: monthNames[m-1],
         cumulativeProjection: cumulativeProjection / 1000000,
-        cumulativeDisbursed: m <= currentMonth ? cumulativeActual / 1000000 : null
+        cumulativeDisbursed: m <= currentMonth ? (projectId === 'EC-L1251' ? cumulativeActual / 1000000 : Math.max(0, cumulativeActual) / 1000000) : null,
+        cumulativeDisbursedReal: cumulativeDisbursedRealVal,
+        projectId: projectId,
+        projectCode: projectId
       });
     }
 
-    const totalApprovedVal = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'Current Approved Amount')), 0);
-    const totalDisbursedVal = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'Disbursed Life Amount')), 0);
-    const totalOriginal = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'Original Approved Amount')), 0);
-    const totalCanceled = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'Cancelled Amount')), 0);
+    const totalApprovedVal = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'current_approved_amount')), 0);
+    const totalDisbursedVal = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'disbursed_life_amount')), 0);
+    const totalOriginal = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'original_approved_amount')), 0);
+    const totalCanceled = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'cancelled_amount')), 0);
 
     const totalApproved = projectId === 'EC-L1251' ? 6818191.00 : (projectId === 'PN-L1172' ? 20000000.00 : totalApprovedVal);
-    const totalDisbursed = projectId === 'EC-L1251' ? 6803190.98 : (projectId === 'PN-L1172' ? 2024294.22 : totalDisbursedVal);
+    const totalDisbursed = projectId === 'EC-L1251' ? 6818191.00 : (projectId === 'PN-L1172' ? 2024294.22 : totalDisbursedVal);
 
-    const eligibilityDateStr = firstRecord['Total Eligibility Date'];
+    const eligibilityDateStr = firstRecord['total_eligibility_date'] || firstRecord['Total Eligibility Date'];
     let ageInExecution = '';
     let eligibilityYear = 0;
     if (eligibilityDateStr && eligibilityDateStr !== '1/1/1901 00:00') {
@@ -871,7 +981,7 @@ export function usePortfolioData() {
       }
     }
 
-    const linkedLoans = projectRecords.map(r => r['Operation Number']).filter(Boolean);
+    const linkedLoans = projectRecords.map(r => r['operation_number'] || r['Operation Number']).filter(Boolean);
 
     const specialNoDisbData: Record<string, { lastDisbDate: string; months: string }> = {
       'PN-L1172': { lastDisbDate: '14/MAR/2024', months: '27' },
@@ -886,16 +996,89 @@ export function usePortfolioData() {
       'BR-L1501': { lastDisbDate: '22/OCT/2025', months: '7.4' },
       'BR-L1525': { lastDisbDate: '03/NOV/2025', months: '7.0' },
       'BL-L1038': { lastDisbDate: '17/NOV/2025', months: '6.6' },
-      'BR-L1517': { lastDisbDate: '02/DIC/2025', months: '6.1' },
-      'PR-L1150': { lastDisbDate: '03/DIC/2025', months: '6.0' }
+      'BR-L1517': { lastDisbDate: '02/DEC/2025', months: '6.1' },
+      'PR-L1150': { lastDisbDate: '03/DEC/2025', months: '6.0' }
     };
 
     const hasSpecialNoDisb = projectId in specialNoDisbData;
 
-    const lastDisbMadeRaw = hasSpecialNoDisb 
-      ? specialNoDisbData[projectId].lastDisbDate 
-      : formatDate(firstRecord['Totally Disbursement Date']);
-    const lastDisbursementMade = (lastDisbMadeRaw === 'Pending' || !lastDisbMadeRaw) ? 'N/A' : lastDisbMadeRaw;
+    let lastDisbDateStr = '';
+    const actualRecords = projectDisbRecords.filter(r => getVal(r, 'is_projection').trim().toUpperCase() === 'N');
+    if (actualRecords.length > 0) {
+      const validDates = actualRecords
+        .map(r => getVal(r, 'recent_disbursement_request_value_date').trim())
+        .filter(d => d && d.toLowerCase() !== 'pending' && d.toLowerCase() !== 'n/a');
+      if (validDates.length > 0) {
+        const sorted = [...validDates].sort((a, b) => parseMDYDateToTime(b) - parseMDYDateToTime(a));
+        lastDisbDateStr = sorted[0];
+      }
+    }
+
+    let lastDisbursementMade = 'N/A';
+    if (projectId === 'EC-L1230') {
+      lastDisbursementMade = '26/NOV/2025';
+    } else if (projectId === 'EC-L1251') {
+      lastDisbursementMade = '19/JUN/2026';
+    } else if (projectId === 'BR-L1377') {
+      lastDisbursementMade = '10/DEC/2024';
+    } else if (projectId === 'PN-L1161') {
+      lastDisbursementMade = '27/FEB/2025';
+    } else if (projectId === 'PN-L1172') {
+      lastDisbursementMade = '14/MAR/2024';
+    } else if (lastDisbDateStr) {
+      lastDisbursementMade = formatCustomSpanishDate(lastDisbDateStr);
+    } else {
+      lastDisbursementMade = hasSpecialNoDisb ? specialNoDisbData[projectId].lastDisbDate : 'N/A';
+    }
+
+    let timeWithoutDisbursements = hasSpecialNoDisb ? Math.round(parseFloat(specialNoDisbData[projectId].months)).toString() : undefined;
+    if (projectId === 'EC-L1230') {
+      const lastDisbTime = new Date(2025, 10, 26).getTime(); // 26/NOV/2025
+      const referenceDate = new Date(2026, 5, 19).getTime(); // 19/JUN/2026
+      const diffMs = referenceDate - lastDisbTime;
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      const diffMonths = Math.max(0, diffDays / 30.4375);
+      timeWithoutDisbursements = diffMonths.toFixed(1);
+    } else if (projectId === 'BR-L1377') {
+      const lastDisbTime = new Date(2024, 11, 10).getTime();
+      const today = new Date(2026, 5, 16);
+      const diffMs = today.getTime() - lastDisbTime;
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      const diffMonths = Math.max(0, diffDays / 30.4375);
+      timeWithoutDisbursements = Math.round(diffMonths).toString();
+    } else if (projectId === 'PN-L1161') {
+      const lastDisbTime = new Date(2025, 1, 27).getTime();
+      const today = new Date(2026, 5, 16);
+      const diffMs = today.getTime() - lastDisbTime;
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      const diffMonths = Math.max(0, diffDays / 30.4375);
+      timeWithoutDisbursements = Math.round(diffMonths).toString();
+    } else if (projectId === 'PN-L1172') {
+      const lastDisbTime = new Date(2024, 2, 14).getTime();
+      const today = new Date(2026, 5, 16);
+      const diffMs = today.getTime() - lastDisbTime;
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      const diffMonths = Math.max(0, diffDays / 30.4375);
+      timeWithoutDisbursements = Math.round(diffMonths).toString();
+    } else if (lastDisbDateStr) {
+      const lastDisbTime = parseMDYDateToTime(lastDisbDateStr);
+      if (lastDisbTime > 0) {
+        const today = new Date(2026, 5, 16);
+        const diffMs = today.getTime() - lastDisbTime;
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        const diffMonths = Math.max(0, diffDays / 30.4375);
+        timeWithoutDisbursements = Math.round(diffMonths).toString();
+        if (projectId === 'AR-L1248') {
+          timeWithoutDisbursements = Math.round(11.5).toString();
+        }
+      }
+    }
+
+    const locCntrprtVal = parseAmount(consolidatedRecord ? consolidatedRecord['loc_cntrprt'] : '0');
+    const localContribution = `$${(locCntrprtVal / 1000000).toFixed(1)}M`;
+
+    const undisbursedVal = parseAmount(getVal(firstRecord, 'Undisbursed Amount'));
+    const undisbursedAmountStr = `$${Math.round(undisbursedVal / 1000000)}M`;
 
     const lastDisbExpirationDates: Record<string, string> = {
       'EC-L1230': '31/12/25',
@@ -944,24 +1127,42 @@ export function usePortfolioData() {
 
     const expDate = lastDisbExpirationDates[projectId] || 'N/A';
 
+    const totallyDisbDateRaw = firstRecord['totally_disbursement_date'] || firstRecord['Totally Disbursement Date'];
+    const hasTotallyDisbDate = totallyDisbDateRaw && totallyDisbDateRaw.toLowerCase() !== 'pending' && totallyDisbDateRaw.trim() !== '' && totallyDisbDateRaw.trim() !== '1/1/1901 00:00';
+    const originalTotallyDisbDate = hasTotallyDisbDate ? formatDate(totallyDisbDateRaw) : 'Pending';
+
+    const currentDeadlineVal = firstRecord['current_disbursement_expiration_date'] || firstRecord['Current Disbursement Expiration Date'];
+    const currentDeadlineStr = formatDate(currentDeadlineVal);
+
+    const rawExtensionVal = firstRecord['cumulative_extension_months'] || firstRecord['Cumulative Extension (Months)'];
+    let extensionMonthsStr = '0 months';
+    if (projectId === 'AR-L1416' || projectId === 'BR-L1656') {
+      extensionMonthsStr = '0 months';
+    } else if (rawExtensionVal && rawExtensionVal.trim() !== '') {
+      extensionMonthsStr = `${rawExtensionVal.trim()} months`;
+    } else {
+      extensionMonthsStr = 'Pending';
+    }
+
     const timeline = {
-      approval: { date: formatDate(firstRecord['Approval Date']), status: firstRecord['Approval Date'] ? 'completed' : 'pending' as any },
-      effectiveness: { date: formatDate(firstRecord['Effective Date']), status: firstRecord['Effective Date'] ? 'completed' : 'pending' as any },
-      eligibility: { date: formatDate(firstRecord['Total Eligibility Date']), status: firstRecord['Total Eligibility Date'] ? 'completed' : 'pending' as any },
-      firstDisbursement: { date: formatDate(firstRecord['First Disbursement Date']), status: firstRecord['First Disbursement Date'] ? 'completed' : 'pending' as any },
+      approval: { date: formatDate(firstRecord['approval_date'] || firstRecord['Approval Date']), status: (firstRecord['approval_date'] || firstRecord['Approval Date']) ? 'completed' : 'pending' as any },
+      effectiveness: { date: formatDate(firstRecord['effective_date'] || firstRecord['Effective Date']), status: (firstRecord['effective_date'] || firstRecord['Effective Date']) ? 'completed' : 'pending' as any },
+      eligibility: { date: formatDate(firstRecord['total_eligibility_date'] || firstRecord['Total Eligibility Date']), status: (firstRecord['total_eligibility_date'] || firstRecord['Total Eligibility Date']) ? 'completed' : 'pending' as any },
+      firstDisbursement: { date: formatDate(firstRecord['first_disbursement_date'] || firstRecord['First Disbursement Date']), status: (firstRecord['first_disbursement_date'] || firstRecord['First Disbursement Date']) ? 'completed' : 'pending' as any },
       lastDisbursement: {
-        date: formatExpDate(expDate),
-        status: (projectId === 'EC-L1251' || projectId === 'PN-L1172' || projectId === 'PN-L1161') ? 'pending' as const : ((expDate !== 'N/A') ? 'completed' as const : 'pending' as const)
+        date: originalTotallyDisbDate,
+        status: hasTotallyDisbDate ? 'completed' as const : 'pending' as const,
+        currentDeadline: currentDeadlineStr
       },
       extension: { 
-        text: (projectId === 'AR-L1416' || projectId === 'BR-L1656') ? '0 months' : (firstRecord['Cumulative Extension (Months)'] ? `${firstRecord['Cumulative Extension (Months)']} months` : 'Pending'),
-        status: (firstRecord['Cumulative Extension (Months)'] || projectId === 'AR-L1416' || projectId === 'BR-L1656') ? 'completed' : 'pending' as any
+        text: extensionMonthsStr,
+        status: (extensionMonthsStr !== 'Pending' && extensionMonthsStr !== '0 months') ? 'completed' as const : 'pending' as const
       },
       closure: { 
         date: projectId === 'BR-L1534' 
-          ? `${formatDate(firstRecord['Closed For Operation Date'])} (CO, pending COO)` 
-          : formatDate(firstRecord['Closed For Operation Date']), 
-        status: firstRecord['Closed For Operation Date'] ? 'completed' : 'pending' as any 
+          ? `${formatDate(firstRecord['closed_for_operation_date'] || firstRecord['Closed For Operation Date'])} (CO, pending COO)` 
+          : formatDate(firstRecord['closed_for_operation_date'] || firstRecord['Closed For Operation Date']), 
+        status: (firstRecord['closed_for_operation_date'] || firstRecord['Closed For Operation Date']) ? 'completed' : 'pending' as any 
       }
     };
 
@@ -970,6 +1171,13 @@ export function usePortfolioData() {
       const item = (timeline as any)[key];
       if (item.date === 'Pending') item.status = 'pending';
     });
+
+    if (projectId === 'EC-L1251') {
+      timeline.lastDisbursement.date = '19/JUN/2026';
+      timeline.lastDisbursement.status = 'completed';
+      timeline.closure.date = '19/JUN/2026';
+      timeline.closure.status = 'completed';
+    }
 
     const pmrHistory: ProjectDetails['pmrHistory'] = [];
     
@@ -1005,7 +1213,8 @@ export function usePortfolioData() {
 
     const pmrStatus = projectId === 'EC-L1230' ? 'SATISFACTORY' : 
                       projectId === 'UR-L1164' ? 'ALERT' : 
-                      (firstRecord['PMR Classification'] || 'N/A');
+                      projectId === 'BR-L1614' ? 'PROBLEM' :
+                      (firstRecord['pmr_classification'] || firstRecord['PMR Classification'] || 'N/A');
 
     const setPmrHistoryYear = (year: number, status: string, hoverText: string) => {
       const idx = pmrHistory.findIndex(item => item.year === year);
@@ -1024,6 +1233,7 @@ export function usePortfolioData() {
 
     if (projectId === 'PE-L1278') {
       setPmrHistoryYear(2025, 'PROBLEM', 'Second period Jan-Dec 2024');
+      setPmrHistoryYear(2026, 'PROBLEM', 'Second period Jan-Dec 2025');
     } else if (projectId === 'CH-L1178') {
       setPmrHistoryYear(2025, 'PROBLEM', 'Second period Jan-Dec 2024');
     } else if (projectId === 'BR-L1592') {
@@ -1031,20 +1241,7 @@ export function usePortfolioData() {
       setPmrHistoryYear(2025, 'SATISFACTORY', 'Second period Jan-Dec 2024');
     } else if (projectId === 'BR-L1614') {
       setPmrHistoryYear(2025, 'SATISFACTORY', 'Second period Jan-Dec 2024');
-    }
-
-    if (timeline.eligibility.date !== 'Pending') {
-      const auto2026 = projectId === 'EC-L1230' ? 'ALERT' : 
-                       projectId === 'UR-L1164' ? 'PROBLEM' : 
-                       pmrStatus;
-      const val2026 = pmrStatus;
-
-      pmrHistory.push({
-        year: 2026,
-        autoCalculatedStatus: auto2026,
-        validatedStatus: val2026,
-        hoverText: 'PMR March Cycle 2026'
-      });
+      setPmrHistoryYear(2026, 'PROBLEM', 'Second period Jan-Dec 2025');
     }
 
     // Sort to ensure chronological order
@@ -1052,29 +1249,37 @@ export function usePortfolioData() {
 
     return {
       id: projectId,
-      name: firstRecord['Title (English)'] || '',
-      country: firstRecord['Country (English)'] || '',
-      countryCode: String(firstRecord['Country Code'] || ''),
-      countryName: getCountryName(String(firstRecord['Country Code'] || ''), String(firstRecord['Country (English)'] || '')),
-      ttl: cleanTTLName(firstRecord['Team Leader'] || ''),
+      name: firstRecord['title_english'] || firstRecord['Title (English)'] || '',
+      country: firstRecord['country_english'] || firstRecord['Country (English)'] || '',
+      countryCode: String(firstRecord['country_code'] || firstRecord['Country Code'] || ''),
+      countryName: getCountryName(String(firstRecord['country_code'] || firstRecord['Country Code'] || ''), String(firstRecord['country_english'] || firstRecord['Country (English)'] || '')),
+      ttl: cleanTTLName(firstRecord['team_leader'] || firstRecord['Team Leader'] || ''),
       pmrStatus,
-      operationStatus: OPERATION_STATUS_MAP[firstRecord['Operation Status Code']] || firstRecord['Operation Status Code'],
-      executingAgency: firstRecord['Executor Name'] || '',
+      operationStatus: projectId === 'EC-L1251' ? 'Closed' : (OPERATION_STATUS_MAP[firstRecord['operation_status_code'] || firstRecord['Operation Status Code']] || (firstRecord['operation_status_code'] || firstRecord['Operation Status Code'])),
+      executingAgency: firstRecord['executor_name'] || firstRecord['Executor Name'] || '',
       linkedLoans,
       currentApprovedAmount: totalApproved,
       disbursedLifeAmount: totalDisbursed,
       disbursedLifePercent: totalApproved > 0 ? (totalDisbursed / totalApproved) * 100 : 0,
       ageInExecution,
-      monthsOfExtension: String(firstRecord['Cumulative Extension (Months)'] || '0'),
-      objective: consolidatedRecord ? consolidatedRecord.objtv_engl : '',
+      monthsOfExtension: String(firstRecord['cumulative_extension_months'] || firstRecord['Cumulative Extension (Months)'] || '0'),
+      objective: (() => {
+        let obj = consolidatedRecord ? consolidatedRecord.objtv_engl : '';
+        if (projectId === 'PE-L1278' && obj) {
+          obj = obj.replace('property tax tax base', 'property tax base');
+        }
+        return obj;
+      })(),
       timeline,
       lastDisbursementMade,
+      localContribution,
+      undisbursedAmountStr,
       financial: {
         originalApprovedAmount: totalOriginal,
         canceledAmount: totalCanceled,
         currentApprovedAmount: totalApproved,
-        deadlineLastDisbursement: formatDate(getVal(firstRecord, 'Current Disbursement Expiration Date')),
-        timeWithoutDisbursements: hasSpecialNoDisb ? specialNoDisbData[projectId].months : undefined,
+        deadlineLastDisbursement: formatDate(getVal(firstRecord, 'current_disbursement_expiration_date')),
+        timeWithoutDisbursements: timeWithoutDisbursements,
         currentApprovedAmountM: totalApproved / 1000000,
         disbursedLifeAmountM: totalDisbursed / 1000000,
         disbursedLifePercent: totalApproved > 0 ? (totalDisbursed / totalApproved) * 100 : 0,

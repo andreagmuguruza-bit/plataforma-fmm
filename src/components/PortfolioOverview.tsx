@@ -4,18 +4,18 @@ import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Respon
 import { usePortfolioData } from '../hooks/usePortfolioData';
 
 const idbData = [
-  { name: 'IFD', value: 14650, percentage: 25, fill: '#005173' },
-  { name: 'SCL', value: 10276, percentage: 18, fill: '#A9B3BC' },
-  { name: 'CSD', value: 4416, percentage: 8, fill: '#A9B3BC' },
-  { name: 'PTI', value: 4361, percentage: 8, fill: '#A9B3BC' },
-  { name: 'INE', value: 24077, percentage: 42, fill: '#A9B3BC' },
+  { name: 'IFD', value: 14609, percentage: 26, fill: '#005173' },
+  { name: 'SCL', value: 10268, percentage: 18, fill: '#A9B3BC' },
+  { name: 'CSD', value: 4214, percentage: 7, fill: '#A9B3BC' },
+  { name: 'PTI', value: 4091, percentage: 7, fill: '#A9B3BC' },
+  { name: 'INE', value: 23972, percentage: 42, fill: '#A9B3BC' },
 ];
 
 const ifdData = [
-  { name: 'FMM', value: 4361, percentage: 29, fill: '#FFC000' },
-  { name: 'ICS', value: 2586, percentage: 18, fill: '#005173' },
-  { name: 'CIS', value: 1137, percentage: 8, fill: '#005173' },
-  { name: 'CMF', value: 6718, percentage: 46, fill: '#005173' },
+  { name: 'FMM', value: 4361, percentage: 30, fill: '#FFC000' },
+  { name: 'ICS', value: 2476, percentage: 17, fill: '#005173' },
+  { name: 'CIS', value: 1069, percentage: 7, fill: '#005173' },
+  { name: 'CMF', value: 6703, percentage: 46, fill: '#005173' },
 ];
 
 const renderActiveShape = (props: any) => {
@@ -69,17 +69,17 @@ const renderCustomizedLabel = (props: any) => {
 };
 
 const barData = [
-  { name: 'FMM', disbursedAmount: 1322, undisbursedAmount: 1113, numberOfProjects: 34, disbursedPct: 54, undisbursedPct: 46 },
-  { name: 'CIS', disbursedAmount: 335, undisbursedAmount: 370, numberOfProjects: 12, disbursedPct: 48, undisbursedPct: 52 },
-  { name: 'CMF', disbursedAmount: 1790, undisbursedAmount: 1706, numberOfProjects: 33, disbursedPct: 51, undisbursedPct: 49 },
-  { name: 'ICS', disbursedAmount: 733, undisbursedAmount: 1063, numberOfProjects: 38, disbursedPct: 41, undisbursedPct: 59 },
+  { name: 'FMM', disbursedAmount: 1565, undisbursedAmount: 1216, numberOfProjects: 41, disbursedPct: 56, undisbursedPct: 44 },
+  { name: 'CIS', disbursedAmount: 427, undisbursedAmount: 439, numberOfProjects: 15, disbursedPct: 49, undisbursedPct: 51 },
+  { name: 'CMF', disbursedAmount: 2817, undisbursedAmount: 1933, numberOfProjects: 41, disbursedPct: 59, undisbursedPct: 41 },
+  { name: 'ICS', disbursedAmount: 1021, undisbursedAmount: 951, numberOfProjects: 39, disbursedPct: 52, undisbursedPct: 48 },
 ];
 
 const allStagesBarData = [
-  { name: 'FMM', disbursedAmount: 1558, undisbursedAmount: 2803, numberOfProjects: 48, disbursedPct: 36, undisbursedPct: 64 },
-  { name: 'CIS', disbursedAmount: 489, undisbursedAmount: 649, numberOfProjects: 19, disbursedPct: 43, undisbursedPct: 57 },
-  { name: 'CMF', disbursedAmount: 2754, undisbursedAmount: 3964, numberOfProjects: 62, disbursedPct: 41, undisbursedPct: 59 },
-  { name: 'ICS', disbursedAmount: 1100, undisbursedAmount: 1486, numberOfProjects: 53, disbursedPct: 43, undisbursedPct: 57 },
+  { name: 'FMM', disbursedAmount: 1565, undisbursedAmount: 2797, numberOfProjects: 48, disbursedPct: 36, undisbursedPct: 64 },
+  { name: 'CIS', disbursedAmount: 427, undisbursedAmount: 642, numberOfProjects: 17, disbursedPct: 40, undisbursedPct: 60 },
+  { name: 'CMF', disbursedAmount: 2817, undisbursedAmount: 3886, numberOfProjects: 50, disbursedPct: 42, undisbursedPct: 58 },
+  { name: 'ICS', disbursedAmount: 1021, undisbursedAmount: 1455, numberOfProjects: 48, disbursedPct: 41, undisbursedPct: 59 },
 ];
 
 const CustomDonutTooltip = ({ active, payload }: any) => {
@@ -262,24 +262,12 @@ export default function PortfolioOverview({ active }: { active: boolean }) {
   const pblCount = 1;
   const invAmount = 3761;
   const pblAmount = 600;
-  const disbursedLifeAmount = 1558;
+  const disbursedLifeAmount = 1565;
   const currentApprovedAmount = 4361;
   const disbursedLifePercent = 36;
 
-  // Update FMM in barData
-  const updatedBarData = barData.map(d => {
-    if (d.name === 'FMM') {
-      return {
-        ...d,
-        disbursedAmount: Math.round(disbursedLifeAmount),
-        undisbursedAmount: Math.round(currentApprovedAmount - disbursedLifeAmount),
-        numberOfProjects: totalProjects,
-        disbursedPct: Math.round(disbursedLifePercent),
-        undisbursedPct: Math.round(100 - disbursedLifePercent)
-      };
-    }
-    return d;
-  });
+  // Use barData directly for dynamic updates
+  const updatedBarData = barData;
 
   // Update FMM in allStagesBarData
   const updatedAllStagesBarData = allStagesBarData.map(d => {
@@ -335,7 +323,7 @@ export default function PortfolioOverview({ active }: { active: boolean }) {
           >
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-zinc-900 mb-3 md:mb-4 tracking-tight">Portfolio Overview</h2>
             <p className="text-lg md:text-xl lg:text-2xl text-zinc-700 leading-relaxed">
-              FMM has <strong className="font-bold text-zinc-900">48</strong> projects for <strong className="font-bold text-zinc-900">$4,361 M</strong>, representing 29% of IFD’s active portfolio.
+              FMM has <strong className="font-bold text-zinc-900">48</strong> projects for <strong className="font-bold text-zinc-900">$4,361 M</strong>, representing 30% of IFD’s active portfolio.
             </p>
           </motion.div>
 
@@ -435,7 +423,7 @@ export default function PortfolioOverview({ active }: { active: boolean }) {
                 style={{ x: isMobile ? "0%" : "-50%" }}
               >
                   <h3 className="text-[#005173] font-bold text-base md:text-lg text-center mb-4 px-4 h-auto md:h-16 flex flex-col items-center justify-end leading-tight">
-                    <span>FMM: Current Approved Amount ($M, %), by Division</span>
+                    <span>IFD: Current Approved Amount ($M, %), by Division</span>
                     <span>(INV and PBL)</span>
                   </h3>
                   <div className="w-full relative">
@@ -529,14 +517,13 @@ export function LendingInstrumentsAndStages() {
   const pblCount = 1;
   const invAmount = 3761;
   const pblAmount = 600;
-  const stage1InvCount = metrics?.stage1InvCount || 7;
-  const stage2InvCount = metrics?.stage2InvCount || 34;
+  const stage1InvCount = metrics?.stage1InvCount || 6;
+  const stage2InvCount = metrics?.stage2InvCount || 37;
   const stage3InvCount = metrics?.stage3InvCount || 4;
-  const stage1InvAmount = metrics?.stage1InvAmount || 0;
-  const stage2InvAmountValue = metrics?.stage2InvAmount || 2435;
-  // User explicitly requested to replace 2400 with 2435 for Stage II
-  const stage2InvAmount = Math.round(stage2InvAmountValue) === 2400 ? 2435 : stage2InvAmountValue;
-  const stage3InvAmount = metrics?.stage3InvAmount || 0;
+  const stage1InvAmount = metrics?.stage1InvAmount || 981;
+  const stage2InvAmountValue = metrics?.stage2InvAmount || 2415;
+  const stage2InvAmount = stage2InvAmountValue;
+  const stage3InvAmount = metrics?.stage3InvAmount || 330;
 
   const activePortfolioData = [
     {
@@ -752,25 +739,13 @@ export function CurrentDisbursement() {
   const totalProjects = 48;
   const stage2Projects = metrics?.stage2InvCount || 34;
   const disbursedLifePercent = 36;
-  const disbursedLifeAmount = 1558;
+  const disbursedLifeAmount = 1565;
   const stage2DisbursedAmount = 1322; // As requested by user
   const stage2TotalApproved = 2435; // 1322 + 1113
   const currentApprovedAmount = 4361;
 
-  // Update FMM in barData
-  const updatedBarData = barData.map(d => {
-    if (d.name === 'FMM') {
-      return {
-        ...d,
-        disbursedAmount: stage2DisbursedAmount,
-        undisbursedAmount: Math.round(stage2TotalApproved - stage2DisbursedAmount),
-        numberOfProjects: stage2Projects,
-        disbursedPct: Math.round((stage2DisbursedAmount / stage2TotalApproved) * 100),
-        undisbursedPct: Math.round(((stage2TotalApproved - stage2DisbursedAmount) / stage2TotalApproved) * 100)
-      };
-    }
-    return d;
-  });
+  // Use barData directly
+  const updatedBarData = barData;
 
   // Update FMM in allStagesBarData
   const updatedAllStagesBarData = allStagesBarData.map(d => {
@@ -847,7 +822,7 @@ export function CurrentDisbursement() {
                   >
                     <div className="text-lg md:text-xl text-zinc-700 leading-relaxed space-y-4 md:space-y-6">
                       <p>
-                        From a total approved amount of <strong className="font-bold text-zinc-900">$4,361 M</strong>, the division has disbursed <strong className="font-bold text-zinc-900">$1,558 M</strong> (36%), leaving a balance of <strong className="font-bold text-zinc-900">$2,803 M</strong> undisbursed.
+                        From a total approved amount of <strong className="font-bold text-zinc-900">$4,361 M</strong>, the division has disbursed <strong className="font-bold text-zinc-900">$1,565 M</strong> (36%), with a balance of <strong className="font-bold text-zinc-900">$2,796 M</strong> undisbursed.
                       </p>
                     </div>
                   </motion.div>
@@ -868,7 +843,7 @@ export function CurrentDisbursement() {
                   >
                     <div className="text-lg md:text-xl text-zinc-700 leading-relaxed space-y-4 md:space-y-6">
                       <p>
-                        However, focusing exclusively on the 34 INV operations in Stage II, the disbursement rate reaches 54%, the highest among all IFD divisions.
+                        When isolating INV operations in Stage II and III, FMM reaches a disbursement rate of 56%.
                       </p>
                     </div>
                   </motion.div>
@@ -988,8 +963,8 @@ export function CurrentDisbursement() {
                 >
                   <div className="w-full flex flex-col">
                     <h3 className={`font-bold text-[#005173] text-center mb-2 leading-tight flex flex-col items-center ${isMobile ? 'text-[14.5px]' : 'text-lg'}`}>
-                      <span>IFD: Disbursed and Undisbursed Amount ($M, %), by Division</span>
-                      <span>(only INV and Stage II)</span>
+                      <span>IFD: Undisbursed and Disbursed Amount ($M, %), by Division</span>
+                      <span>(only INV, Stage II and III)</span>
                     </h3>
                     <div className="w-full h-[350px]">
                       <ResponsiveContainer width="100%" height="100%">

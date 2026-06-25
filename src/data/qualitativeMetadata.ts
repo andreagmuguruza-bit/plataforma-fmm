@@ -11,10 +11,18 @@ export interface ProjectQualitativeMetadata {
 
 export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata> = {
   'EC-L1253': {
-    estadoImplementacion: ['Saldrá en Alerta. Dos procesos importantes de licitacion del SRI que se cayeron impidieron tener el nivel de ejecución financiera esperada. Aduanas está empezando a levantar'],
+    estadoImplementacion: [
+      'El nivel de ejecución financiera se afectó por dos licitaciones fallidas del componente más importante (administración tributaria).',
+      'El componente de aduanas no ejecutó hasta 2025 por falta de apropiación de la contraparte, situación que está empezando a revertirse este año.',
+      'La expectativa es que la adjudicación de dichas licitaciones en 2026 y la mejora del componente de aduanas permita mejorar el desempeño en 2026.',
+      'Para el componente de Servicio de Rentas Internas (SRI), se prevé una solicitud de extensión ya que los procesos del SRI van más allá del plazo de desembolso actual.'
+    ],
     productosDestacados: ['Modernización y digitalización del Sistema de Administración Tributaria.'],
     probabilidadObjetivos: [],
-    accionesSugeridas: ['Corregir las unidades de medida para reflejar avances a lo largo de los años.'],
+    accionesSugeridas: [
+      'Se hará seguimiento a que el componente del SRI avance en el cumplimiento de dos metas de avance físico. Plazo: Mensual.',
+      'Se hará seguimiento a la solicitud de extensión del plazo de desembolso actual para avanzar con el componente del SRI. Plazo: III/2026.'
+    ],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado 15%, DI en Problema.\nNo tenía MF\nMF$ Pa por US$8.4MM, se requiere @80% del Pa, @US$6.0MM de ejecución en 2025, claves 1.2 y P1.3. Al IIS reporta ejecución MF$ de US$125K, @1.5% del Pa del año.\nEstá en Alerta SI:2.2\n\nCiclo 2026;\nDesembolso previsto por US$4.9MM, acumulado 21%, DI estaría en Problema, mínimo para Alerta es 28% acumulado.\nMF Pa en P1.1, P1.2, P1.3, P2.2, P2.4 y P2.5\nMF$ Pa por US$8.92MM, al menos 80%, US$7.14MM, claves P1.2, P1.3, P2.2\nSi cumple desembolsos, MF y MF$ estaría Satisfactorio",
     fechaEvaluacionIntermedia: "Final de 2026",
     fechaTalleresArranque: "Noviembre 2024",
@@ -31,7 +39,10 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: ""
   },
   'UR-L1164': {
-    estadoImplementacion: [],
+    estadoImplementacion: [
+      'Cayó en problema por retrasos propios de la elección subnacional de 2025, a pesar de una planificación conservadora.',
+      'Se espera mejore el desempeño en 2026 con nuevas autoridades subnacionales y licitaciones de obras (principal producto) que ya vienen avanzadas.'
+    ],
     productosDestacados: ['Módulo SIFI de endeudamiento'],
     probabilidadObjetivos: [],
     accionesSugeridas: ['Coordinar la extensión. Tomará unos días más la validación'],
@@ -49,10 +60,10 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: "En VC:\nHay 4 advertencias de error por suma de costos, riesgos, metodología en indicadores.\nNo limitan el inicio del flujo."
   },
   'AR-L1285': {
-    estadoImplementacion: ['Objetivo: mantener ejecución en menos de 30% para no hacer PCR y cancelar y cerrar antes de fin de año para no seguir acumulando PMR negativo. Propuesta de extender un año más la planificación físico/financiera para reducir el riesgo de que se extienda y nos quede en alerta/problema el año que viene.'],
+    estadoImplementacion: ['La planificación de 2025, a pesar de ser conservadora, no pudo cumplirse por demoras del ejecutor y restricciones del gobierno argentino en la ejecución de la inversión pública.'],
     productosDestacados: [],
     probabilidadObjetivos: [],
-    accionesSugeridas: [],
+    accionesSugeridas: ['Se evaluará cerrar el proyecto antes de fin de año con una ejecución de menos del 30%, con lo cual no se requerirá hacer PCR. Plazo: Incierto en función de ejecución físico-financiera.'],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado 25%, DI en Problema.\nMF en P1.1, P1.3, P4.1, P4.2 y P5.3, al IIS reporta MF en P1.1 y P4.1\nMF$ Pa @US$11MM, al IIS reporta ejecución MF$ por US$3MM, @27.3% del Pa del año.\nEstá en Problema\n\nCiclo 2026:\nDesembolsos no estan registrados\nMF Pa en P1.1, P4.2, P5.1,P5.2 y P5.3\nMF$ Pa por US$5.2MM en productos. Dado que es el último año, 100% ejecución, aunque con 80% estaría bien, @US$4.2MM, claves P1.1, P5.1 y P5.2.\nEstaría en Satisfactorio si cumple MF y MF$, aún sin desembolsos, revisar la proyección de desembolsos.\n\nSi no ejecuta, estaría en Problema y sería conveniente CO antes de finalizar el año, por otro lado, si ejecuta, estaría Satisfactorio y contribuiría positivamente a la cartera, no conviene CO este año. Complicado.",
     fechaEvaluacionIntermedia: "",
     verificadorContenidos: "En el VC:\n4 notificaciones por errores en metodología de evaluación en indicadores de SDO, suma de costos, desagregación de indicadores y campos vacíos en la matriz de riesgos y 1 Alertas por temas relacionados a la matriz de riesgos activos por 4 o más ciclos."
@@ -76,10 +87,16 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: "En el VC:\n2 Alertas por temas relacionados a la matriz de riesgos, activos y medidas se mantienen por 4 o más ciclos."
   },
   'BL-L1038': {
-    estadoImplementacion: ['Proyecto logra cambiar a satisfactorio. Habrá cancelación parcial de recursos por productos que se repriorizaron'],
+    estadoImplementacion: [
+      'El proyecto tendrá cancelación parcial de recursos por productos que se repriorizaron, a raíz del cambio de estrategia por parte de la contraparte.',
+      'A raíz de los productos cancelados no se alcanzará el indicador de procurement, lo que requiere evaluar la inclusión de indicadores alternativos de cara al PCR.'
+    ],
     productosDestacados: ['Datawarehouse para el Ministerio de Finanzas'],
     probabilidadObjetivos: ['A raíz de los productos cancelados no se alcanzará el indicador de procurement. Importante identificar alternativa para mejorar probabilidad de PCR satisfactorio.'],
-    accionesSugeridas: ['Monitorear cuándo sería la cancelación parcial por productos no ejecutados (en lo posible este año). Mantener actualizada la MR de cara al PCR'],
+    accionesSugeridas: [
+      'Monitorear cuándo sería la cancelación parcial por productos no ejecutados. Plazo: En lo posible este año. Fecha a ser precisada en función de la definición de cambio de estrategia por parte del ejecutor.',
+      'Mantener actualizada la matriz de resultados de cara al PCR. Plazo: Mensual.'
+    ],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado 42% para DI en Problema.\nMF Pa en P1.1.1, P1.4.1, P1.4.2 y P1.4.3, al IIS reporta ejecución MF en P4.1, P4.2 y P4.3\nMF$ Pa US$1.56MM, al IIS reporta ejecución por @US$1MM, @64% del Pa del año\nEstá en Satisfactorio\n\nCiclo 2026:\nDesembolso previsto US$1.2MM, 57% acumulado, DI estaría en Problema, mínimo para Alerta > 67% acumulado.\nMF en Pa P4.3 y P4.4\nMF$ en Pa por @US$614K, al menos 80%, US$492K, claves P4.3 y P4.4\nSi cumple desembolsos, MF y MF$ podría continuar Satisfactorio.",
     fechaEvaluacionIntermedia: "Abril 2026",
     verificadorContenidos: "En VC:\nHay dos Alertas, una relacionada a valores actuales en indicadores de SDO y otra de acciones de respuesta a riesgos que se mantienen activas por 4 o más ciclos."
@@ -235,6 +252,7 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     accionesSugeridas: [],
     temasCriticosSimulador: "2026:\nElegibilidad Feb 2026.\nRequiere actualizar datos en CVG para simulador.",
     fechaEvaluacionIntermedia: "",
+    fechaTalleresArranque: "Segundo semestre de 2026",
     verificadorContenidos: ""
   },
   'BR-L1629': {
@@ -253,6 +271,7 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     accionesSugeridas: ['Completar el taller de arranque en lo posible en el primer semestre 2026.'],
     temasCriticosSimulador: "Ciclo 2026:\nElegibilidad 04-02-2026\nPendiente completar MdR para simulador.",
     fechaEvaluacionIntermedia: "",
+    fechaTalleresArranque: "Segundo semestre de 2026",
     verificadorContenidos: ""
   },
   'BR-L1658': {
@@ -274,28 +293,48 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: "En VC:\nUna Alerta sobre el modulo de seguimiento a evaluaciones."
   },
   'CO-L1164': {
-    estadoImplementacion: ['Pudo mejorar a satisfactorio gracias a una buena ejecución de una planificación realista de 2025. Recomendación de abrir la ejecución a 2027 para cubrirnos si hay prórroga/no se llega a ejecutar todo en 2026.'],
+    estadoImplementacion: [
+      'El bajo nivel de ejecución del programa responde a una combinación de factores estructurales, institucionales y de contexto que han afectado su capacidad de implementación. Entre los principales elementos se encuentran los ajustes derivados de la pandemia y del cambio de gobierno en 2022, que requirieron la alineación del proyecto con el nuevo Plan Nacional de Desarrollo 2022-2026.',
+      'Adicionalmente, persisten desafíos asociados a capacidades institucionales, gestión contractual, acceso y condiciones de los territorios priorizados, limitaciones de infraestructura tecnológica y factores de gobernabilidad interna.',
+      'Actualmente la solicitud realizada por el gobierno es extender hasta 2028. Se otorgó segunda extensión solo por 12 meses (hasta octubre de 2027) asociada a metas concretas, cuyo cumplimiento es necesario para evaluar una extensión hasta el 2028.'
+    ],
     productosDestacados: ['Levantamiento catastral.'],
     probabilidadObjetivos: [],
-    accionesSugeridas: [],
+    accionesSugeridas: [
+      'Se continuará realizando reuniones de seguimiento quincenales entre el BID y las 4 unidades ejecutoras para revisar el cumplimiento de metas habilitadoras para conceder la extensión. Plazo: quincenal.'
+    ],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado de 66% DI en Satisfactorio.\nEn MF Pa prevista en P1 - P4, P6 - P13, P15 y P16. Al IIS reporta ejecución MF en P1.1, P1.2, P1.3, P1.4, P1.6, P2.1, P2.3, P2.4, P2.5, P2.6, P3.1 y P3.3\nEn MF$ Pa era US$15.6MM, claves P1 y P9. Al IIS reporta ejecución por MF$ US$17.45MM, @111.9% del Pa del año.\nEstá en Satisfactorio\n\nCiclo 2026\nDesembolso previsto para un acumulado de @85%, DI Satisfactorio.\nMF prevista en P1 - P4, P6 - P13, P15 y P16 en Pa.\nEn MF$ Pa tenía US$15.6MM, se requiere al menos @US$12.5MM, claves P1 y P9.\nSi cumple desembolsos, MF y MF$ se mantendría Satisfactorio",
     fechaEvaluacionIntermedia: "2022",
     verificadorContenidos: "En VC:\nHay 5 advertencias por riesgos, productos con campos pendientes, metodología de indicadores de SDO y errores de suma de costos."
   },
   'CO-L1245': {
-    estadoImplementacion: ['2025 tuvo una ejecución financiera superior a lo planificado, lo que contribuyó al desempeño satisfactorio. 2026 también tiene una planificación financiera prudente.'],
+    estadoImplementacion: [
+      'Existen retrasos en la ejecución debido al cambio de estrategia técnica de los proyectos tecnológicos misionales de la entidad. Inicialmente se tenía planeado la adquisición de tecnologías  mediante soluciones tecnológicas prefabricadas; sin embargo, en 2023 se cambió a una estrategia de uso de fábrica de software.',
+      'Dado que estos sistemas son interdependientes, se generó un impacto alto en el cumplimiento de los hitos estratégicos y por tanto en los cronogramas y salida a producción de los sistemas.',
+      'El proyecto ya cuenta con una extensión hasta 2028. Se está evaluando el avance para definir si la unidad ejecutora logra el cumplimiento de los objetivos planteados hasta la fecha límite de desembolso. Se le solicitó a la entidad en junio/2026 la planeación de la totalidad de los recursos del crédito.'
+    ],
     productosDestacados: [],
     probabilidadObjetivos: [],
-    accionesSugeridas: [],
+    accionesSugeridas: [
+      'Se solicitó a la entidad la planeación total de los recursos. Plazo: Junio 2026.',
+      'Se tendrá Misión de supervisión. Plazo: del 1 al 3 de Julio de 2026.',
+      'Se continuarán las reuniones de seguimiento quincenales al proyecto específicamente para aquellos productos que tienen fecha de cumplimiento para 2026. Plazo: Quincenal.'
+    ],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado de 34% para DI Satisfactorio.\nMF prevista en P1.1.2 - P1.3.1., P2.1, P2.3 - P2.6. Al IIS reporta ejecución MF en P1.1, P1.2, P1.3, P2.2, P2.5 y P2.6 (No unitarias, por lo tanto hito no cumple hito)\nEn MF$ Pa era US$1.52MM, claves P1, P2.3, P2.4, P2.5 y P2.6. Al IIS reporta ejecución MF$ por US$1.01MM, @66.4% de la meta Pa del año.\nEstaría en Problema.\n\nCiclo 2026\nDesembolso previsto para un acumulado de @54%, para DI Satisfactorio.\nMF prevista en P1.1, P1.2, P1.3, P1.5, P2.1, P2.3 y P2.4 en Pa.\nEn MF$ Pa tenía US$12.5MM, se requiere al menos @US$10.0MM, claves P1.2, P1.3, P2.3 y P2.4.\nSi cumple desembolsos, MF y MF$ se mantendría Satisfactorio.",
     fechaEvaluacionIntermedia: "Tentativa segundo semestre 2026",
     verificadorContenidos: "En VC:\nHay 3 Alertas por riesgos y acciones de respuesta activas por 4 o más ciclos."
   },
   'EC-L1230': {
-    estadoImplementacion: ['Proyecto en alerta y próximo a cerrar. Se evaluará la probabilidad de generar un producto asociado al desembolso de fin de 2025. Cancelación pendiente de $20.4 millones. Cerrarlo este año'],
+    estadoImplementacion: [
+      'Cayó en Alerta por no haber podido cerrar en 2025, a raíz del desembolso solicitado por el gobierno a fin de año por casi la totalidad del monto aprobado vigente.',
+      'Se cancelaron USD 20.4 M y se realizará una devolución del saldo pendiente. Con ello, se procederá al cierre del proyecto.',
+      'Sí requerirá PCR, que se espera no sea satisfactorio.'
+    ],
     productosDestacados: [],
     probabilidadObjetivos: [],
-    accionesSugeridas: ['Contratar el PCR y cerrar ASAP, sabiendo que es improbable que el PCR sea satisfactorio.'],
+    accionesSugeridas: [
+      'Se dará seguimiento a la cancelación del proyecto (II SEM 2026).'
+    ],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado 72% con DI en Alert.\nMF en P1.1., P1.3, P2.1 y P31 en Pa. Al IIS, reporta ejecución MF en P1.1, P1.3, P2.1 y P3.1(100% de productos previstos en Pa 2025)\nMF$ Pa por US$7.58MM, claves P1.2, P1.3, P1.8, P2.1 y P2.4.\nAl IIS reporta ejecución MF$ por US$1.52MM, @20% ejecución del Pa.\nEstá en Problema.\n\nCiclo 2026:\nDesembolso acumulado 100%, DI Satisfactorio.\nMF en Pa tiene P1.4 - P1.10, P2.2 - P2.6, P3.1, P3.2, P3.3, P3.4, P4.1 y P4.2.\nEn MF$ Pa tiene US$15MM en productos, al menos 80%, @12MM, claves P1.1 - P1.3 y P3.2\nSi cumple desembolsos, MF y MF$ continuaría Satisfactorio - Proyecto en Cierre.",
     fechaEvaluacionIntermedia: "",
     verificadorContenidos: "En VC:\nTiene 3 advertencias por suma de costos, metodología de indicadores de SDO y riesgos activos por 4 o más ciclos."
@@ -337,10 +376,15 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: "En VC:\nUn error por suma de costos y una advertencia de alerta por riesgos activos por 4 o más ciclos."
   },
   'PE-L1266': {
-    estadoImplementacion: ['Pudo mejorar a satisfactorio gracias al logro de dos productos físicos a fin de 2025. Aún falta un claro champion político que impulse el programa'],
+    estadoImplementacion: [
+      'El proyecto pudo obtener calificación satisfactoria en el ciclo PMR 2026 gracias al logro de dos productos físicos a fin de 2025.',
+      'Aún falta un claro champion político que impulse el programa.'
+    ],
     productosDestacados: ['Será el propio SIAF una vez implementado'],
     probabilidadObjetivos: ['Dependerá del empuje de un champion que impulse el tramo final de ejecución'],
-    accionesSugeridas: ['Buscar dinamizar la estrategia de ejecución de cara al cambio de gobierno.'],
+    accionesSugeridas: [
+      'Se buscará dinamizar la estrategia de ejecución de cara al cambio de gobierno en julio de 2026.'
+    ],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado de 75% DI Satisfactorio.\nMF Pa en P1.1, al IIS reportas ejecución de hito de P1.1 cumplida.\nMF$ para 2025 tiene Pa US$5.6MM, se requiere al menos @75-80% para US$4.5MM de ejecución, en especial para P1.3, P2.2, P2.4 y P3.1\nEn IIS 2025, reporta ejecución MF$ por US$6.23MM, @111% de la meta Pa del año.\nEstá en Satisfactorio.\n\nCiclo 2026:\nDesembolso previsto para un acumulado de @88%, para DI Satisfactorio.\nMF Pa en P1.1, P1.2, P1.3, P1.5, P2.1, P2.3 y P2.4.\nEn MF$ Pa tiene US$12.5MM, requiere ejecución @80%, @US$10.0MM, claves P1.2, P1.3, P2.3 y P2.4.\nSi cumple desembolsos, MF y MF$ se mantendría Satisfactorio.",
     fechaEvaluacionIntermedia: "",
     verificadorContenidos: "En VC:\nUna advertencia por error en la suma de costos"
@@ -379,9 +423,10 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     productosDestacados: ['Data lake house: información interoperable de 9 entidades. Laboratorio de científicos de datos que harán análisis para hacer data based policy'],
     probabilidadObjetivos: [],
     accionesSugeridas: [
-      '1. Apoyar iterativamente la definición del alcance  en función de la adhesión de nuevas entidades (IV/2026).',
-      '2. Extender por dos años el programa en función del mejor cronograma posible de ejecución (II/2026).',
-      '3. Evaluar cancelaciones parciales de fondos no comprometidos (IV/2026).'
+      '1. Apoyar iterativamente la definición del alcance en función de la adhesión de nuevas entidades (IV/2026).',
+      '2. Extender por dos años el programa en función del mejor cronograma posible de ejecución y recomendaciones de la evaluación intermedia (II/2026).',
+      '3. Acompañar al JEP en taller de socialización de resultados y planificación física y financiera (II/2026).',
+      '4. Evaluar cancelaciones parciales de fondos no comprometidos (IV/2026).'
     ],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado de @24% DI Satisfactorio.\nMF Pa prevista en P1 - P4, P6 - P13, P15 y P16. Al IIS reporta ejecución MF en P1.1, P1.2, P1.3, P1.4, P1.6, P2.1, P2.3, P2.4, P2.5, P2.6, P3.1 y P3.3\nEn MF$ Pa US$1.52MM, claves P1 y P9. Al IIS reporta ejecución MF$ por US$1.01MM, @66.4% de la meta Pa del año.\nEstá en Satisfactorio.\n\nCiclo 2026\nDesembolso previsto para un acumulado de @45%, para DI Satisfactorio.\nMF Pa en P2.2.\nEn MF$ Pa tiene US$9.6MM, requiere @80%, unos US$7.7MM de ejecución, en especial en P1.1, P1.3, P2.3 - P2.6, P3.4, P3.6.\nSi cumple desembolsos y MF$, estaría en Satisfactorio.",
     fechaEvaluacionIntermedia: "Segundo semestre 2026",
@@ -397,10 +442,13 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: "En VC:\nUna alerta por acción de respuesta a riesgos activa por 4 o más ciclos."
   },
   'SU-L1060': {
-    estadoImplementacion: ['Proyecto pudo mantenerse en satisfactorio pero gracias a una estrategia conservadora de planificación de 2025.'],
+    estadoImplementacion: [
+      'El proyecto pudo mantenerse en satisfactorio, pero gracias a una estrategia conservadora de planificación de 2025.',
+      'Hay alta debilidad y relativa baja apropiación de los componentes de gasto (inversión pública y gestión financiera). Ello será objeto de seguimiento mensual por el equipo de proyecto y trimestral por el equipo de ejecución para definir su continuidad.'
+    ],
     productosDestacados: ['Implementación de la semi-autónoma / Sistema de inversión pública / SIAF actualizado'],
     probabilidadObjetivos: [],
-    accionesSugeridas: ['Recortar un poco la planificación 2026.'],
+    accionesSugeridas: ['Se dará seguimiento a la definición de la continuidad de los  componentes de inversión pública y gestión financiera, que vienen más retrasados. Plazo: JEP mensual y Equipo de Ejecución FMM de manera trimestral.'],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado de @24% para DI Satisfactorio, al IS reporta desembolso acumulado @23% para DI Alerta.\nTenía MF Pa prevista en P1 - P4, P6 - P13, P15 y P16. Al IIS reporta ejecución MF en P1.1, P1.2, P1.3, P1.4, P1.6, P2.1, P2.3, P2.4, P2.5, P2.6, P3.1 y P3.3\nEn MF$ Pa US$1.52MM, claves P1 y P9. Al IIS reporta ejecución MF$ por US$1.01MM, @66.4% de la meta Pa del año.\nEstá en Satisfactorio.\n\nCiclo 2026\nDesembolso previsto para un acumulado de @45% para DI Satisfactorio.\nMF prevista en P1 - P4, P6 - P13, P15 y P16 en Pa.\nEn MF$ Pa tenía US$15.6MM, se requiere al menos @US$12.5MM, claves P1 y P9.\nSi cumple desembolsos, MF y MF$ se mantendría Satisfactorio.",
     fechaEvaluacionIntermedia: "Se tratará de hacer este año",
     verificadorContenidos: "En VC:\nHay 3 alertas por riesgos activos por 4 o más ciclos."

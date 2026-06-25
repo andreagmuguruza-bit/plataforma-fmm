@@ -6,10 +6,10 @@ import {
 } from 'recharts';
 
 const ageData = [
-  { name: 'CIS', age: 4.5 },
+  { name: 'CIS', age: 5.2 },
+  { name: 'FMM', age: 4.8 },
   { name: 'ICS', age: 4.2 },
-  { name: 'FMM', age: 4.0 },
-  { name: 'CMF', age: 2.1 },
+  { name: 'CMF', age: 3.3 },
 ];
 
 const sectorData = [
@@ -34,7 +34,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         {isAgeChart ? (
           <p className="mb-1">
             <span className="font-bold text-zinc-500">Average Age:</span>{' '}
-            <span className="font-bold text-[#005274]">{data.age} years</span>
+            <span className="font-bold text-[#005274]">{typeof data.age === 'number' ? data.age.toFixed(1) : data.age} years</span>
           </p>
         ) : (
           <>
@@ -58,7 +58,7 @@ const CustomAgeLabel = (props: any) => {
   const { x, y, width, value } = props;
   return (
     <text x={x + width / 2} y={y - 12} fill="#005274" textAnchor="middle" fontSize={11} fontWeight={500}>
-      {value}
+      {typeof value === 'number' ? value.toFixed(1) : value}
     </text>
   );
 };
@@ -110,7 +110,7 @@ export default function PortfolioAgeAndSectors() {
       >
         <h2 className="text-2xl md:text-4xl font-bold text-zinc-900 mb-4 md:mb-6 tracking-tight text-center lg:text-left">Portfolio Age</h2>
         <p className="text-base md:text-xl text-zinc-700 leading-relaxed w-full text-center lg:text-left">
-          The FMM active portfolio has an average age of 4 years, above the IFD department average (3.5). Currently, <strong className="font-bold text-zinc-900">35%</strong> of the projects have exceeded 5 years in execution, and <strong className="font-bold text-zinc-900">35%</strong> have requested extensions.
+          The FMM active portfolio has an average age of 4.8 years, above the IDB (4.6) and the IFD department (4.1) averages. Currently, <strong className="font-bold text-zinc-900">38%</strong> of the projects have exceeded 5 years in execution, and <strong className="font-bold text-zinc-900">35%</strong> have requested extensions.
         </p>
       </motion.div>
 
@@ -125,7 +125,7 @@ export default function PortfolioAgeAndSectors() {
         >
           <h3 className="text-base sm:text-lg font-bold text-[#005274] mb-4 text-center flex flex-col px-2">
             <span>IFD: Average Portfolio Age (in years) in 2026, by Division</span>
-            <span>(INV and PBL)</span>
+            <span>(INV and PBL)<sup>1/</sup></span>
           </h3>
           <div className="w-full flex flex-col">
             <div className="w-full">
@@ -136,8 +136,8 @@ export default function PortfolioAgeAndSectors() {
                   <YAxis hide domain={[0, 6]} />
                   <RechartsTooltip content={<CustomTooltip />} cursor={{fill: '#f4f4f5'}} />
                   
-                  <ReferenceLine segment={[{ x: 'CIS', y: 4.1 }, { x: 'CMF', y: 4.1 }]} stroke="#FFC000" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: 'IDB (4.1)', fill: '#FFC000', fontSize: 10, fontWeight: 'bold' }} />
-                  <ReferenceLine segment={[{ x: 'CIS', y: 3.5 }, { x: 'CMF', y: 3.5 }]} stroke="#00bcd4" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: 'IFD (3.5)', fill: '#00bcd4', fontSize: 10, fontWeight: 'bold' }} />
+                  <ReferenceLine segment={[{ x: 'CIS', y: 4.6 }, { x: 'CMF', y: 4.6 }]} stroke="#FFC000" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: 'IDB (4.6)', fill: '#FFC000', fontSize: 10, fontWeight: 'bold' }} />
+                  <ReferenceLine segment={[{ x: 'CIS', y: 4.1 }, { x: 'CMF', y: 4.1 }]} stroke="#00bcd4" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: 'IFD (4.1)', fill: '#00bcd4', fontSize: 10, fontWeight: 'bold' }} />
                   
                   <Bar 
                     dataKey="age" 
@@ -169,6 +169,9 @@ export default function PortfolioAgeAndSectors() {
                 <span>IDB</span>
               </div>
             </div>
+            <p className="text-[10px] sm:text-xs text-zinc-500 mt-3 text-left pl-12 sm:pl-16">
+              <sup>1/</sup> It is calculated from approval to date.
+            </p>
           </div>
         </motion.div>
       </div>

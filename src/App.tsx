@@ -8,6 +8,7 @@ import ProjectSelector from './components/ProjectSelector';
 import PortfolioLanding from './components/PortfolioLanding';
 import QualitativeProcess from './components/QualitativeProcess';
 import Alerts from './components/Alerts';
+import MidTermEvaluations from './components/MidTermEvaluations';
 import ClosureTable from './components/ClosureTable';
 import { Settings, User as UserIcon, HelpCircle, Database as DatabaseIcon, LogOut, Home, ClipboardCheck, X, ChevronDown, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,7 +16,7 @@ import { usePortfolioData } from './hooks/usePortfolioData';
 import { QUALITATIVE_METADATA_MAP } from './data/qualitativeMetadata';
 
 type MainTab = 'PORTFOLIO' | 'DESIGN' | 'EXECUTION' | 'CLOSURE';
-type ExecutionView = 'landing' | 'portfolio' | 'project-selector' | 'project-view' | 'qualitative-process' | 'alerts';
+type ExecutionView = 'landing' | 'portfolio' | 'project-selector' | 'project-view' | 'qualitative-process' | 'alerts' | 'mid-term-evaluations' | 'critical-procurement';
 
 const MOCK_USERS: User[] = [
   { id: '1', name: 'Effectiveness Team', email: 'effectiveness@iadb.org', role: 'EFFECTIVENESS_TEAM' },
@@ -26,7 +27,10 @@ const MOCK_USERS: User[] = [
 const EFFECTIVENESS_TEAM_MEMBERS = [
   { name: 'Radics, Gustavo Axel', email: 'AXELRADICS@IADB.ORG' },
   { name: 'MENDOZA CASTRO , HECTOR AGUSTIN', email: 'HMENDOZA@IADB.ORG' },
-  { name: 'Guardia Muguruza, Andrea', email: 'ANDREAGUA@IADB.ORG' }
+  { name: 'Guardia Muguruza, Andrea', email: 'ANDREAGUA@IADB.ORG' },
+  { name: 'Yarygina Udovenko, Anastasiya', email: 'ANASTASIYAY@IADB.ORG' },
+  { name: 'DESTEFANO, MARIA ELISA', email: 'MDESTEFANO@IADB.ORG' },
+  { name: 'Roman Sanchez, Susana', email: 'SROMAN@IADB.ORG' }
 ];
 
 const TTL_INFO = [
@@ -57,7 +61,8 @@ export default function App() {
   const [portfolioFilter, setPortfolioFilter] = useState<'INV' | 'PBL' | null>(null);
   const [isPmrMode, setIsPmrMode] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
-  const [projectSourceView, setProjectSourceView] = useState<'portfolio' | 'alerts'>('portfolio');
+  const [projectSourceView, setProjectSourceView] = useState<'portfolio' | 'alerts' | 'project-view' | 'mid-term-evaluations' | 'critical-procurement'>('portfolio');
+  const [previousSourceView, setPreviousSourceView] = useState<'portfolio' | 'alerts' | 'mid-term-evaluations' | 'critical-procurement'>('portfolio');
   const [alertsState, setAlertsState] = useState<any>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -204,7 +209,7 @@ export default function App() {
             <Menu className="w-6 h-6 text-zinc-600" />
           </button>
           <div className="flex items-center gap-2 md:gap-3 cursor-pointer" onClick={() => setMainTab('PORTFOLIO')}>
-            <img src="/idb-logo.png" alt="IDB Logo" className="h-[38.4px] md:h-10 object-contain" />
+            <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" className="h-[38.4px] md:h-10 object-contain" />
             <div className="hidden sm:block w-px h-5 md:h-6 bg-zinc-300"></div>
             <h1 className="text-[14.4px] md:text-sm font-semibold tracking-tight whitespace-nowrap text-zinc-700">
               FMM Effectiveness Platform
@@ -389,7 +394,7 @@ export default function App() {
                 >
                   <div className="p-4 border-b border-zinc-100 flex items-center justify-between">
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <img src="/idb-logo.png" alt="IDB Logo" className="h-7 object-contain" />
+                      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" className="h-7 object-contain" />
                       <div className="w-px h-5 bg-zinc-300 mx-0.5"></div>
                       <span className="text-[11px] font-semibold tracking-tight text-zinc-700 whitespace-nowrap">FMM Effectiveness Platform</span>
                     </div>
@@ -445,6 +450,8 @@ export default function App() {
                 }}
                 onSelectProjectLevel={() => setExecutionView('project-selector')}
                 onSelectAlerts={() => setExecutionView('alerts')}
+                onSelectMidTermEvaluations={() => setExecutionView('mid-term-evaluations')}
+                onSelectCriticalProcurement={() => setExecutionView('critical-procurement')}
                 totalProjects={metrics?.totalProjects}
               />
             )}
@@ -453,7 +460,15 @@ export default function App() {
               <div className="p-6 max-w-7xl mx-auto w-full">
                 <Alerts 
                   projects={projects}
-                  onBack={() => setExecutionView('landing')}
+                  onBack={() => {
+                    if (projectSourceView === 'project-view') {
+                      setExecutionView('project-view');
+                      setProjectSourceView(previousSourceView);
+                    } else {
+                      setExecutionView('landing');
+                    }
+                  }}
+                  backLabel={projectSourceView === 'project-view' ? 'Back to Project' : 'Back to Execution'}
                   onSelectProject={(id) => {
                     setSelectedProjectId(id);
                     setProjectSourceView('alerts');
@@ -461,6 +476,51 @@ export default function App() {
                   }}
                   initialState={alertsState || undefined}
                   onStateChange={setAlertsState}
+                />
+              </div>
+            )}
+
+            {executionView === 'mid-term-evaluations' && (
+              <div className="p-6 max-w-7xl mx-auto w-full">
+                <MidTermEvaluations 
+                  projects={projects}
+                  onBack={() => {
+                    if (projectSourceView === 'project-view') {
+                      setExecutionView('project-view');
+                      setProjectSourceView(previousSourceView);
+                    } else {
+                      setExecutionView('landing');
+                    }
+                  }}
+                  backLabel={projectSourceView === 'project-view' ? 'Back to Project' : 'Back to Execution'}
+                  onSelectProject={(id) => {
+                    setSelectedProjectId(id);
+                    setProjectSourceView('mid-term-evaluations');
+                    setExecutionView('project-view');
+                  }}
+                />
+              </div>
+            )}
+
+            {executionView === 'critical-procurement' && (
+              <div className="p-6 max-w-7xl mx-auto w-full">
+                <MidTermEvaluations 
+                  projects={projects}
+                  isCriticalProcurement={true}
+                  onBack={() => {
+                    if (projectSourceView === 'project-view') {
+                      setExecutionView('project-view');
+                      setProjectSourceView(previousSourceView);
+                    } else {
+                      setExecutionView('landing');
+                    }
+                  }}
+                  backLabel={projectSourceView === 'project-view' ? 'Back to Project' : 'Back to Execution'}
+                  onSelectProject={(id) => {
+                    setSelectedProjectId(id);
+                    setProjectSourceView('critical-procurement');
+                    setExecutionView('project-view');
+                  }}
                 />
               </div>
             )}
@@ -516,8 +576,48 @@ export default function App() {
               <div className="p-6 max-w-7xl mx-auto w-full">
                 <ProjectView 
                   project={selectedProject} 
-                  onBack={() => setExecutionView(projectSourceView)} 
+                  initialTab={
+                    projectSourceView === 'mid-term-evaluations' 
+                      ? 'midterm' 
+                      : projectSourceView === 'critical-procurement'
+                      ? 'critical_procurement'
+                      : 'baseline'
+                  }
+                  onBack={() => {
+                    const backView = projectSourceView === 'project-view' ? 'portfolio' : projectSourceView;
+                    setExecutionView(backView);
+                  }} 
                   onUpdate={updateProject}
+                  onNavigateToAlert={(alertNumber, alertTitle) => {
+                    const tabId = `card-${alertNumber}`;
+                    const currentOpenTabs = alertsState?.openTabs || [{ id: 'overview', number: 0, title: 'Scorecard' }];
+                    const alreadyOpen = currentOpenTabs.some((t: any) => t.id === tabId);
+                    const newOpenTabs = alreadyOpen 
+                      ? currentOpenTabs 
+                      : [...currentOpenTabs, { id: tabId, number: alertNumber, title: alertTitle }];
+
+                    const defaultTabFilters = {
+                      id: [],
+                      name: [],
+                      country: [],
+                      ttl: [],
+                      status: []
+                    };
+
+                    const newState = {
+                      openTabs: newOpenTabs,
+                      activeTabId: tabId,
+                      tabSearchTerm: '',
+                      selectedSlice: null,
+                      tabFilters: alertsState?.tabFilters || defaultTabFilters,
+                      tabSortConfig: alertsState?.tabSortConfig || { key: '', direction: null }
+                    };
+
+                    setAlertsState(newState);
+                    setPreviousSourceView(projectSourceView === 'project-view' ? 'portfolio' : projectSourceView);
+                    setProjectSourceView('project-view');
+                    setExecutionView('alerts');
+                  }}
                 />
               </div>
             )}
