@@ -140,9 +140,9 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
 
     return {
       ...displayMetrics.pmrInvOnly,
-      satisfactory: { count: satisfactory, percent: (satisfactory / total) * 100 },
-      alert: { count: alert, percent: (alert / total) * 100 },
-      problem: { count: problem, percent: (problem / total) * 100 },
+      satisfactory: { count: satisfactory, percent: total > 0 ? (satisfactory / total) * 100 : 0 },
+      alert: { count: alert, percent: total > 0 ? (alert / total) * 100 : 0 },
+      problem: { count: problem, percent: total > 0 ? (problem / total) * 100 : 0 },
     };
   }, [displayMetrics]);
 
@@ -156,9 +156,9 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
 
     return {
       ...displayMetrics.pmrInvOnly,
-      satisfactory: { count: satisfactory, percent: (satisfactory / total) * 100 },
-      alert: { count: alert, percent: (alert / total) * 100 },
-      problem: { count: problem, percent: (problem / total) * 100 },
+      satisfactory: { count: satisfactory, percent: total > 0 ? (satisfactory / total) * 100 : 0 },
+      alert: { count: alert, percent: total > 0 ? (alert / total) * 100 : 0 },
+      problem: { count: problem, percent: total > 0 ? (problem / total) * 100 : 0 },
     };
   }, [displayMetrics]);
 
