@@ -151,13 +151,13 @@ const getCardDetails = (cardNumber: number, list: Project[]) => {
       };
     }
     case 5: {
-      const yellowIds = ['PE-L1266', 'EC-L1253', 'PN-L1172'];
+      const yellowIds = ['PE-L1266', 'EC-L1253', 'PN-L1172', 'UR-L1164', 'SU-L1060'];
       const greenIds = [
         'UR-L1111', 'BR-L1377', 'BR-L1511', 'BR-L1534', 'EC-L1251',
         'EC-L1230', 'BL-L1031', 'PE-L1231', 'BR-L1501', 'BR-L1516',
         'PE-L1239', 'BR-L1527', 'AR-L1248', 'BR-L1535', 'BR-L1550',
         'BR-L1533', 'BR-L1517', 'PR-L1150', 'BL-L1038', 'CO-L1164',
-        'CO-L1245', 'PN-L1161', 'AR-L1285'
+        'CO-L1245', 'PN-L1161', 'AR-L1285', 'BR-L1539'
       ];
 
       const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
@@ -488,11 +488,11 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
   const card4YellowLabel = polarToCartesian(86, 86, 58, 165);
   const card4GreenLabel = polarToCartesian(86, 86, 58, 300);
 
-  // Card 5 Donut: Yellow (0 to 41.5 deg), Green (41.5 to 360 deg)
-  const card5YellowArc = describeArc(86, 86, 58, 0, 41.5);
-  const card5GreenArc = describeArc(86, 86, 58, 41.5, 360);
-  const card5YellowLabel = polarToCartesian(86, 86, 58, 20.7);
-  const card5GreenLabel = polarToCartesian(86, 86, 58, 200.7);
+  // Card 5 Donut: Yellow (0 to 62 deg), Green (62 to 360 deg)
+  const card5YellowArc = describeArc(86, 86, 58, 0, 62);
+  const card5GreenArc = describeArc(86, 86, 58, 62, 360);
+  const card5YellowLabel = polarToCartesian(86, 86, 58, 31);
+  const card5GreenLabel = polarToCartesian(86, 86, 58, 211);
 
   // Card 6 Donut: Yellow (0 to 105 deg), Green (105 to 360 deg)
   const card6YellowArc = describeArc(86, 86, 58, 0, 105);
@@ -658,7 +658,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
         break;
       case 5:
         subtitle = null;
-        projectsCount = 26;
+        projectsCount = 29;
         donutChart = (
           <svg width="172" height="172" className="transform -rotate-90">
             <path 
@@ -681,8 +681,8 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
               className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
               strokeLinecap="butt" 
             />
-            <text x={card5YellowLabel.x} y={card5YellowLabel.y} transform={`rotate(90, ${card5YellowLabel.x}, ${card5YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>3</text>
-            <text x={card5GreenLabel.x} y={card5GreenLabel.y} transform={`rotate(90, ${card5GreenLabel.x}, ${card5GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>23</text>
+            <text x={card5YellowLabel.x} y={card5YellowLabel.y} transform={`rotate(90, ${card5YellowLabel.x}, ${card5YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>5</text>
+            <text x={card5GreenLabel.x} y={card5GreenLabel.y} transform={`rotate(90, ${card5GreenLabel.x}, ${card5GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>24</text>
           </svg>
         );
         legends = (

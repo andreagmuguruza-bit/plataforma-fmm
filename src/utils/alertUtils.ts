@@ -34,7 +34,7 @@ export function getAlertsForProject(projectId: string): AlertInfo[] {
   }
 
   // Card 5
-  if (['PE-L1266', 'EC-L1253', 'PN-L1172'].includes(projectId)) {
+  if (['PE-L1266', 'EC-L1253', 'PN-L1172', 'UR-L1164', 'SU-L1060'].includes(projectId)) {
     alerts.push({ number: 5, color: 'yellow', title: 'Disbursed life amount' });
   } else if ([
     'UR-L1111', 'BR-L1377', 'BR-L1511', 'BR-L1534', 'EC-L1251',
@@ -126,7 +126,7 @@ export function getAlertTagForProject(projectId: string, alertNumber: number): {
       }
       return { tag: 'N/A', color: 'grey' };
     case 5:
-      if (['PE-L1266', 'EC-L1253', 'PN-L1172'].includes(projectId)) {
+      if (['PE-L1266', 'EC-L1253', 'PN-L1172', 'UR-L1164', 'SU-L1060'].includes(projectId)) {
         return { tag: '10%-25% Desembolsado', color: 'yellow' };
       }
       return { tag: '>25% Desembolsado', color: 'green' };

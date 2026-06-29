@@ -63,7 +63,7 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     estadoImplementacion: ['La planificación de 2025, a pesar de ser conservadora, no pudo cumplirse por demoras del ejecutor y restricciones del gobierno argentino en la ejecución de la inversión pública.'],
     productosDestacados: [],
     probabilidadObjetivos: [],
-    accionesSugeridas: ['Se evaluará cerrar el proyecto antes de fin de año con una ejecución de menos del 30%, con lo cual no se requerirá hacer PCR. Plazo: Incierto en función de ejecución físico-financiera.'],
+    accionesSugeridas: ['Se evaluará cerrar el proyecto antes de fin de año con una ejecución de menos del 30%, con lo cual no se requerirá hacer PCR. Plazo: Diciembre 2026 (estimado). Fecha a ser precisada en en función de ejecución físico-financiera.'],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado 25%, DI en Problema.\nMF en P1.1, P1.3, P4.1, P4.2 y P5.3, al IIS reporta MF en P1.1 y P4.1\nMF$ Pa @US$11MM, al IIS reporta ejecución MF$ por US$3MM, @27.3% del Pa del año.\nEstá en Problema\n\nCiclo 2026:\nDesembolsos no estan registrados\nMF Pa en P1.1, P4.2, P5.1,P5.2 y P5.3\nMF$ Pa por US$5.2MM en productos. Dado que es el último año, 100% ejecución, aunque con 80% estaría bien, @US$4.2MM, claves P1.1, P5.1 y P5.2.\nEstaría en Satisfactorio si cumple MF y MF$, aún sin desembolsos, revisar la proyección de desembolsos.\n\nSi no ejecuta, estaría en Problema y sería conveniente CO antes de finalizar el año, por otro lado, si ejecuta, estaría Satisfactorio y contribuiría positivamente a la cartera, no conviene CO este año. Complicado.",
     fechaEvaluacionIntermedia: "",
     verificadorContenidos: "En el VC:\n4 notificaciones por errores en metodología de evaluación en indicadores de SDO, suma de costos, desagregación de indicadores y campos vacíos en la matriz de riesgos y 1 Alertas por temas relacionados a la matriz de riesgos activos por 4 o más ciclos."
@@ -94,7 +94,7 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     productosDestacados: ['Datawarehouse para el Ministerio de Finanzas'],
     probabilidadObjetivos: ['A raíz de los productos cancelados no se alcanzará el indicador de procurement. Importante identificar alternativa para mejorar probabilidad de PCR satisfactorio.'],
     accionesSugeridas: [
-      'Monitorear cuándo sería la cancelación parcial por productos no ejecutados. Plazo: En lo posible este año. Fecha a ser precisada en función de la definición de cambio de estrategia por parte del ejecutor.',
+      'Monitorear cuándo sería la cancelación parcial por productos no ejecutados. Plazo: Diciembre 2026 (estimado). Fecha a ser precisada en función de la definición de cambio de estrategia por parte del ejecutor.',
       'Mantener actualizada la matriz de resultados de cara al PCR. Plazo: Mensual.'
     ],
     temasCriticosSimulador: "Ciclo 2025:\nDesembolso acumulado 42% para DI en Problema.\nMF Pa en P1.1.1, P1.4.1, P1.4.2 y P1.4.3, al IIS reporta ejecución MF en P4.1, P4.2 y P4.3\nMF$ Pa US$1.56MM, al IIS reporta ejecución por @US$1MM, @64% del Pa del año\nEstá en Satisfactorio\n\nCiclo 2026:\nDesembolso previsto US$1.2MM, 57% acumulado, DI estaría en Problema, mínimo para Alerta > 67% acumulado.\nMF en Pa P4.3 y P4.4\nMF$ en Pa por @US$614K, al menos 80%, US$492K, claves P4.3 y P4.4\nSi cumple desembolsos, MF y MF$ podría continuar Satisfactorio.",
