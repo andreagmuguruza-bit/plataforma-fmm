@@ -326,6 +326,7 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
   },
   'EC-L1230': {
     estadoImplementacion: [
+      'El proyecto se vio afectado por la rotación de autoridades debido al cambio de gobierno, lo que afectó directamente en la toma de decisiones para tener una reforma a la Ley APP. Además, hubo falta de interés de las autoridades de turno y problemas de caja fiscal. El último año, MEF no otorgó presupuesto, a excepción de las actividades administrativas para el cierre de la operación.',
       'Cayó en Alerta por no haber podido cerrar en 2025, a raíz del desembolso solicitado por el gobierno a fin de año por casi la totalidad del monto aprobado vigente.',
       'Se cancelaron USD 20.4 M y se realizará una devolución del saldo pendiente. Con ello, se procederá al cierre del proyecto.',
       'Sí requerirá PCR, que se espera no sea satisfactorio.'
@@ -340,7 +341,10 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: "En VC:\nTiene 3 advertencias por suma de costos, metodología de indicadores de SDO y riesgos activos por 4 o más ciclos."
   },
   'EC-L1251': {
-    estadoImplementacion: ['Pendiente devolución final para cerrar. No requiere PCR'],
+    estadoImplementacion: [
+      'La alta rotación de funcionarios y el cambio de gobierno afectaron la toma de decisiones para tener una ley a la reforma de empresas públicas, lo que generó que gran parte del proyecto no se pueda ejecutar. Además, los problemas de caja fiscal generaron que el proyecto no tenga espacio presupuestario para recibir desembolsos del banco.',
+      'Pendiente devolución final para cerrar. No requiere PCR'
+    ],
     productosDestacados: [],
     probabilidadObjetivos: [],
     accionesSugeridas: [],
@@ -358,7 +362,10 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: ""
   },
   'PE-L1231': {
-    estadoImplementacion: ['Invierte termina el 31 de mayo; OSCE a fin de año.'],
+    estadoImplementacion: [
+      'Las causas que afectaron el proyecto son el déficit presupuestal del país, retrasos por falta de personal técnico, alta rotación de funcionarios y retrasos en la revisión de entregables. Pese a ello, existe alta probabilidad de cumplir con los objetivos del proyecto, con +90% de avance financiero.',
+      'Invierte termina el 31 de mayo; OSCE a fin de año.'
+    ],
     productosDestacados: ['Guías actualizadas de preinversión / Capacitación a nivel subnacional / (falta sistema informático de inversión pública) / (buscamos implementar el nuevo sistema de compras)'],
     probabilidadObjetivos: ['Utilizar informes previos para actualizar matrices de productos y resultados, de cara a la preparación del PCR en 2027.'],
     accionesSugeridas: ['Posible extensión del préstamo Invierte hasta fin de año. No dar CO hasta asegurar completitud de la MR.'],
@@ -395,6 +402,17 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     probabilidadObjetivos: [],
     accionesSugeridas: ['Actualizar el taller de arranque y su correspondiente planificación (start up plan) de cara al ciclo setiembre 2026'],
     temasCriticosSimulador: "Pendiente de completar carga de datos en CVG para simulador.",
+    fechaEvaluacionIntermedia: "",
+    verificadorContenidos: ""
+  },
+  'PE-L1288': {
+    estadoImplementacion: [
+      'El PBL es DDO, por lo que el gobierno lo activará en función de las necesidades de financimiento. Plazo: III TRIM 2026'
+    ],
+    productosDestacados: [],
+    probabilidadObjetivos: [],
+    accionesSugeridas: [],
+    temasCriticosSimulador: "",
     fechaEvaluacionIntermedia: "",
     verificadorContenidos: ""
   },
