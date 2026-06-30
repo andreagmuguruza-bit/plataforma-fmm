@@ -1261,7 +1261,7 @@ export default function Dashboard({ projects, onSelectProject, onBack, isReadOnl
                       </td>
                       <td className="px-1.5 py-2.5 text-center text-zinc-500 text-[10px] font-medium whitespace-pre-line">
                         {project.operations.map(o => {
-                          const value = project.projectNumber === 'BR-L1377' ? o.percent.toFixed(1) : Math.round(o.percent);
+                          const value = project.projectNumber === 'BR-L1377' ? o.percent.toFixed(1) : (project.projectNumber === 'UR-L1111' ? o.percent.toFixed(2) : Math.round(o.percent));
                           return `${value}%`;
                         }).join('\n')}
                       </td>

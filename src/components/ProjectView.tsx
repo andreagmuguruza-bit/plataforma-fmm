@@ -878,7 +878,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Disbursed Life<br className="lg:hidden" /> Amount:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '100%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
+                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '100%' : project.id === 'UR-L1111' ? '99.98%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Undisbursed Amount:</span>
@@ -1394,7 +1394,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                           style={{ width: `${details.financial.disbursedLifePercent}%` }}
                         >
                           <span className="relative z-10 text-[9px] lg:text-[10px] font-bold" style={{ color: '#ffffff' }}>
-                            {project.id === 'EC-L1251' ? '100%' : project.id === 'PN-L1172' ? '10%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
+                            {project.id === 'EC-L1251' ? '100%' : project.id === 'PN-L1172' ? '10%' : project.id === 'UR-L1111' ? '99.98%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
                           </span>
                         </div>
                       </div>
@@ -2164,7 +2164,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Disbursed Life Amount:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '100%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
+                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '100%' : project.id === 'UR-L1111' ? '99.98%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Undisbursed Amount:</span>
@@ -2305,7 +2305,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                           style={{ width: `${details.financial.disbursedLifePercent}%` }}
                         >
                           <span className="relative z-10 text-xs font-bold" style={{ color: '#ffffff' }}>
-                            {project.id === 'EC-L1251' ? '100%' : project.id === 'PN-L1172' ? '10%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
+                            {project.id === 'EC-L1251' ? '100%' : project.id === 'PN-L1172' ? '10%' : project.id === 'UR-L1111' ? '99.98%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
                           </span>
                         </div>
                       </div>

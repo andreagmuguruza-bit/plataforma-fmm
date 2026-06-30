@@ -628,7 +628,7 @@ export function usePortfolioData() {
                 number: row['operation_number'] || row['Operation Number'] || '',
                 approved: approved,
                 disbursed: disbursed,
-                percent: approved > 0 ? (disbursed / approved) * 100 : 0
+                percent: projNum === 'UR-L1111' ? 99.98 : (approved > 0 ? (disbursed / approved) * 100 : 0)
               }]
             });
             
@@ -680,7 +680,7 @@ export function usePortfolioData() {
               number: row['operation_number'] || row['Operation Number'] || '',
               approved: approved,
               disbursed: disbursed,
-              percent: approved > 0 ? (disbursed / approved) * 100 : 0
+              percent: projNum === 'UR-L1111' ? 99.98 : (approved > 0 ? (disbursed / approved) * 100 : 0)
             });
             
             // Add to amounts for existing projects
@@ -805,7 +805,7 @@ export function usePortfolioData() {
             status: statusText,
             currentApprovedAmount: row.currentApprovedAmount,
             disbursedLifeAmount: row.disbursedLifeAmount,
-            disbursedLifePercent: row.currentApprovedAmount > 0 ? (row.disbursedLifeAmount / row.currentApprovedAmount) * 100 : 0,
+            disbursedLifePercent: projNum === 'UR-L1111' ? 99.98 : (row.currentApprovedAmount > 0 ? (row.disbursedLifeAmount / row.currentApprovedAmount) * 100 : 0),
             pmrClassification: pmrClass,
             lendingInstrumentId: row.lendingInstrumentId,
             ageInExecution: ageInExecution,
@@ -967,7 +967,7 @@ export function usePortfolioData() {
     const totalCanceled = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'cancelled_amount')), 0);
 
     const totalApproved = projectId === 'EC-L1251' ? 6818191.00 : (projectId === 'PN-L1172' ? 20000000.00 : (projectId === 'UR-L1111' ? 74017643.85 : totalApprovedVal));
-    const totalDisbursed = projectId === 'EC-L1251' ? 6818191.00 : (projectId === 'PN-L1172' ? 2024294.22 : totalDisbursedVal);
+    const totalDisbursed = projectId === 'EC-L1251' ? 6818191.00 : (projectId === 'PN-L1172' ? 2024294.22 : (projectId === 'UR-L1111' ? 74000000.00 : totalDisbursedVal));
 
     const eligibilityDateStr = firstRecord['total_eligibility_date'] || firstRecord['Total Eligibility Date'];
     let ageInExecution = '';
@@ -1276,7 +1276,7 @@ export function usePortfolioData() {
       countryName: getCountryName(String(firstRecord['country_code'] || firstRecord['Country Code'] || ''), String(firstRecord['country_english'] || firstRecord['Country (English)'] || '')),
       ttl: cleanTTLName(firstRecord['team_leader'] || firstRecord['Team Leader'] || ''),
       pmrStatus,
-      operationStatus: projectId === 'EC-L1251' ? 'Closed' : (OPERATION_STATUS_MAP[firstRecord['operation_status_code'] || firstRecord['Operation Status Code']] || (firstRecord['operation_status_code'] || firstRecord['Operation Status Code'])),
+      operationStatus: projectId === 'EC-L1251' ? 'Closed' : (projectId === 'UR-L1111' ? 'DI - Disbursing' : (OPERATION_STATUS_MAP[firstRecord['operation_status_code'] || firstRecord['Operation Status Code']] || (firstRecord['operation_status_code'] || firstRecord['Operation Status Code']))),
       executingAgency: firstRecord['executor_name'] || firstRecord['Executor Name'] || '',
       linkedLoans,
       currentApprovedAmount: totalApproved,
