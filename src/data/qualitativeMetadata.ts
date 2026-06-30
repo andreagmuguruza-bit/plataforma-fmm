@@ -397,7 +397,7 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: "En VC:\nUna advertencia por error en la suma de costos"
   },
   'PE-L1278': {
-    estadoImplementacion: ['A punto de obtener elegibilidad, habiendo cumplido condiciones previas.'],
+    estadoImplementacion: ['Se declaró elegible el 26 de marzo de 2026. Se espera gatillar prontamente la ejecución.'],
     productosDestacados: [],
     probabilidadObjetivos: [],
     accionesSugeridas: ['Actualizar el taller de arranque y su correspondiente planificación (start up plan) de cara al ciclo setiembre 2026'],
@@ -490,7 +490,9 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: "En VC:\nTiene 6 advertencias por riesgos, productos con campos vacíos o pendientes y metodología de indicadores."
   },
   'UR-L1205': {
-    estadoImplementacion: [],
+    estadoImplementacion: [
+      'No se identifican riesgos que puedan comprometer la continuidad del proyecto.'
+    ],
     productosDestacados: [],
     probabilidadObjetivos: [],
     accionesSugeridas: [],
