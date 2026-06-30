@@ -472,7 +472,7 @@ export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata
     verificadorContenidos: "En VC:\nHay 3 alertas por riesgos activos por 4 o más ciclos."
   },
   'UR-L1111': {
-    estadoImplementacion: ['Comenzando PCR. Cierre esperado junio 2026.'],
+    estadoImplementacion: ['Pendiente desembolsar USD 17k. Cierre esperado en 2026.'],
     productosDestacados: ['SIIF, Ampliacion Bases Normativas Departamentales Digitales (BNDD) y de la unificacion del Registro Único Nacional de Alimentos, Empresas y Vehículos (RUNAEV), que incluye la inscripción, el registro y la habilitación de alimentos y de empresas y vehículos vinculados a la producción y comercialización de alimentos. Además, diversas iniciativas de renovacion urbana y obras de infraestructra (Fondo Concursables) que son consideradas las principales intervenciones realizadas por los gobiernos departamentales en UY.'],
     probabilidadObjetivos: [],
     accionesSugeridas: ['Completar PMR con estado de implementación / Lecciones aprendidas'],

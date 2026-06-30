@@ -68,7 +68,7 @@ export function getAlertsForProject(projectId: string): AlertInfo[] {
   // Card 7
   if (['BR-L1377', 'UR-L1111'].includes(projectId)) {
     alerts.push({ number: 7, color: 'yellow', title: 'Partial cancellations' });
-  } else if (['EC-L1230', 'PE-L1231', 'EC-L1251'].includes(projectId)) {
+  } else if (['EC-L1230', 'PE-L1231'].includes(projectId)) {
     alerts.push({ number: 7, color: 'red', title: 'Partial cancellations' });
   } else if ([
     'AR-L1416', 'BR-L1629', 'BR-L1656', 'BR-L1658', 'ME-L1309',
@@ -79,7 +79,7 @@ export function getAlertsForProject(projectId: string): AlertInfo[] {
     'PN-L1172', 'BR-L1550', 'EC-L1253', 'SU-L1060', 'BR-L1539',
     'BR-L1540', 'UR-L1164', 'UR-L1193', 'BR-L1599', 'BR-L1513',
     'BR-L1525', 'CH-L1178', 'BR-L1592', 'AR-L1405', 'PR-L1192',
-    'BR-L1643', 'BR-L1614', 'PE-L1278'
+    'BR-L1643', 'BR-L1614', 'PE-L1278', 'EC-L1251'
   ].includes(projectId)) {
     alerts.push({ number: 7, color: 'green', title: 'Partial cancellations' });
   }
@@ -141,7 +141,7 @@ export function getAlertTagForProject(projectId: string, alertNumber: number): {
       }
       return { tag: 'Sin alerta o problema', color: 'green' };
     case 7:
-      if (['EC-L1230', 'PE-L1231', 'EC-L1251'].includes(projectId)) {
+      if (['EC-L1230', 'PE-L1231'].includes(projectId)) {
         return { tag: 'Cancelación > 15%', color: 'red' };
       }
       if (['BR-L1377', 'UR-L1111'].includes(projectId)) {

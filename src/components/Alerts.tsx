@@ -218,7 +218,7 @@ const getCardDetails = (cardNumber: number, list: Project[]) => {
     }
     case 7: {
       const yellowIds = ['BR-L1377', 'UR-L1111'];
-      const redIds = ['EC-L1230', 'PE-L1231', 'EC-L1251'];
+      const redIds = ['EC-L1230', 'PE-L1231'];
       const greenIds = [
         'AR-L1416', 'BR-L1629', 'BR-L1656', 'BR-L1658', 'ME-L1309',
         'PE-L1288', 'UR-L1205', 'AR-L1248', 'PE-L1239', 'BR-L1501',
@@ -228,7 +228,7 @@ const getCardDetails = (cardNumber: number, list: Project[]) => {
         'PN-L1172', 'BR-L1550', 'EC-L1253', 'SU-L1060', 'BR-L1539',
         'BR-L1540', 'UR-L1164', 'UR-L1193', 'BR-L1599', 'BR-L1513',
         'BR-L1525', 'CH-L1178', 'BR-L1592', 'AR-L1405', 'PR-L1192',
-        'BR-L1643', 'BR-L1614', 'PE-L1278'
+        'BR-L1643', 'BR-L1614', 'PE-L1278', 'EC-L1251'
       ];
 
       const redProjects = redIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
@@ -500,13 +500,13 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
   const card6YellowLabel = polarToCartesian(86, 86, 58, 52.5);
   const card6GreenLabel = polarToCartesian(86, 86, 58, 232.5);
 
-  // Card 7 Donut: Red (0 to 23 deg), Yellow (23 to 38 deg), Green (38 to 360 deg)
-  const card7RedArc = describeArc(86, 86, 58, 0, 23);
-  const card7YellowArc = describeArc(86, 86, 58, 23, 38);
-  const card7GreenArc = describeArc(86, 86, 58, 38, 360);
-  const card7RedLabel = polarToCartesian(86, 86, 58, 11.5);
-  const card7YellowLabel = polarToCartesian(86, 86, 58, 30.5);
-  const card7GreenLabel = polarToCartesian(86, 86, 58, 199);
+  // Card 7 Donut: Red (0 to 15 deg), Yellow (15 to 31 deg), Green (31 to 360 deg)
+  const card7RedArc = describeArc(86, 86, 58, 0, 15);
+  const card7YellowArc = describeArc(86, 86, 58, 15, 31);
+  const card7GreenArc = describeArc(86, 86, 58, 31, 360);
+  const card7RedLabel = polarToCartesian(86, 86, 58, 7.5);
+  const card7YellowLabel = polarToCartesian(86, 86, 58, 23);
+  const card7GreenLabel = polarToCartesian(86, 86, 58, 195.5);
 
   // Card 8 Donut: Yellow (0 to 300 deg), Green (300 to 360 deg)
   const card8YellowArc = describeArc(86, 86, 58, 0, 300);
@@ -764,9 +764,9 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
               className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
               strokeLinecap="butt" 
             />
-            <text x={card7RedLabel.x} y={card7RedLabel.y} transform={`rotate(90, ${card7RedLabel.x}, ${card7RedLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>3</text>
+            <text x={card7RedLabel.x} y={card7RedLabel.y} transform={`rotate(90, ${card7RedLabel.x}, ${card7RedLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>2</text>
             <text x={card7YellowLabel.x} y={card7YellowLabel.y} transform={`rotate(90, ${card7YellowLabel.x}, ${card7YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>2</text>
-            <text x={card7GreenLabel.x} y={card7GreenLabel.y} transform={`rotate(90, ${card7GreenLabel.x}, ${card7GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>43</text>
+            <text x={card7GreenLabel.x} y={card7GreenLabel.y} transform={`rotate(90, ${card7GreenLabel.x}, ${card7GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>44</text>
           </svg>
         );
         legends = (

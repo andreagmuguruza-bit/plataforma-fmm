@@ -966,7 +966,7 @@ export function usePortfolioData() {
     const totalOriginal = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'original_approved_amount')), 0);
     const totalCanceled = projectRecords.reduce((sum, r) => sum + parseAmount(getVal(r, 'cancelled_amount')), 0);
 
-    const totalApproved = projectId === 'EC-L1251' ? 6818191.00 : (projectId === 'PN-L1172' ? 20000000.00 : totalApprovedVal);
+    const totalApproved = projectId === 'EC-L1251' ? 6818191.00 : (projectId === 'PN-L1172' ? 20000000.00 : (projectId === 'UR-L1111' ? 74017643.85 : totalApprovedVal));
     const totalDisbursed = projectId === 'EC-L1251' ? 6818191.00 : (projectId === 'PN-L1172' ? 2024294.22 : totalDisbursedVal);
 
     const eligibilityDateStr = firstRecord['total_eligibility_date'] || firstRecord['Total Eligibility Date'];
@@ -1025,6 +1025,8 @@ export function usePortfolioData() {
       lastDisbursementMade = '27/FEB/2025';
     } else if (projectId === 'PN-L1172') {
       lastDisbursementMade = '14/MAR/2024';
+    } else if (projectId === 'UR-L1111') {
+      lastDisbursementMade = '25/JUL/2025';
     } else if (lastDisbDateStr) {
       lastDisbursementMade = formatCustomSpanishDate(lastDisbDateStr);
     } else {
@@ -1056,6 +1058,13 @@ export function usePortfolioData() {
     } else if (projectId === 'PN-L1172') {
       const lastDisbTime = new Date(2024, 2, 14).getTime();
       const today = new Date(2026, 5, 16);
+      const diffMs = today.getTime() - lastDisbTime;
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      const diffMonths = Math.max(0, diffDays / 30.4375);
+      timeWithoutDisbursements = Math.round(diffMonths).toString();
+    } else if (projectId === 'UR-L1111') {
+      const lastDisbTime = new Date(2025, 6, 25).getTime(); // 25/JUL/2025
+      const today = new Date(2026, 5, 16); // 16/JUN/2026
       const diffMs = today.getTime() - lastDisbTime;
       const diffDays = diffMs / (1000 * 60 * 60 * 24);
       const diffMonths = Math.max(0, diffDays / 30.4375);
@@ -1140,8 +1149,8 @@ export function usePortfolioData() {
     const expDate = lastDisbExpirationDates[projectId] || 'N/A';
 
     const totallyDisbDateRaw = firstRecord['totally_disbursement_date'] || firstRecord['Totally Disbursement Date'];
-    const hasTotallyDisbDate = totallyDisbDateRaw && totallyDisbDateRaw.toLowerCase() !== 'pending' && totallyDisbDateRaw.trim() !== '' && totallyDisbDateRaw.trim() !== '1/1/1901 00:00';
-    const originalTotallyDisbDate = hasTotallyDisbDate ? formatDate(totallyDisbDateRaw) : 'Pending';
+    const hasTotallyDisbDate = projectId === 'UR-L1111' ? false : (totallyDisbDateRaw && totallyDisbDateRaw.toLowerCase() !== 'pending' && totallyDisbDateRaw.trim() !== '' && totallyDisbDateRaw.trim() !== '1/1/1901 00:00');
+    const originalTotallyDisbDate = projectId === 'UR-L1111' ? 'Pending' : (hasTotallyDisbDate ? formatDate(totallyDisbDateRaw) : 'Pending');
 
     const currentDeadlineVal = firstRecord['current_disbursement_expiration_date'] || firstRecord['Current Disbursement Expiration Date'];
     const currentDeadlineStr = formatDate(currentDeadlineVal);
@@ -1295,7 +1304,7 @@ export function usePortfolioData() {
         currentApprovedAmountM: totalApproved / 1000000,
         disbursedLifeAmountM: totalDisbursed / 1000000,
         disbursedLifePercent: totalApproved > 0 ? (totalDisbursed / totalApproved) * 100 : 0,
-        isDisbursedFully: totalApproved > 0 && (totalDisbursed / totalApproved) === 1
+        isDisbursedFully: projectId === 'UR-L1111' ? false : (totalApproved > 0 && (totalDisbursed / totalApproved) === 1)
       },
       pmrHistory,
       historicalPerformanceData,
