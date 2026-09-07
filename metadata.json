@@ -1,5 +1,6 @@
 {
   "name": "Fiscal Management AI Platform",
   "description": "Multi-Agent RAG Architecture for PMR processing, featuring Historian, Scribe, and Evaluator agents.",
-  "requestFramePermissions": ["microphone"]
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

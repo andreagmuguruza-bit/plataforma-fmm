@@ -1,8 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Project, User } from '../types';
-import { ArrowLeft, TrendingUp, Edit2, Check, Send, RotateCcw, History, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Edit2, Check, Send, RotateCcw, History, CheckCircle2, Loader2, CloudUpload } from 'lucide-react';
 import { motion } from 'motion/react';
 import { usePortfolioData } from '../hooks/usePortfolioData';
+
+const GOOGLE_APPS_SCRIPT_URL = 
+  (import.meta as unknown as { env: Record<string, string> }).env?.VITE_GOOGLE_APPS_SCRIPT_URL || 
+  'https://script.google.com/macros/s/AKfycbx6ZqbarSBQgr2dukCC5TclKm0YAKxAPsc2XdqVSP80DniqJ9c1LTcWzlMb6-UWUpGW/exec';
+
+const formatDDMMMYY = (d: Date = new Date()): string => {
+  const day = String(d.getDate()).padStart(2, '0');
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = monthNames[d.getMonth()];
+  const year = String(d.getFullYear()).slice(-2);
+  return `${day}-${month}-${year}`;
+};
 
 const getDotColor = (status: string) => {
   const s = String(status || '').toUpperCase().trim();
@@ -82,6 +94,75 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [isLoadingRemote, setIsLoadingRemote] = useState(false);
+  const [isSavingRemote, setIsSavingRemote] = useState(false);
+
+  // Fetch prefilled qualitative data from Google Apps Script if available
+  useEffect(() => {
+    let isMounted = true;
+    async function loadRemoteData() {
+      if (!GOOGLE_APPS_SCRIPT_URL) return;
+      setIsLoadingRemote(true);
+      try {
+        const queryUrl = `${GOOGLE_APPS_SCRIPT_URL}${GOOGLE_APPS_SCRIPT_URL.includes('?') ? '&' : '?'}action=getProject&projectId=${encodeURIComponent(project.id)}&_t=${Date.now()}`;
+        const response = await fetch(queryUrl, {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' }
+        });
+
+        if (response.ok) {
+          const resJson = await response.json();
+          if (isMounted && resJson) {
+            const remoteData = resJson.data || resJson.qualitativeData || resJson;
+            
+            // Populate form fields
+            setData(prev => ({
+              estadoImplementacion: remoteData.estadoImplementacion || project.qualitativeData?.estadoImplementacion || prev.estadoImplementacion,
+              productosDestacados: remoteData.productosDestacados || project.qualitativeData?.productosDestacados || prev.productosDestacados,
+              probabilidadObjetivos: remoteData.probabilidadObjetivos || project.qualitativeData?.probabilidadObjetivos || prev.probabilidadObjetivos,
+              accionesSugeridas: remoteData.accionesSugeridas || project.qualitativeData?.accionesSugeridas || prev.accionesSugeridas,
+              fechaEvaluacionIntermedia: remoteData.fechaEvaluacionIntermedia || project.qualitativeData?.fechaEvaluacionIntermedia || prev.fechaEvaluacionIntermedia,
+              fechaTalleresArranque: remoteData.fechaTalleresArranque || project.qualitativeData?.fechaTalleresArranque || prev.fechaTalleresArranque,
+              temasCriticosSimulador: remoteData.temasCriticosSimulador || project.qualitativeData?.temasCriticosSimulador || prev.temasCriticosSimulador,
+              verificadorContenidos: remoteData.verificadorContenidos || project.qualitativeData?.verificadorContenidos || prev.verificadorContenidos,
+            }));
+
+            // Read metadata persistence
+            const rawPrefilled = resJson.isPrefilledByTeam ?? remoteData.isPrefilledByTeam;
+            const rawValidated = resJson.validatedByTTLDate ?? remoteData.validatedByTTLDate;
+
+            const isPrefilledResolved = rawPrefilled !== undefined 
+              ? (rawPrefilled === true || rawPrefilled === 'true' || rawPrefilled === 'TRUE' || rawPrefilled === 1)
+              : project.isPrefilledByTeam;
+
+            const validatedDateResolved = rawValidated !== undefined
+              ? (rawValidated && String(rawValidated).trim() !== '' && String(rawValidated).toLowerCase() !== 'null' ? String(rawValidated) : null)
+              : project.validatedByTTLDate;
+
+            onUpdate({
+              ...project,
+              isPrefilledByTeam: isPrefilledResolved,
+              validatedByTTLDate: validatedDateResolved,
+              qualitativeData: {
+                ...project.qualitativeData,
+                ...(typeof remoteData === 'object' ? remoteData : {})
+              }
+            });
+          }
+        }
+      } catch (e) {
+        // Fallback gracefully to existing project metadata
+        console.debug('No remote data found or endpoint unreachable; keeping current status.');
+      } finally {
+        if (isMounted) {
+          setIsLoadingRemote(false);
+        }
+      }
+    }
+
+    loadRemoteData();
+    return () => { isMounted = false; };
+  }, [project.id]);
 
   const handleEdit = (section: string) => {
     if (editingSection === section) {
@@ -96,13 +177,10 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
     setJustSubmitted(false);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
+    setIsSavingRemote(true);
     const today = new Date();
-    const formattedDate = today.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric'
-    });
+    const formattedDate = formatDDMMMYY(today); // DD-MMM-YY format e.g. 31-Aug-26
     
     const updatedProject: Project = {
       ...project,
@@ -111,16 +189,57 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
 
     if (currentUser.role === 'EFFECTIVENESS_TEAM') {
       updatedProject.isPrefilledByTeam = true;
-      updatedProject.validatedByTTLDate = null; // Reverts to Pending TTL validation if it was validated
+      updatedProject.validatedByTTLDate = null; // Reverts to Pending TTL validation
     } else if (currentUser.role === 'TTL') {
+      updatedProject.isPrefilledByTeam = true;
       updatedProject.validatedByTTLDate = formattedDate;
     }
     
     onUpdate(updatedProject);
-
     setJustSubmitted(true);
     setIsEditing(false);
     setEditingSection(null);
+
+    // Persist via POST to Google Apps Script
+    try {
+      const payload = {
+        action: 'saveQualitativeData',
+        projectId: project.id,
+        operationNumber: project.operationNumber || '',
+        projectName: project.name,
+        country: project.country || project.countryName || '',
+        ttl: project.ttl || '',
+        user: {
+          username: currentUser.id || currentUser.name,
+          name: currentUser.name,
+          email: currentUser.email,
+          role: currentUser.role
+        },
+        role: currentUser.role,
+        actionType: currentUser.role === 'EFFECTIVENESS_TEAM' ? 'prefilling' : 'validation',
+        qualitativeData: {
+          ...data,
+          isPrefilledByTeam: updatedProject.isPrefilledByTeam,
+          validatedByTTLDate: updatedProject.validatedByTTLDate
+        },
+        isPrefilledByTeam: updatedProject.isPrefilledByTeam,
+        validatedByTTLDate: updatedProject.validatedByTTLDate,
+        timestamp: new Date().toISOString(),
+        formattedDate: formattedDate
+      };
+
+      await fetch(GOOGLE_APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(payload)
+      });
+    } catch (err) {
+      console.warn('Google Apps Script persistence notice (saved in local memory):', err);
+    } finally {
+      setIsSavingRemote(false);
+    }
   };
 
   const isSubmitted = currentUser.role === 'EFFECTIVENESS_TEAM' ? project.isPrefilledByTeam : !!project.validatedByTTLDate;
@@ -480,9 +599,17 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
         </div>
 
         <div className="mt-8 flex items-center justify-center gap-6">
+          {isLoadingRemote && (
+            <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-100 px-3 py-1.5 rounded-md border border-zinc-200">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#005173]" />
+              <span>Sincronizando datos de Google Apps Script...</span>
+            </div>
+          )}
+
           {justSubmitted && (
-            <div className="bg-[#4EA72E]/10 text-zinc-600 px-8 py-3 rounded-lg font-medium text-sm border border-[#4EA72E]/20 shadow-sm">
-              {currentUser.role === 'EFFECTIVENESS_TEAM' ? 'Thanks for your submission!' : 'Thanks for your validation!'}
+            <div className="bg-[#4EA72E]/10 text-zinc-700 px-6 py-3 rounded-lg font-medium text-sm border border-[#4EA72E]/20 shadow-sm flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-[#4EA72E]" />
+              <span>{currentUser.role === 'EFFECTIVENESS_TEAM' ? 'Thanks for your submission! (Data saved)' : 'Thanks for your validation! (Data saved)'}</span>
             </div>
           )}
 
@@ -500,10 +627,20 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
             <div className="w-full flex justify-end">
               <button 
                 onClick={handleSend}
-                className="flex items-center gap-2 bg-[#005173] text-white px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-widest hover:bg-[#003d57] transition-colors shadow-md"
+                disabled={isSavingRemote}
+                className="flex items-center gap-2 bg-[#005173] text-white px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-widest hover:bg-[#003d57] transition-colors shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                <Send className="w-4 h-4" />
-                {currentUser.role === 'EFFECTIVENESS_TEAM' ? 'SAVE PREFILLING' : 'SAVE VALIDATION'}
+                {isSavingRemote ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>SAVING...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>{currentUser.role === 'EFFECTIVENESS_TEAM' ? 'SAVE PREFILLING' : 'SAVE VALIDATION'}</span>
+                  </>
+                )}
               </button>
             </div>
           )}

@@ -11,6 +11,52 @@ interface ProjectSelectorProps {
   selectedEffectivenessMember?: string;
 }
 
+export function isTtlMatch(projectTtl?: string, userTtlName?: string, username?: string, userFullName?: string): boolean {
+  if (!projectTtl) return false;
+  const p = projectTtl.toUpperCase().trim();
+  
+  if (userTtlName) {
+    const u = userTtlName.toUpperCase().trim();
+    if (p === u || p.includes(u) || u.includes(p)) return true;
+    const pTokens = p.replace(/[^A-Z]/g, ' ').split(/\s+/).filter(t => t.length > 2);
+    const uTokens = u.replace(/[^A-Z]/g, ' ').split(/\s+/).filter(t => t.length > 2);
+    const common = pTokens.filter(t => uTokens.includes(t));
+    if (common.length >= 2) return true;
+    if (pTokens.length === 1 && uTokens.includes(pTokens[0])) return true;
+  }
+
+  if (userFullName) {
+    const fn = userFullName.toUpperCase().trim();
+    if (p === fn || p.includes(fn) || fn.includes(p)) return true;
+    const fnTokens = fn.replace(/[^A-Z]/g, ' ').split(/\s+/).filter(t => t.length > 2);
+    const pTokens = p.replace(/[^A-Z]/g, ' ').split(/\s+/).filter(t => t.length > 2);
+    const common = pTokens.filter(t => fnTokens.includes(t));
+    if (common.length >= 2) return true;
+  }
+
+  if (username) {
+    const un = username.toLowerCase().trim();
+    if (un.includes('ubaldo') && p.includes('GONZALEZ')) return true;
+    if (un.includes('ardanaz') && p.includes('ARDANAZ')) return true;
+    if (un.includes('calijuri') && p.includes('CALIJURI')) return true;
+    if (un.includes('chamorro') && p.includes('CHAMORRO')) return true;
+    if (un.includes('ciavolih') && p.includes('CIAVOLIH')) return true;
+    if (un.includes('juanluis') && p.includes('GOMEZ REINO')) return true;
+    if (un.includes('goncalves') && p.includes('GONCALVES')) return true;
+    if (un.includes('harper') && p.includes('HARPER')) return true;
+    if (un.includes('llempen') && p.includes('LLEMPEN')) return true;
+    if (un.includes('lora') && p.includes('LORA')) return true;
+    if (un.includes('macdowell') && (p.includes('MAC DOWELL') || p.includes('MACDOWELL'))) return true;
+    if (un.includes('martinez') && p.includes('MARTINEZ')) return true;
+    if (un.includes('motta') && p.includes('MOTTA')) return true;
+    if (un.includes('munoz') && p.includes('MUNOZ')) return true;
+    if (un.includes('reyes') && p.includes('REYES')) return true;
+    if (un.includes('zaltsman') && p.includes('ZALTSMAN')) return true;
+    if (un.includes('yarygina') && p.includes('YARYGINA')) return true;
+  }
+  return false;
+}
+
 export default function ProjectSelector({ projects, onSelectProject, currentUser, selectedTTL, selectedEffectivenessMember }: ProjectSelectorProps) {
   const [filterProject, setFilterProject] = useState('');
   const [filterCountry, setFilterCountry] = useState('');
@@ -40,7 +86,12 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
 
   const filteredProjects = projects.filter(project => {
     if (currentUser.role === 'TTL') {
-      return project.ttl === selectedTTL;
+      return isTtlMatch(
+        project.ttl, 
+        selectedTTL || currentUser.ttlName, 
+        currentUser.username || currentUser.id, 
+        currentUser.name
+      );
     }
     
     // Effectiveness Team filters

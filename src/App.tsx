@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { initialProjects } from './data';
 import { Project, User, UserRole } from './types';
 import Dashboard from './components/Dashboard';
@@ -10,50 +10,18 @@ import QualitativeProcess from './components/QualitativeProcess';
 import Alerts from './components/Alerts';
 import MidTermEvaluations from './components/MidTermEvaluations';
 import ClosureTable from './components/ClosureTable';
-import { Settings, User as UserIcon, HelpCircle, Database as DatabaseIcon, LogOut, Home, ClipboardCheck, X, ChevronDown, Menu } from 'lucide-react';
+import { User as UserIcon, LogOut, Home, ClipboardCheck, X, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { usePortfolioData } from './hooks/usePortfolioData';
 import { QUALITATIVE_METADATA_MAP } from './data/qualitativeMetadata';
+import Login from './components/Login';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
 type MainTab = 'PORTFOLIO' | 'DESIGN' | 'EXECUTION' | 'CLOSURE';
 type ExecutionView = 'landing' | 'portfolio' | 'project-selector' | 'project-view' | 'qualitative-process' | 'alerts' | 'mid-term-evaluations' | 'critical-procurement';
 
-const MOCK_USERS: User[] = [
-  { id: '1', name: 'Effectiveness Team', email: 'effectiveness@iadb.org', role: 'EFFECTIVENESS_TEAM' },
-  { id: '2', name: 'Division Chief', email: 'chief@iadb.org', role: 'DIVISION_CHIEF' },
-  { id: '3', name: 'TTL', email: 'ttl@iadb.org', role: 'TTL' }
-];
-
-const EFFECTIVENESS_TEAM_MEMBERS = [
-  { name: 'Radics, Gustavo Axel', email: 'AXELRADICS@IADB.ORG' },
-  { name: 'MENDOZA CASTRO , HECTOR AGUSTIN', email: 'HMENDOZA@IADB.ORG' },
-  { name: 'Guardia Muguruza, Andrea', email: 'ANDREAGUA@IADB.ORG' },
-  { name: 'Yarygina Udovenko, Anastasiya', email: 'ANASTASIYAY@IADB.ORG' },
-  { name: 'DESTEFANO, MARIA ELISA', email: 'MDESTEFANO@IADB.ORG' },
-  { name: 'Roman Sanchez, Susana', email: 'SROMAN@IADB.ORG' }
-];
-
-const TTL_INFO = [
-  { name: 'Martin Ardanaz', email: 'MARTINA@iadb.org' },
-  { name: 'Jessica Chamorro', email: 'JESSICACH@IADB.ORG' },
-  { name: 'Sergio Ciavolih', email: 'SERGIOCI@IADB.ORG' },
-  { name: 'Juan Luis Gomez', email: 'jgomezreino@IADB.ORG' },
-  { name: 'Carlos Goncalves', email: 'cgoncalves@iadb.org' },
-  { name: 'Ubaldo', email: 'UBALDOG@IADB.ORG' },
-  { name: 'Leslie harper', email: 'LESLIEHA@iadb.org' },
-  { name: 'Zoila Llempen', email: 'ZOILAL@IADB.ORG' },
-  { name: 'Oscar lora', email: 'OLORAROCHA@iadb.org' },
-  { name: 'Maria cristina mac dowell', email: 'mmacdowell@IADB.ORG' },
-  { name: 'Andre Martinez', email: 'ANDREMA@IADB.ORG' },
-  { name: 'Renata motta', email: 'RMOTTACAFE@IADB.ORG' },
-  { name: 'Andres Munoz', email: 'ANDRESMU@iadb.org' },
-  { name: 'Zoila Navarro', email: 'ZOILAN@IADB.ORG' },
-  { name: 'Gerardo Reyes', email: 'GERARDOR@iadb.org' },
-  { name: 'Anastasiya', email: 'ANASTASIYAY@IADB.ORG' },
-  { name: 'Ariel', email: 'TEODOROZ@iadb.org' }
-];
-
-export default function App() {
+function MainApp() {
+  const { user, activeRole, setActiveRole, isLoggedIn, logout } = useAuth();
   const { tableData, metrics } = usePortfolioData();
   const [mainTab, setMainTab] = useState<MainTab>('PORTFOLIO');
   const [projects, setProjects] = useState<Project[]>(initialProjects);
@@ -66,14 +34,26 @@ export default function App() {
   const [alertsState, setAlertsState] = useState<any>(null);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<User>(MOCK_USERS[0]);
-  const [selectedTTL, setSelectedTTL] = useState<string>('');
-  const [selectedEffectivenessMember, setSelectedEffectivenessMember] = useState<string>(EFFECTIVENESS_TEAM_MEMBERS[0].name);
 
-  const ttls = Array.from(new Set(tableData.map(row => row.ttl))).filter(Boolean).sort();
+  // Derive currentUser object compatible with all child components
+  const currentUser: User = useMemo(() => {
+    if (!user) {
+      return { id: 'fmm', name: 'FMM Team', email: 'fmm@iadb.org', role: 'GENERAL_FMM' };
+    }
+    return {
+      id: user.username,
+      name: user.name,
+      email: user.email,
+      role: activeRole,
+      username: user.username,
+      ttlName: user.ttlName,
+      isDualRole: user.isDualRole,
+      allowedRoles: user.allowedRoles
+    };
+  }, [user, activeRole]);
 
   // Initialize projects from tableData if not already initialized with more than mock data
-  React.useEffect(() => {
+  useEffect(() => {
     if (tableData.length > 0 && projects.length <= 1) {
       const mappedProjects: Project[] = tableData.map(row => ({
         index: row.index,
@@ -114,17 +94,10 @@ export default function App() {
       }));
       setProjects(mappedProjects);
     }
-  }, [tableData]);
-
-  // Update selectedTTL when switching to TTL role if not set
-  React.useEffect(() => {
-    if (currentUser.role === 'TTL' && !selectedTTL && ttls.length > 0) {
-      setSelectedTTL(ttls[0]);
-    }
-  }, [currentUser.role, ttls, selectedTTL]);
+  }, [tableData, projects.length]);
 
   // Scroll to top on view change
-  React.useEffect(() => {
+  useEffect(() => {
     window.scrollTo(0, 0);
   }, [mainTab, executionView, selectedProjectId]);
 
@@ -132,7 +105,7 @@ export default function App() {
     let finalProject = { ...updatedProject };
     
     // RBAC Rule: If Effectiveness Team saves a validated project, reset validation
-    if (currentUser.role === 'EFFECTIVENESS_TEAM' && updatedProject.validatedByTTLDate) {
+    if (activeRole === 'EFFECTIVENESS_TEAM' && updatedProject.validatedByTTLDate) {
       finalProject.validatedByTTLDate = null;
     }
     
@@ -145,13 +118,16 @@ export default function App() {
     if (!fullName) return '';
     const upper = String(fullName || '').toUpperCase();
     
-    // Special cases
+    if (upper.includes('MARTA') && upper.includes('RUIZ')) return 'Marta';
+    if (upper.includes('ANASTASIYA')) return 'Anastasiya';
     if (upper.includes('MAC DOWELL') && upper.includes('MARIA')) return 'Maria Cristina';
     if (upper.includes('GOMEZ') && upper.includes('JUAN LUIS')) return 'Juan Luis';
     if (upper.includes('ZALTSMAN') && upper.includes('ARIEL')) return 'Ariel';
     if (upper.includes('RADICS') && upper.includes('GUSTAVO AXEL')) return 'Axel';
-    if (upper.includes('MENDOZA CASTRO') && upper.includes('HECTOR AGUSTIN')) return 'Hector Agustin';
-    if (upper.includes('GUARDIA MUGURUZA') && upper.includes('ANDREA')) return 'Andrea';
+    if (upper.includes('MENDOZA') && upper.includes('HECTOR')) return 'Hector';
+    if (upper.includes('GUARDIA') && upper.includes('ANDREA')) return 'Andrea';
+    if (upper.includes('DESTEFANO') && upper.includes('MARIA ELISA')) return 'Elisa';
+    if (upper.includes('ROMAN') && upper.includes('SUSANA')) return 'Susana';
 
     let name = '';
     if (fullName.includes(',')) {
@@ -164,28 +140,23 @@ export default function App() {
     return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
   };
 
-  const displayName = currentUser.role === 'TTL' && selectedTTL 
-    ? getFirstName(selectedTTL) 
-    : currentUser.role === 'EFFECTIVENESS_TEAM' && selectedEffectivenessMember
-      ? getFirstName(selectedEffectivenessMember)
-      : currentUser.name;
+  const displayName = useMemo(() => {
+    if (!user) return 'FMM';
+    if (user.username === 'martaruiz') return 'Marta';
+    return getFirstName(user.name);
+  }, [user]);
 
-  const currentFullName = currentUser.role === 'TTL' && selectedTTL
-    ? selectedTTL
-    : currentUser.role === 'EFFECTIVENESS_TEAM' && selectedEffectivenessMember
-      ? selectedEffectivenessMember
-      : currentUser.name;
+  const currentFullName = useMemo(() => {
+    if (!user) return 'FMM Team';
+    if (user.username === 'martaruiz') return 'Marta Ruiz-Arranz';
+    return user.name;
+  }, [user]);
 
-  const currentEmail = currentUser.role === 'TTL' && selectedTTL
-    ? (TTL_INFO.find(info => {
-        const normalize = (str: string) => String(str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, "").toUpperCase();
-        const parts = normalize(info.name).split(' ');
-        const normalizedSelected = normalize(selectedTTL);
-        return parts.every(part => normalizedSelected.includes(part));
-      })?.email || currentUser.email)
-    : currentUser.role === 'EFFECTIVENESS_TEAM' && selectedEffectivenessMember
-      ? (EFFECTIVENESS_TEAM_MEMBERS.find(m => m.name === selectedEffectivenessMember)?.email || currentUser.email)
-      : currentUser.email;
+  const currentEmail = useMemo(() => {
+    if (!user) return 'fmm@iadb.org';
+    if (user.username === 'martaruiz') return 'mruizarranz@IADB.ORG';
+    return user.email;
+  }, [user]);
 
   const formatName = (name: string) => {
     if (!name) return '';
@@ -196,6 +167,13 @@ export default function App() {
     }
     return titleCase(name);
   };
+
+  if (!isLoggedIn || !user) {
+    return <Login />;
+  }
+
+  const isFmmUser = user.username === 'fmm';
+  const isAnastasiya = user.username === 'anastasiyayarygina';
 
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col font-sans text-zinc-900">
@@ -237,67 +215,46 @@ export default function App() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-6 text-sm text-zinc-600 relative">
-          <div className="hidden lg:flex flex-col sm:flex-row items-end sm:items-center gap-1 md:gap-3">
-            <div className="flex items-center gap-1 md:gap-2 bg-zinc-100 px-2 md:px-3 py-0.5 md:py-1.5 rounded-lg border border-zinc-200">
-              <span className="text-[8px] md:text-[10px] uppercase font-bold text-zinc-400">Role:</span>
+        <div className="flex items-center gap-2 md:gap-4 text-sm text-zinc-600 relative">
+          {/* Role Dropdown strictly for anastasiyayarygina */}
+          {isAnastasiya && (
+            <div className="flex items-center gap-1.5 md:gap-2 bg-zinc-100 px-2 md:px-3 py-1 md:py-1.5 rounded-lg border border-zinc-200">
+              <span className="text-[9px] md:text-[10px] uppercase font-bold text-zinc-400">Role:</span>
               <select 
-                value={currentUser.id}
-                onChange={(e) => {
-                  const user = MOCK_USERS.find(u => u.id === e.target.value);
-                  if (user) {
-                    setCurrentUser(user);
-                    if (user.role !== 'TTL') setSelectedTTL('');
-                  }
-                }}
-                className="bg-transparent border-none text-[9px] md:text-xs font-semibold text-zinc-700 focus:ring-0 cursor-pointer p-0"
+                value={activeRole}
+                onChange={(e) => setActiveRole(e.target.value as UserRole)}
+                className="bg-transparent border-none text-[10px] md:text-xs font-semibold text-zinc-700 focus:ring-0 cursor-pointer p-0"
               >
-                {MOCK_USERS.map(user => (
-                  <option key={user.id} value={user.id}>{user.role.replace('_', ' ')}</option>
-                ))}
+                <option value="EFFECTIVENESS_TEAM">Effectiveness Team</option>
+                <option value="TTL">TTL</option>
               </select>
             </div>
+          )}
 
-            {(currentUser.role === 'EFFECTIVENESS_TEAM' || currentUser.role === 'TTL') && (
-              <div className="flex items-center gap-1 md:gap-2 bg-zinc-100 px-2 md:px-3 py-0.5 md:py-1.5 rounded-lg border border-zinc-200 animate-in fade-in slide-in-from-left-2">
-                <span className="text-[8px] md:text-[10px] uppercase font-bold text-zinc-400">
-                  {currentUser.role === 'EFFECTIVENESS_TEAM' ? 'Member:' : 'TTL:'}
-                </span>
-                <select 
-                  value={currentUser.role === 'EFFECTIVENESS_TEAM' ? selectedEffectivenessMember : selectedTTL}
-                  onChange={(e) => currentUser.role === 'EFFECTIVENESS_TEAM' ? setSelectedEffectivenessMember(e.target.value) : setSelectedTTL(e.target.value)}
-                  className="bg-transparent border-none text-[9px] md:text-xs font-semibold text-zinc-700 focus:ring-0 cursor-pointer max-w-[80px] xs:max-w-[100px] md:max-w-[150px] p-0"
-                >
-                  {currentUser.role === 'EFFECTIVENESS_TEAM' ? (
-                    EFFECTIVENESS_TEAM_MEMBERS.map(member => (
-                      <option key={member.email} value={member.name}>{member.name}</option>
-                    ))
-                  ) : (
-                    <>
-                      <option value="" disabled>Select TTL</option>
-                      {ttls.map(ttl => (
-                        <option key={ttl} value={ttl}>{ttl}</option>
-                      ))}
-                    </>
-                  )}
-                </select>
+          {/* User 'fmm': Complete removal of role section and profile dropdown; clean simple logout button */}
+          {isFmmUser ? (
+            <button 
+              onClick={logout}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:text-red-600 hover:bg-zinc-100 rounded-lg transition-colors border border-zinc-200"
+              title="Cerrar sesión"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline">Logout</span>
+            </button>
+          ) : (
+            <button 
+              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              className="flex items-center gap-1 md:gap-2 hover:bg-zinc-100 p-1 md:p-1.5 rounded-lg transition-colors"
+            >
+              <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-700">
+                <UserIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
               </div>
-            )}
-          </div>
-
-          <button 
-            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            className="hidden lg:flex items-center gap-1 md:gap-2 hover:bg-zinc-100 p-1 md:p-1.5 rounded-lg transition-colors"
-          >
-            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-700">
-              <UserIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
-            </div>
-            <span className="text-zinc-700 font-medium text-[10px] md:text-sm hidden xs:inline">Hello, {displayName}</span>
-          </button>
-
+              <span className="text-zinc-700 font-medium text-[10px] md:text-sm hidden xs:inline">Hello, {displayName}</span>
+            </button>
+          )}
 
           <AnimatePresence>
-            {isUserMenuOpen && (
+            {!isFmmUser && isUserMenuOpen && (
               <>
                 {/* Backdrop to close menu */}
                 <motion.div 
@@ -343,7 +300,7 @@ export default function App() {
                       <Home className="w-5 h-5 text-zinc-400 group-hover:text-[#005173] transition-colors" />
                       <span className="font-semibold">Home</span>
                     </button>
-                    {currentUser.role !== 'DIVISION_CHIEF' && (
+                    {activeRole !== 'DIVISION_CHIEF' && user.username !== 'martaruiz' && (
                       <button 
                         onClick={() => {
                           setMainTab('EXECUTION');
@@ -354,7 +311,7 @@ export default function App() {
                       >
                         <ClipboardCheck className="w-5 h-5 text-zinc-400 group-hover:text-[#005173] transition-colors" />
                         <span className="font-semibold">
-                          {currentUser.role === 'EFFECTIVENESS_TEAM' ? 'PMR prefilling' : 'PMR validation'}
+                          {activeRole === 'EFFECTIVENESS_TEAM' ? 'PMR prefilling' : 'PMR validation'}
                         </span>
                       </button>
                     )}
@@ -363,7 +320,7 @@ export default function App() {
                   <div className="p-6 border-t border-zinc-100">
                     <button 
                       onClick={() => {
-                        // Logout logic here if needed
+                        logout();
                         setIsUserMenuOpen(false);
                       }}
                       className="w-full flex items-center gap-4 px-4 py-3 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors group"
@@ -427,10 +384,22 @@ export default function App() {
                       </button>
                     ))}
                   </div>
+
+                  <div className="p-4 border-t border-zinc-100">
+                    <button 
+                      onClick={() => {
+                        logout();
+                        setIsMobileMenuOpen(false);
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>Logout</span>
+                    </button>
+                  </div>
                 </motion.div>
               </>
             )}
-
           </AnimatePresence>
         </div>
       </header>
@@ -555,8 +524,8 @@ export default function App() {
                     setExecutionView('qualitative-process');
                   }}
                   currentUser={currentUser}
-                  selectedTTL={selectedTTL}
-                  selectedEffectivenessMember={selectedEffectivenessMember}
+                  selectedTTL={user?.ttlName}
+                  selectedEffectivenessMember={user?.name}
                 />
               </div>
             )}
@@ -659,5 +628,13 @@ export default function App() {
         </div>
       </footer>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <MainApp />
+    </AuthProvider>
   );
 }

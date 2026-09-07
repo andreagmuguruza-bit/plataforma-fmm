@@ -68,7 +68,14 @@ interface DashboardProps {
   isPmrMode?: boolean;
 }
 
-export default function Dashboard({ projects, onSelectProject, onBack, isReadOnly = false, initialInstrument = null, isPmrMode = false }: DashboardProps) {
+export default function Dashboard({ 
+  projects, 
+  onSelectProject, 
+  onBack, 
+  isReadOnly = false, 
+  initialInstrument = null, 
+  isPmrMode = false
+}: DashboardProps) {
   const { metrics, tableData, loading, error } = usePortfolioData();
 
   const [filters, setFilters] = useState<Record<string, string[]>>({

@@ -1,10 +1,25 @@
-export type UserRole = 'TTL' | 'EFFECTIVENESS_TEAM' | 'DIVISION_CHIEF';
+export type UserRole = 'TTL' | 'EFFECTIVENESS_TEAM' | 'DIVISION_CHIEF' | 'GENERAL_FMM';
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  username?: string;
+  ttlName?: string;
+  isDualRole?: boolean;
+  allowedRoles?: UserRole[];
+}
+
+export interface AuthUser {
+  username: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  activeRole: UserRole;
+  ttlName?: string;
+  isDualRole?: boolean;
+  allowedRoles?: UserRole[];
 }
 
 export interface Project {
