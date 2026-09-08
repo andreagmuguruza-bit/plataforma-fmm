@@ -8,8 +8,9 @@ import {
   Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
   ComposedChart, Line, Legend, Area, LabelList
 } from 'recharts';
-import { History, CheckCircle2, RotateCcw, ClipboardCheck } from 'lucide-react';
+import { History, CheckCircle2, RotateCcw, ClipboardCheck, Loader2 } from 'lucide-react';
 import { usePortfolioData } from '../hooks/usePortfolioData';
+import { useQualitativeData } from '../hooks/useQualitativeData';
 import { AlertTriangles } from './AlertTriangles';
 import { getAlertsForProject, getAlertTagForProject } from '../utils/alertUtils';
 
@@ -442,6 +443,17 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
   const { getProjectDetails, loading: dataLoading } = usePortfolioData();
   const details = getProjectDetails(project.id);
   const currentYear = new Date().getFullYear();
+
+  const {
+    qualitativeData,
+    isPrefilledByTeam,
+    validatedByTTLDate,
+    isLoading: isLoadingQualitative,
+  } = useQualitativeData(project, onUpdate);
+
+  const activeQualitativeData = qualitativeData || project.qualitativeData;
+  const activeValidatedByTTLDate = validatedByTTLDate !== undefined ? validatedByTTLDate : project.validatedByTTLDate;
+  const activeIsPrefilledByTeam = isPrefilledByTeam !== undefined ? isPrefilledByTeam : project.isPrefilledByTeam;
   
   // Extract approval year from string (e.g., "MAR/2020", "22/MAR/2020", etc.)
   const approvalDate = details?.timeline?.approval?.date || '';
@@ -1261,77 +1273,147 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                   <p className="text-sm text-zinc-600">
                     <span className="font-bold text-black uppercase">QUALITATIVE INFORMATION - PMR March Cycle 2026</span> | 
                     <span className="inline-flex items-center gap-1.5 ml-1.5">
-                      <span className={`w-2 h-2 rounded-full ${project.validatedByTTLDate ? 'bg-[#4EA72E]' : 'bg-yellow-400'}`}></span>
-                      <span className="italic text-[13.3px] lg:text-sm">
-                        {project.validatedByTTLDate 
-                          ? `Validated by the TTL on ${project.validatedByTTLDate}` 
-                          : project.isPrefilledByTeam 
-                            ? 'Pending TTL validation' 
-                            : 'Pending Effectiveness Team prefilling'}
-                      </span>
+                      {isLoadingQualitative ? (
+                        <span className="inline-flex items-center gap-1.5 text-zinc-400 text-[13.3px] lg:text-sm">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-[#005173]" />
+                          <span className="italic">Synchronizing latest data from Google Sheets...</span>
+                        </span>
+                      ) : (
+                        <>
+                          <span className={`w-2 h-2 rounded-full ${activeValidatedByTTLDate ? 'bg-[#4EA72E]' : 'bg-yellow-400'}`}></span>
+                          <span className="italic text-[13.3px] lg:text-sm">
+                            {activeValidatedByTTLDate 
+                              ? `Validated by the TTL on ${activeValidatedByTTLDate}` 
+                              : activeIsPrefilledByTeam 
+                                ? 'Pending TTL validation' 
+                                : 'Pending Effectiveness Team prefilling'}
+                          </span>
+                        </>
+                      )}
                     </span>
                   </p>
                 </div>
-                <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 space-y-8">
-                  <div className="space-y-6">
-                    <div>
-                      <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Estado de implementación / Principales riesgos</h4>
-                      <div className="bg-white p-4 rounded-xl border border-zinc-100">
-                        <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                          {(project.qualitativeData?.estadoImplementacion || []).map((item, i) => <li key={i}>{item}</li>)}
-                        </ul>
-                      </div>
-                    </div>
 
-                    <div>
-                      <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Acciones sugeridas / Pedidos</h4>
-                      <div className="bg-white p-4 rounded-xl border border-zinc-100">
-                        <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                          {(project.qualitativeData?.accionesSugeridas || []).map((item, i) => <li key={i}>{item}</li>)}
-                        </ul>
-                      </div>
+                {isLoadingQualitative ? (
+                  <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 space-y-6">
+                    <div className="flex items-center gap-2.5 text-zinc-500 mb-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-[#005173]" />
+                      <span className="text-xs font-semibold uppercase tracking-wider text-[#005173]">
+                        Loading qualitative information...
+                      </span>
                     </div>
-
-                    <div>
-                      <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Productos destacados/innovadores del proyecto</h4>
-                      <div className="bg-white p-4 rounded-xl border border-zinc-100">
-                        <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                          {(project.qualitativeData?.productosDestacados || []).map((item, i) => <li key={i}>{item}</li>)}
-                        </ul>
-                      </div>
-                    </div>
-
-                    {project.id !== 'PN-L1172' && project.id !== 'PN-L1161' && (
+                    <div className="space-y-6 animate-pulse">
                       <div>
-                        <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
+                        <div className="h-3.5 bg-zinc-200 rounded w-64 mb-3" />
+                        <div className="bg-white p-4 rounded-xl border border-zinc-100 space-y-2">
+                          <div className="h-3 bg-zinc-100 rounded w-full" />
+                          <div className="h-3 bg-zinc-100 rounded w-5/6" />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="h-3.5 bg-zinc-200 rounded w-48 mb-3" />
+                        <div className="bg-white p-4 rounded-xl border border-zinc-100 space-y-2">
+                          <div className="h-3 bg-zinc-100 rounded w-full" />
+                          <div className="h-3 bg-zinc-100 rounded w-4/6" />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="h-3.5 bg-zinc-200 rounded w-72 mb-3" />
+                        <div className="bg-white p-4 rounded-xl border border-zinc-100 space-y-2">
+                          <div className="h-3 bg-zinc-100 rounded w-full" />
+                          <div className="h-3 bg-zinc-100 rounded w-3/4" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <div className="h-3.5 bg-zinc-200 rounded w-40 mb-3" />
+                          <div className="bg-white p-4 rounded-xl border border-zinc-100 h-12" />
+                        </div>
+                        <div>
+                          <div className="h-3.5 bg-zinc-200 rounded w-40 mb-3" />
+                          <div className="bg-white p-4 rounded-xl border border-zinc-100 h-12" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200 space-y-8">
+                    <div className="space-y-6">
+                      <div>
+                        <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Estado de implementación / Principales riesgos</h4>
                         <div className="bg-white p-4 rounded-xl border border-zinc-100">
                           <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                            {(project.qualitativeData?.probabilidadObjetivos || []).map((item, i) => <li key={i}>{item}</li>)}
+                            {(activeQualitativeData?.estadoImplementacion || []).length > 0 ? (
+                              activeQualitativeData?.estadoImplementacion?.map((item, i) => <li key={i}>{item}</li>)
+                            ) : (
+                              <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
+                            )}
                           </ul>
                         </div>
                       </div>
-                    )}
 
-                    <div>
-                      <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Fecha evaluación intermedia</h4>
-                      <div className="bg-white p-4 rounded-xl border border-zinc-100 min-h-[50px]">
-                        <p className="text-[11px] lg:text-sm text-zinc-700 whitespace-pre-wrap">
-                          {project.qualitativeData?.fechaEvaluacionIntermedia || 'N/A'}
-                        </p>
+                      <div>
+                        <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Acciones sugeridas / Pedidos</h4>
+                        <div className="bg-white p-4 rounded-xl border border-zinc-100">
+                          <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
+                            {(activeQualitativeData?.accionesSugeridas || []).length > 0 ? (
+                              activeQualitativeData?.accionesSugeridas?.map((item, i) => <li key={i}>{item}</li>)
+                            ) : (
+                              <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
+                            )}
+                          </ul>
+                        </div>
                       </div>
-                    </div>
 
-                    <div>
-                      <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Fecha talleres de arranque</h4>
-                      <div className="bg-white p-4 rounded-xl border border-zinc-100 min-h-[50px]">
-                        <p className="text-[11px] lg:text-sm text-zinc-700 whitespace-pre-wrap">
-                          {project.qualitativeData?.fechaTalleresArranque || 'N/A'}
-                        </p>
+                      <div>
+                        <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Productos destacados/innovadores del proyecto</h4>
+                        <div className="bg-white p-4 rounded-xl border border-zinc-100">
+                          <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
+                            {(activeQualitativeData?.productosDestacados || []).length > 0 ? (
+                              activeQualitativeData?.productosDestacados?.map((item, i) => <li key={i}>{item}</li>)
+                            ) : (
+                              <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
+                            )}
+                          </ul>
+                        </div>
                       </div>
-                    </div>
 
+                      {project.id !== 'PN-L1172' && project.id !== 'PN-L1161' && (
+                        <div>
+                          <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
+                          <div className="bg-white p-4 rounded-xl border border-zinc-100">
+                            <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
+                              {(activeQualitativeData?.probabilidadObjetivos || []).length > 0 ? (
+                                activeQualitativeData?.probabilidadObjetivos?.map((item, i) => <li key={i}>{item}</li>)
+                              ) : (
+                                <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
+                              )}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+
+                      <div>
+                        <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Fecha evaluación intermedia</h4>
+                        <div className="bg-white p-4 rounded-xl border border-zinc-100 min-h-[50px]">
+                          <p className="text-[11px] lg:text-sm text-zinc-700 whitespace-pre-wrap">
+                            {activeQualitativeData?.fechaEvaluacionIntermedia || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Fecha talleres de arranque</h4>
+                        <div className="bg-white p-4 rounded-xl border border-zinc-100 min-h-[50px]">
+                          <p className="text-[11px] lg:text-sm text-zinc-700 whitespace-pre-wrap">
+                            {activeQualitativeData?.fechaTalleresArranque || 'N/A'}
+                          </p>
+                        </div>
+                      </div>
+
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
             {activeTab === 'qa' && (
@@ -2516,11 +2598,11 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
               <p className="text-base text-zinc-600">
                 <span className="font-bold text-black uppercase">QUALITATIVE INFORMATION - PMR March Cycle 2026</span> | 
                 <span className="inline-flex items-center gap-1.5 ml-1.5">
-                  <span className={`w-2.5 h-2.5 rounded-full ${project.validatedByTTLDate ? 'bg-[#4EA72E]' : 'bg-yellow-400'}`}></span>
+                  <span className={`w-2.5 h-2.5 rounded-full ${activeValidatedByTTLDate ? 'bg-[#4EA72E]' : 'bg-yellow-400'}`}></span>
                   <span className="italic">
-                    {project.validatedByTTLDate 
-                      ? `Validated by the TTL on ${project.validatedByTTLDate}` 
-                      : project.isPrefilledByTeam 
+                    {activeValidatedByTTLDate 
+                      ? `Validated by the TTL on ${activeValidatedByTTLDate}` 
+                      : activeIsPrefilledByTeam 
                         ? 'Pending TTL validation' 
                         : 'Pending Effectiveness Team prefilling'}
                   </span>
@@ -2533,7 +2615,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                 <h4 className="text-sm font-bold text-zinc-900 mb-2">Estado de implementación / Principales riesgos</h4>
                 <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    <li>{(project.qualitativeData?.estadoImplementacion || []).join(' ')}</li>
+                    <li>{(activeQualitativeData?.estadoImplementacion || []).join(' ')}</li>
                   </ul>
                 </div>
               </div>
@@ -2542,7 +2624,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                 <h4 className="text-sm font-bold text-zinc-900 mb-2">Acciones sugeridas / Pedidos</h4>
                 <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    <li>{(project.qualitativeData?.accionesSugeridas || []).join(' ')}</li>
+                    <li>{(activeQualitativeData?.accionesSugeridas || []).join(' ')}</li>
                   </ul>
                 </div>
               </div>
@@ -2551,7 +2633,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                 <h4 className="text-sm font-bold text-zinc-900 mb-2">Productos destacados/innovadores del proyecto</h4>
                 <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    <li>{(project.qualitativeData?.productosDestacados || []).join('. ')}</li>
+                    <li>{(activeQualitativeData?.productosDestacados || []).join('. ')}</li>
                   </ul>
                 </div>
               </div>
@@ -2561,7 +2643,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                   <h4 className="text-sm font-bold text-zinc-900 mb-2">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
                   <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
                     <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                      <li>{(project.qualitativeData?.probabilidadObjetivos || []).join(' ')}</li>
+                      <li>{(activeQualitativeData?.probabilidadObjetivos || []).join(' ')}</li>
                     </ul>
                   </div>
                 </div>
@@ -2571,7 +2653,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                 <h4 className="text-sm font-bold text-zinc-900 mb-2 uppercase tracking-tight">Fecha evaluación intermedia</h4>
                 <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
                   <p className="text-sm text-zinc-700 whitespace-pre-wrap">
-                    {project.qualitativeData?.fechaEvaluacionIntermedia || 'N/A'}
+                    {activeQualitativeData?.fechaEvaluacionIntermedia || 'N/A'}
                   </p>
                 </div>
               </div>
@@ -2580,7 +2662,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                 <h4 className="text-sm font-bold text-zinc-900 mb-2 uppercase tracking-tight">Fecha talleres de arranque</h4>
                 <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
                   <p className="text-sm text-zinc-700 whitespace-pre-wrap">
-                    {project.qualitativeData?.fechaTalleresArranque || 'N/A'}
+                    {activeQualitativeData?.fechaTalleresArranque || 'N/A'}
                   </p>
                 </div>
               </div>

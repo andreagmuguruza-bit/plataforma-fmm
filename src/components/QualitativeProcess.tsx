@@ -3,18 +3,7 @@ import { Project, User } from '../types';
 import { ArrowLeft, TrendingUp, Edit2, Check, Send, RotateCcw, History, CheckCircle2, Loader2, CloudUpload } from 'lucide-react';
 import { motion } from 'motion/react';
 import { usePortfolioData } from '../hooks/usePortfolioData';
-
-const GOOGLE_APPS_SCRIPT_URL = 
-  (import.meta as unknown as { env: Record<string, string> }).env?.VITE_GOOGLE_APPS_SCRIPT_URL || 
-  'https://script.google.com/macros/s/AKfycbx6ZqbarSBQgr2dukCC5TclKm0YAKxAPsc2XdqVSP80DniqJ9c1LTcWzlMb6-UWUpGW/exec';
-
-const formatDDMMMYY = (d: Date = new Date()): string => {
-  const day = String(d.getDate()).padStart(2, '0');
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const month = monthNames[d.getMonth()];
-  const year = String(d.getFullYear()).slice(-2);
-  return `${day}-${month}-${year}`;
-};
+import { useQualitativeData, formatDDMMMYY, QualitativeFormData } from '../hooks/useQualitativeData';
 
 const getDotColor = (status: string) => {
   const s = String(status || '').toUpperCase().trim();
@@ -80,7 +69,16 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
     'Nicaragua': 'ni',
   };
 
-  const [data, setData] = useState({
+  const {
+    qualitativeData: remoteQualitativeData,
+    isPrefilledByTeam: remotePrefilled,
+    validatedByTTLDate: remoteValidatedDate,
+    isLoading,
+    isSaving,
+    saveData
+  } = useQualitativeData(project, onUpdate);
+
+  const [data, setData] = useState<QualitativeFormData>(() => ({
     estadoImplementacion: project.qualitativeData?.estadoImplementacion || [],
     productosDestacados: project.qualitativeData?.productosDestacados || [],
     probabilidadObjetivos: project.qualitativeData?.probabilidadObjetivos || [],
@@ -89,122 +87,18 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
     fechaTalleresArranque: project.qualitativeData?.fechaTalleresArranque || '',
     temasCriticosSimulador: project.qualitativeData?.temasCriticosSimulador || '',
     verificadorContenidos: project.qualitativeData?.verificadorContenidos || '',
-  });
+  }));
+
+  // Sync form state when remote data loads
+  useEffect(() => {
+    if (!isLoading && remoteQualitativeData) {
+      setData(remoteQualitativeData);
+    }
+  }, [isLoading, remoteQualitativeData]);
 
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [isLoadingRemote, setIsLoadingRemote] = useState(false);
-  const [isSavingRemote, setIsSavingRemote] = useState(false);
-
-  // Fetch prefilled qualitative data from Google Apps Script if available
-  useEffect(() => {
-    let isMounted = true;
-    async function loadRemoteData() {
-      if (!GOOGLE_APPS_SCRIPT_URL) return;
-      setIsLoadingRemote(true);
-      try {
-        const queryUrl = `${GOOGLE_APPS_SCRIPT_URL}${GOOGLE_APPS_SCRIPT_URL.includes('?') ? '&' : '?'}action=getProject&projectId=${encodeURIComponent(project.id)}&_t=${Date.now()}`;
-        const response = await fetch(queryUrl, {
-          method: 'GET',
-          headers: { 'Accept': 'application/json' }
-        });
-
-        if (response.ok) {
-          const resJson = await response.json();
-          if (isMounted && resJson) {
-            // Access project data dynamically using project.id as key (e.g. resJson["AR-L1248"])
-            let projectEntry = resJson[project.id];
-            if (!projectEntry && project.operationNumber) {
-              projectEntry = resJson[project.operationNumber];
-            }
-            if (!projectEntry && typeof resJson === 'object' && resJson !== null) {
-              const matchingKey = Object.keys(resJson).find(
-                k => k.trim().toUpperCase() === String(project.id).trim().toUpperCase() ||
-                     (project.operationNumber && k.trim().toUpperCase() === String(project.operationNumber).trim().toUpperCase())
-              );
-              if (matchingKey) {
-                projectEntry = resJson[matchingKey];
-              }
-            }
-            if (!projectEntry) {
-              projectEntry = resJson.formData || resJson.data || resJson.qualitativeData;
-            }
-
-            const remoteData = (projectEntry && typeof projectEntry === 'object' && 'formData' in projectEntry && projectEntry.formData)
-              ? projectEntry.formData
-              : (projectEntry || resJson);
-            
-            if (remoteData && typeof remoteData === 'object') {
-              const normalizeArr = (val: unknown, fallback: string[]): string[] => {
-                if (Array.isArray(val)) return val;
-                if (typeof val === 'string' && val.trim()) {
-                  try {
-                    const parsed = JSON.parse(val);
-                    if (Array.isArray(parsed)) return parsed;
-                  } catch {
-                    // text separated by newlines
-                  }
-                  return val.split('\n');
-                }
-                return fallback;
-              };
-
-              const normalizeStr = (val: unknown, fallback: string): string => {
-                if (typeof val === 'string') return val;
-                if (val !== undefined && val !== null) return String(val);
-                return fallback;
-              };
-
-              // Populate form fields
-              setData(prev => ({
-                estadoImplementacion: normalizeArr(remoteData.estadoImplementacion, project.qualitativeData?.estadoImplementacion || prev.estadoImplementacion),
-                productosDestacados: normalizeArr(remoteData.productosDestacados, project.qualitativeData?.productosDestacados || prev.productosDestacados),
-                probabilidadObjetivos: normalizeArr(remoteData.probabilidadObjetivos, project.qualitativeData?.probabilidadObjetivos || prev.probabilidadObjetivos),
-                accionesSugeridas: normalizeArr(remoteData.accionesSugeridas, project.qualitativeData?.accionesSugeridas || prev.accionesSugeridas),
-                fechaEvaluacionIntermedia: normalizeStr(remoteData.fechaEvaluacionIntermedia, project.qualitativeData?.fechaEvaluacionIntermedia || prev.fechaEvaluacionIntermedia),
-                fechaTalleresArranque: normalizeStr(remoteData.fechaTalleresArranque, project.qualitativeData?.fechaTalleresArranque || prev.fechaTalleresArranque),
-                temasCriticosSimulador: normalizeStr(remoteData.temasCriticosSimulador, project.qualitativeData?.temasCriticosSimulador || prev.temasCriticosSimulador),
-                verificadorContenidos: normalizeStr(remoteData.verificadorContenidos, project.qualitativeData?.verificadorContenidos || prev.verificadorContenidos),
-              }));
-
-              // Read metadata persistence
-              const rawPrefilled = remoteData.isPrefilledByTeam ?? (projectEntry && projectEntry.isPrefilledByTeam) ?? resJson.isPrefilledByTeam;
-              const rawValidated = remoteData.validatedByTTLDate ?? (projectEntry && projectEntry.validatedByTTLDate) ?? resJson.validatedByTTLDate;
-
-              const isPrefilledResolved = rawPrefilled !== undefined 
-                ? (rawPrefilled === true || rawPrefilled === 'true' || rawPrefilled === 'TRUE' || rawPrefilled === 1)
-                : project.isPrefilledByTeam;
-
-              const validatedDateResolved = rawValidated !== undefined
-                ? (rawValidated && String(rawValidated).trim() !== '' && String(rawValidated).toLowerCase() !== 'null' ? String(rawValidated) : null)
-                : project.validatedByTTLDate;
-
-              onUpdate({
-                ...project,
-                isPrefilledByTeam: isPrefilledResolved,
-                validatedByTTLDate: validatedDateResolved,
-                qualitativeData: {
-                  ...project.qualitativeData,
-                  ...(typeof remoteData === 'object' ? remoteData : {})
-                }
-              });
-            }
-          }
-        }
-      } catch (e) {
-        // Fallback gracefully to existing project metadata
-        console.debug('No remote data found or endpoint unreachable; keeping current status.');
-      } finally {
-        if (isMounted) {
-          setIsLoadingRemote(false);
-        }
-      }
-    }
-
-    loadRemoteData();
-    return () => { isMounted = false; };
-  }, [project.id]);
 
   const handleEdit = (section: string) => {
     if (editingSection === section) {
@@ -220,78 +114,27 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
   };
 
   const handleSend = async () => {
-    setIsSavingRemote(true);
-    const today = new Date();
-    const formattedDate = formatDDMMMYY(today); // DD-MMM-YY format e.g. 31-Aug-26
-    
-    const updatedProject: Project = {
-      ...project,
-      qualitativeData: data
-    };
-
-    if (currentUser.role === 'EFFECTIVENESS_TEAM') {
-      updatedProject.isPrefilledByTeam = true;
-      updatedProject.validatedByTTLDate = null; // Reverts to Pending TTL validation
-    } else if (currentUser.role === 'TTL') {
-      updatedProject.isPrefilledByTeam = true;
-      updatedProject.validatedByTTLDate = formattedDate;
-    }
-    
-    onUpdate(updatedProject);
+    const formattedDate = formatDDMMMYY(new Date());
+    await saveData({
+      qualitativeDataToSave: data,
+      currentUser,
+      formattedDate
+    });
     setJustSubmitted(true);
     setIsEditing(false);
     setEditingSection(null);
-
-    // Persist via POST to Google Apps Script
-    try {
-      const formData = {
-        estadoImplementacion: data.estadoImplementacion,
-        productosDestacados: data.productosDestacados,
-        probabilidadObjetivos: data.probabilidadObjetivos,
-        accionesSugeridas: data.accionesSugeridas,
-        fechaEvaluacionIntermedia: data.fechaEvaluacionIntermedia,
-        fechaTalleresArranque: data.fechaTalleresArranque,
-        temasCriticosSimulador: data.temasCriticosSimulador,
-        verificadorContenidos: data.verificadorContenidos,
-        isPrefilledByTeam: updatedProject.isPrefilledByTeam,
-        validatedByTTLDate: updatedProject.validatedByTTLDate,
-        operationNumber: project.operationNumber || '',
-        projectName: project.name,
-        country: project.country || project.countryName || '',
-        ttl: project.ttl || '',
-        user: {
-          username: currentUser.id || currentUser.name,
-          name: currentUser.name,
-          email: currentUser.email,
-          role: currentUser.role
-        },
-        role: currentUser.role,
-        actionType: currentUser.role === 'EFFECTIVENESS_TEAM' ? 'prefilling' : 'validation',
-        timestamp: new Date().toISOString(),
-        formattedDate: formattedDate
-      };
-
-      const payload = {
-        projectId: project.id,
-        formData: formData,
-        action: 'saveQualitativeData'
-      };
-
-      await fetch(GOOGLE_APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify(payload)
-      });
-    } catch (err) {
-      console.warn('Google Apps Script persistence notice (saved in local memory):', err);
-    } finally {
-      setIsSavingRemote(false);
-    }
   };
 
-  const isSubmitted = currentUser.role === 'EFFECTIVENESS_TEAM' ? project.isPrefilledByTeam : !!project.validatedByTTLDate;
+  const isSubmitted = currentUser.role === 'EFFECTIVENESS_TEAM' 
+    ? (remotePrefilled !== undefined ? remotePrefilled : project.isPrefilledByTeam) 
+    : (remoteValidatedDate !== undefined ? !!remoteValidatedDate : !!project.validatedByTTLDate);
+
+  const currentValidatedDate = remoteValidatedDate !== undefined 
+    ? remoteValidatedDate 
+    : project.validatedByTTLDate;
+  const currentPrefilled = remotePrefilled !== undefined 
+    ? remotePrefilled 
+    : project.isPrefilledByTeam;
 
   const SectionHeader = ({ title, sectionId }: { title: string, sectionId: string }) => (
     <div className="flex items-center justify-between mb-3">
@@ -511,150 +354,189 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
             <span className="font-bold text-black uppercase">QUALITATIVE INFORMATION</span>
             <span className="hidden lg:inline mx-1.5">|</span> 
             <span className="inline-flex items-center gap-1.5 mt-1 lg:mt-0">
-              <span className={`w-2 h-2 rounded-full ${project.validatedByTTLDate ? 'bg-[#4EA72E]' : 'bg-yellow-400'}`}></span>
-              <span className="italic">
-                {project.validatedByTTLDate 
-                  ? `Validated by the TTL on ${project.validatedByTTLDate}` 
-                  : project.isPrefilledByTeam 
-                    ? 'Pending TTL validation' 
-                    : 'Pending Effectiveness Team prefilling'}
-              </span>
+              {isLoading ? (
+                <span className="inline-flex items-center gap-1.5 text-zinc-400 text-sm">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-[#005173]" />
+                  <span className="italic">Sincronizando datos de Google Apps Script...</span>
+                </span>
+              ) : (
+                <>
+                  <span className={`w-2 h-2 rounded-full ${currentValidatedDate ? 'bg-[#4EA72E]' : 'bg-yellow-400'}`}></span>
+                  <span className="italic">
+                    {currentValidatedDate 
+                      ? `Validated by the TTL on ${currentValidatedDate}` 
+                      : currentPrefilled 
+                        ? 'Pending TTL validation' 
+                        : 'Pending Effectiveness Team prefilling'}
+                  </span>
+                </>
+              )}
             </span>
           </p>
         </div>
 
-        <div className="bg-zinc-50 p-4 sm:p-6 rounded-2xl border border-zinc-200 space-y-8">
-          <div className="space-y-6">
-            {/* Estado Implementación */}
-            <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
-              <SectionHeader title="Estado de implementación / Principales riesgos" sectionId="estadoImplementacion" />
-              {editingSection === 'estadoImplementacion' ? (
-                <textarea 
-                  className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
-                  value={data.estadoImplementacion.join('\n')}
-                  placeholder=""
-                  onChange={e => setData({...data, estadoImplementacion: e.target.value.split('\n')})}
-                />
-              ) : (
-                <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                  {data.estadoImplementacion.length > 0 && data.estadoImplementacion[0] !== '' ? (
-                    data.estadoImplementacion.map((item, i) => <li key={i}>{item}</li>)
-                  ) : (
-                    <li className="list-none">&nbsp;</li>
-                  )}
-                </ul>
-              )}
+        {isLoading ? (
+          <div className="bg-zinc-50 p-4 sm:p-6 rounded-2xl border border-zinc-200 space-y-6">
+            <div className="flex items-center gap-2.5 text-zinc-500 mb-2">
+              <Loader2 className="w-4 h-4 animate-spin text-[#005173]" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-[#005173]">
+                Cargando información cualitativa del proyecto...
+              </span>
             </div>
-
-            {/* Productos Destacados */}
-            <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
-              <SectionHeader title="Productos destacados/innovadores del proyecto" sectionId="productosDestacados" />
-              {editingSection === 'productosDestacados' ? (
-                <textarea 
-                  className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
-                  value={data.productosDestacados.join('\n')}
-                  placeholder=""
-                  onChange={e => setData({...data, productosDestacados: e.target.value.split('\n')})}
-                />
-              ) : (
-                <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                  {data.productosDestacados.length > 0 && data.productosDestacados[0] !== '' ? (
-                    data.productosDestacados.map((item, i) => <li key={i}>{item}</li>)
-                  ) : (
-                    <li className="list-none">&nbsp;</li>
-                  )}
-                </ul>
-              )}
-            </div>
-
-            {/* Probabilidad Objetivos */}
-            <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
-              <SectionHeader title="Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR" sectionId="probabilidadObjetivos" />
-              {editingSection === 'probabilidadObjetivos' ? (
-                <textarea 
-                  className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
-                  value={data.probabilidadObjetivos.join('\n')}
-                  placeholder=""
-                  onChange={e => setData({...data, probabilidadObjetivos: e.target.value.split('\n')})}
-                />
-              ) : (
-                <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                  {data.probabilidadObjetivos.length > 0 && data.probabilidadObjetivos[0] !== '' ? (
-                    data.probabilidadObjetivos.map((item, i) => <li key={i}>{item}</li>)
-                  ) : (
-                    <li className="list-none">&nbsp;</li>
-                  )}
-                </ul>
-              )}
-            </div>
-
-            {/* Acciones Sugeridas */}
-            <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
-              <SectionHeader title="Acciones sugeridas / Pedidos" sectionId="accionesSugeridas" />
-              {editingSection === 'accionesSugeridas' ? (
-                <textarea 
-                  className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
-                  value={data.accionesSugeridas.join('\n')}
-                  placeholder=""
-                  onChange={e => setData({...data, accionesSugeridas: e.target.value.split('\n')})}
-                />
-              ) : (
-                <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                  {data.accionesSugeridas.length > 0 && data.accionesSugeridas[0] !== '' ? (
-                    data.accionesSugeridas.map((item, i) => <li key={i}>{item}</li>)
-                  ) : (
-                    <li className="list-none">&nbsp;</li>
-                  )}
-                </ul>
-              )}
-            </div>
-
-            {/* Fecha evaluación intermedia */}
-            <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
-              <SectionHeader title="Fecha evaluación intermedia" sectionId="fechaEvaluacionIntermedia" />
-              {editingSection === 'fechaEvaluacionIntermedia' ? (
-                <input 
-                  type="text"
-                  className="w-full text-sm border border-zinc-200 rounded px-2 py-2"
-                  value={data.fechaEvaluacionIntermedia}
-                  placeholder="Enter date..."
-                  onChange={e => setData({...data, fechaEvaluacionIntermedia: e.target.value})}
-                />
-              ) : (
-                <p className="text-sm text-zinc-700 whitespace-pre-wrap px-1">
-                  {data.fechaEvaluacionIntermedia || <span className="text-zinc-400 italic">No information available</span>}
-                </p>
-              )}
-            </div>
-
-            {/* Fecha talleres de arranque */}
-            <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
-              <SectionHeader title="Fecha talleres de arranque" sectionId="fechaTalleresArranque" />
-              {editingSection === 'fechaTalleresArranque' ? (
-                <input 
-                  type="text"
-                  className="w-full text-sm border border-zinc-200 rounded px-2 py-2"
-                  value={data.fechaTalleresArranque}
-                  placeholder="Enter date..."
-                  onChange={e => setData({...data, fechaTalleresArranque: e.target.value})}
-                />
-              ) : (
-                <p className="text-sm text-zinc-700 whitespace-pre-wrap px-1">
-                  {data.fechaTalleresArranque || <span className="text-zinc-400 italic">No information available</span>}
-                </p>
-              )}
+            <div className="space-y-6 animate-pulse">
+              {[
+                'Estado de implementación / Principales riesgos',
+                'Productos destacados/innovadores del proyecto',
+                'Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR',
+                'Acciones sugeridas / Pedidos',
+              ].map((title, i) => (
+                <div key={i} className="p-4 rounded-xl border border-zinc-100 bg-white space-y-3">
+                  <div className="h-4 bg-zinc-200 rounded w-64" />
+                  <div className="space-y-2">
+                    <div className="h-3 bg-zinc-100 rounded w-full" />
+                    <div className="h-3 bg-zinc-100 rounded w-5/6" />
+                  </div>
+                </div>
+              ))}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl border border-zinc-100 bg-white space-y-3">
+                  <div className="h-4 bg-zinc-200 rounded w-44" />
+                  <div className="h-4 bg-zinc-100 rounded w-28" />
+                </div>
+                <div className="p-4 rounded-xl border border-zinc-100 bg-white space-y-3">
+                  <div className="h-4 bg-zinc-200 rounded w-44" />
+                  <div className="h-4 bg-zinc-100 rounded w-28" />
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-zinc-50 p-4 sm:p-6 rounded-2xl border border-zinc-200 space-y-8">
+            <div className="space-y-6">
+              {/* Estado Implementación */}
+              <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
+                <SectionHeader title="Estado de implementación / Principales riesgos" sectionId="estadoImplementacion" />
+                {editingSection === 'estadoImplementacion' ? (
+                  <textarea 
+                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
+                    value={data.estadoImplementacion.join('\n')}
+                    placeholder=""
+                    onChange={e => setData({...data, estadoImplementacion: e.target.value.split('\n')})}
+                  />
+                ) : (
+                  <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
+                    {data.estadoImplementacion.length > 0 && data.estadoImplementacion[0] !== '' ? (
+                      data.estadoImplementacion.map((item, i) => <li key={i}>{item}</li>)
+                    ) : (
+                      <li className="list-none">&nbsp;</li>
+                    )}
+                  </ul>
+                )}
+              </div>
+
+              {/* Productos Destacados */}
+              <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
+                <SectionHeader title="Productos destacados/innovadores del proyecto" sectionId="productosDestacados" />
+                {editingSection === 'productosDestacados' ? (
+                  <textarea 
+                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
+                    value={data.productosDestacados.join('\n')}
+                    placeholder=""
+                    onChange={e => setData({...data, productosDestacados: e.target.value.split('\n')})}
+                  />
+                ) : (
+                  <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
+                    {data.productosDestacados.length > 0 && data.productosDestacados[0] !== '' ? (
+                      data.productosDestacados.map((item, i) => <li key={i}>{item}</li>)
+                    ) : (
+                      <li className="list-none">&nbsp;</li>
+                    )}
+                  </ul>
+                )}
+              </div>
+
+              {/* Probabilidad Objetivos */}
+              <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
+                <SectionHeader title="Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR" sectionId="probabilidadObjetivos" />
+                {editingSection === 'probabilidadObjetivos' ? (
+                  <textarea 
+                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
+                    value={data.probabilidadObjetivos.join('\n')}
+                    placeholder=""
+                    onChange={e => setData({...data, probabilidadObjetivos: e.target.value.split('\n')})}
+                  />
+                ) : (
+                  <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
+                    {data.probabilidadObjetivos.length > 0 && data.probabilidadObjetivos[0] !== '' ? (
+                      data.probabilidadObjetivos.map((item, i) => <li key={i}>{item}</li>)
+                    ) : (
+                      <li className="list-none">&nbsp;</li>
+                    )}
+                  </ul>
+                )}
+              </div>
+
+              {/* Acciones Sugeridas */}
+              <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
+                <SectionHeader title="Acciones sugeridas / Pedidos" sectionId="accionesSugeridas" />
+                {editingSection === 'accionesSugeridas' ? (
+                  <textarea 
+                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
+                    value={data.accionesSugeridas.join('\n')}
+                    placeholder=""
+                    onChange={e => setData({...data, accionesSugeridas: e.target.value.split('\n')})}
+                  />
+                ) : (
+                  <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
+                    {data.accionesSugeridas.length > 0 && data.accionesSugeridas[0] !== '' ? (
+                      data.accionesSugeridas.map((item, i) => <li key={i}>{item}</li>)
+                    ) : (
+                      <li className="list-none">&nbsp;</li>
+                    )}
+                  </ul>
+                )}
+              </div>
+
+              {/* Fecha evaluación intermedia */}
+              <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
+                <SectionHeader title="Fecha evaluación intermedia" sectionId="fechaEvaluacionIntermedia" />
+                {editingSection === 'fechaEvaluacionIntermedia' ? (
+                  <input 
+                    type="text"
+                    className="w-full text-sm border border-zinc-200 rounded px-2 py-2"
+                    value={data.fechaEvaluacionIntermedia}
+                    placeholder="Enter date..."
+                    onChange={e => setData({...data, fechaEvaluacionIntermedia: e.target.value})}
+                  />
+                ) : (
+                  <p className="text-sm text-zinc-700 whitespace-pre-wrap px-1">
+                    {data.fechaEvaluacionIntermedia || <span className="text-zinc-400 italic">No information available</span>}
+                  </p>
+                )}
+              </div>
+
+              {/* Fecha talleres de arranque */}
+              <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
+                <SectionHeader title="Fecha talleres de arranque" sectionId="fechaTalleresArranque" />
+                {editingSection === 'fechaTalleresArranque' ? (
+                  <input 
+                    type="text"
+                    className="w-full text-sm border border-zinc-200 rounded px-2 py-2"
+                    value={data.fechaTalleresArranque}
+                    placeholder="Enter date..."
+                    onChange={e => setData({...data, fechaTalleresArranque: e.target.value})}
+                  />
+                ) : (
+                  <p className="text-sm text-zinc-700 whitespace-pre-wrap px-1">
+                    {data.fechaTalleresArranque || <span className="text-zinc-400 italic">No information available</span>}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 flex items-center justify-center gap-6">
-          {isLoadingRemote && (
-            <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-100 px-3 py-1.5 rounded-md border border-zinc-200">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#005173]" />
-              <span>Sincronizando datos de Google Apps Script...</span>
-            </div>
-          )}
-
           {justSubmitted && (
             <div className="bg-[#4EA72E]/10 text-zinc-700 px-6 py-3 rounded-lg font-medium text-sm border border-[#4EA72E]/20 shadow-sm flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-[#4EA72E]" />
@@ -662,7 +544,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
             </div>
           )}
 
-          {(isSubmitted && !isEditing) && (
+          {!isLoading && (isSubmitted && !isEditing) && (
             <button 
               onClick={handleEditAll}
               className="flex items-center gap-2 bg-white text-[#005173] px-6 py-3 rounded-lg font-bold text-sm uppercase tracking-widest hover:bg-zinc-100 transition-colors border border-[#005173]"
@@ -672,14 +554,14 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
             </button>
           )}
 
-          {(!isSubmitted || isEditing) && (
+          {!isLoading && (!isSubmitted || isEditing) && (
             <div className="w-full flex justify-end">
               <button 
                 onClick={handleSend}
-                disabled={isSavingRemote}
+                disabled={isSaving}
                 className="flex items-center gap-2 bg-[#005173] text-white px-8 py-3 rounded-lg font-bold text-sm uppercase tracking-widest hover:bg-[#003d57] transition-colors shadow-md disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isSavingRemote ? (
+                {isSaving ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span>SAVING...</span>
