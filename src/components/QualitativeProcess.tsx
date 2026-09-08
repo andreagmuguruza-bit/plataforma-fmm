@@ -113,7 +113,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
         if (response.ok) {
           const resJson = await response.json();
           if (isMounted && resJson) {
-            const remoteData = resJson.data || resJson.qualitativeData || resJson;
+            const remoteData = resJson.formData || resJson.data || resJson.qualitativeData || resJson;
             
             // Populate form fields
             setData(prev => ({
@@ -202,9 +202,17 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
 
     // Persist via POST to Google Apps Script
     try {
-      const payload = {
-        action: 'saveQualitativeData',
-        projectId: project.id,
+      const formData = {
+        estadoImplementacion: data.estadoImplementacion,
+        productosDestacados: data.productosDestacados,
+        probabilidadObjetivos: data.probabilidadObjetivos,
+        accionesSugeridas: data.accionesSugeridas,
+        fechaEvaluacionIntermedia: data.fechaEvaluacionIntermedia,
+        fechaTalleresArranque: data.fechaTalleresArranque,
+        temasCriticosSimulador: data.temasCriticosSimulador,
+        verificadorContenidos: data.verificadorContenidos,
+        isPrefilledByTeam: updatedProject.isPrefilledByTeam,
+        validatedByTTLDate: updatedProject.validatedByTTLDate,
         operationNumber: project.operationNumber || '',
         projectName: project.name,
         country: project.country || project.countryName || '',
@@ -217,15 +225,14 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
         },
         role: currentUser.role,
         actionType: currentUser.role === 'EFFECTIVENESS_TEAM' ? 'prefilling' : 'validation',
-        qualitativeData: {
-          ...data,
-          isPrefilledByTeam: updatedProject.isPrefilledByTeam,
-          validatedByTTLDate: updatedProject.validatedByTTLDate
-        },
-        isPrefilledByTeam: updatedProject.isPrefilledByTeam,
-        validatedByTTLDate: updatedProject.validatedByTTLDate,
         timestamp: new Date().toISOString(),
         formattedDate: formattedDate
+      };
+
+      const payload = {
+        projectId: project.id,
+        formData: formData,
+        action: 'saveQualitativeData'
       };
 
       await fetch(GOOGLE_APPS_SCRIPT_URL, {
