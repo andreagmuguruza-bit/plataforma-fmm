@@ -113,41 +113,83 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
         if (response.ok) {
           const resJson = await response.json();
           if (isMounted && resJson) {
-            const remoteData = resJson.formData || resJson.data || resJson.qualitativeData || resJson;
-            
-            // Populate form fields
-            setData(prev => ({
-              estadoImplementacion: remoteData.estadoImplementacion || project.qualitativeData?.estadoImplementacion || prev.estadoImplementacion,
-              productosDestacados: remoteData.productosDestacados || project.qualitativeData?.productosDestacados || prev.productosDestacados,
-              probabilidadObjetivos: remoteData.probabilidadObjetivos || project.qualitativeData?.probabilidadObjetivos || prev.probabilidadObjetivos,
-              accionesSugeridas: remoteData.accionesSugeridas || project.qualitativeData?.accionesSugeridas || prev.accionesSugeridas,
-              fechaEvaluacionIntermedia: remoteData.fechaEvaluacionIntermedia || project.qualitativeData?.fechaEvaluacionIntermedia || prev.fechaEvaluacionIntermedia,
-              fechaTalleresArranque: remoteData.fechaTalleresArranque || project.qualitativeData?.fechaTalleresArranque || prev.fechaTalleresArranque,
-              temasCriticosSimulador: remoteData.temasCriticosSimulador || project.qualitativeData?.temasCriticosSimulador || prev.temasCriticosSimulador,
-              verificadorContenidos: remoteData.verificadorContenidos || project.qualitativeData?.verificadorContenidos || prev.verificadorContenidos,
-            }));
-
-            // Read metadata persistence
-            const rawPrefilled = resJson.isPrefilledByTeam ?? remoteData.isPrefilledByTeam;
-            const rawValidated = resJson.validatedByTTLDate ?? remoteData.validatedByTTLDate;
-
-            const isPrefilledResolved = rawPrefilled !== undefined 
-              ? (rawPrefilled === true || rawPrefilled === 'true' || rawPrefilled === 'TRUE' || rawPrefilled === 1)
-              : project.isPrefilledByTeam;
-
-            const validatedDateResolved = rawValidated !== undefined
-              ? (rawValidated && String(rawValidated).trim() !== '' && String(rawValidated).toLowerCase() !== 'null' ? String(rawValidated) : null)
-              : project.validatedByTTLDate;
-
-            onUpdate({
-              ...project,
-              isPrefilledByTeam: isPrefilledResolved,
-              validatedByTTLDate: validatedDateResolved,
-              qualitativeData: {
-                ...project.qualitativeData,
-                ...(typeof remoteData === 'object' ? remoteData : {})
+            // Access project data dynamically using project.id as key (e.g. resJson["AR-L1248"])
+            let projectEntry = resJson[project.id];
+            if (!projectEntry && project.operationNumber) {
+              projectEntry = resJson[project.operationNumber];
+            }
+            if (!projectEntry && typeof resJson === 'object' && resJson !== null) {
+              const matchingKey = Object.keys(resJson).find(
+                k => k.trim().toUpperCase() === String(project.id).trim().toUpperCase() ||
+                     (project.operationNumber && k.trim().toUpperCase() === String(project.operationNumber).trim().toUpperCase())
+              );
+              if (matchingKey) {
+                projectEntry = resJson[matchingKey];
               }
-            });
+            }
+            if (!projectEntry) {
+              projectEntry = resJson.formData || resJson.data || resJson.qualitativeData;
+            }
+
+            const remoteData = (projectEntry && typeof projectEntry === 'object' && 'formData' in projectEntry && projectEntry.formData)
+              ? projectEntry.formData
+              : (projectEntry || resJson);
+            
+            if (remoteData && typeof remoteData === 'object') {
+              const normalizeArr = (val: unknown, fallback: string[]): string[] => {
+                if (Array.isArray(val)) return val;
+                if (typeof val === 'string' && val.trim()) {
+                  try {
+                    const parsed = JSON.parse(val);
+                    if (Array.isArray(parsed)) return parsed;
+                  } catch {
+                    // text separated by newlines
+                  }
+                  return val.split('\n');
+                }
+                return fallback;
+              };
+
+              const normalizeStr = (val: unknown, fallback: string): string => {
+                if (typeof val === 'string') return val;
+                if (val !== undefined && val !== null) return String(val);
+                return fallback;
+              };
+
+              // Populate form fields
+              setData(prev => ({
+                estadoImplementacion: normalizeArr(remoteData.estadoImplementacion, project.qualitativeData?.estadoImplementacion || prev.estadoImplementacion),
+                productosDestacados: normalizeArr(remoteData.productosDestacados, project.qualitativeData?.productosDestacados || prev.productosDestacados),
+                probabilidadObjetivos: normalizeArr(remoteData.probabilidadObjetivos, project.qualitativeData?.probabilidadObjetivos || prev.probabilidadObjetivos),
+                accionesSugeridas: normalizeArr(remoteData.accionesSugeridas, project.qualitativeData?.accionesSugeridas || prev.accionesSugeridas),
+                fechaEvaluacionIntermedia: normalizeStr(remoteData.fechaEvaluacionIntermedia, project.qualitativeData?.fechaEvaluacionIntermedia || prev.fechaEvaluacionIntermedia),
+                fechaTalleresArranque: normalizeStr(remoteData.fechaTalleresArranque, project.qualitativeData?.fechaTalleresArranque || prev.fechaTalleresArranque),
+                temasCriticosSimulador: normalizeStr(remoteData.temasCriticosSimulador, project.qualitativeData?.temasCriticosSimulador || prev.temasCriticosSimulador),
+                verificadorContenidos: normalizeStr(remoteData.verificadorContenidos, project.qualitativeData?.verificadorContenidos || prev.verificadorContenidos),
+              }));
+
+              // Read metadata persistence
+              const rawPrefilled = remoteData.isPrefilledByTeam ?? (projectEntry && projectEntry.isPrefilledByTeam) ?? resJson.isPrefilledByTeam;
+              const rawValidated = remoteData.validatedByTTLDate ?? (projectEntry && projectEntry.validatedByTTLDate) ?? resJson.validatedByTTLDate;
+
+              const isPrefilledResolved = rawPrefilled !== undefined 
+                ? (rawPrefilled === true || rawPrefilled === 'true' || rawPrefilled === 'TRUE' || rawPrefilled === 1)
+                : project.isPrefilledByTeam;
+
+              const validatedDateResolved = rawValidated !== undefined
+                ? (rawValidated && String(rawValidated).trim() !== '' && String(rawValidated).toLowerCase() !== 'null' ? String(rawValidated) : null)
+                : project.validatedByTTLDate;
+
+              onUpdate({
+                ...project,
+                isPrefilledByTeam: isPrefilledResolved,
+                validatedByTTLDate: validatedDateResolved,
+                qualitativeData: {
+                  ...project.qualitativeData,
+                  ...(typeof remoteData === 'object' ? remoteData : {})
+                }
+              });
+            }
           }
         }
       } catch (e) {
