@@ -1324,6 +1324,13 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                           <div className="h-3 bg-zinc-100 rounded w-3/4" />
                         </div>
                       </div>
+                      <div>
+                        <div className="h-3.5 bg-zinc-200 rounded w-60 mb-3" />
+                        <div className="bg-white p-4 rounded-xl border border-zinc-100 space-y-2">
+                          <div className="h-3 bg-zinc-100 rounded w-full" />
+                          <div className="h-3 bg-zinc-100 rounded w-2/3" />
+                        </div>
+                      </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <div className="h-3.5 bg-zinc-200 rounded w-40 mb-3" />
@@ -1378,20 +1385,18 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         </div>
                       </div>
 
-                      {project.id !== 'PN-L1172' && project.id !== 'PN-L1161' && (
-                        <div>
-                          <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
-                          <div className="bg-white p-4 rounded-xl border border-zinc-100">
-                            <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                              {(activeQualitativeData?.probabilidadObjetivos || []).length > 0 ? (
-                                activeQualitativeData?.probabilidadObjetivos?.map((item, i) => <li key={i}>{item}</li>)
-                              ) : (
-                                <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
-                              )}
-                            </ul>
-                          </div>
+                      <div>
+                        <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
+                        <div className="bg-white p-4 rounded-xl border border-zinc-100">
+                          <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
+                            {(activeQualitativeData?.probabilidadObjetivos || []).length > 0 ? (
+                              activeQualitativeData?.probabilidadObjetivos?.map((item, i) => <li key={i}>{item}</li>)
+                            ) : (
+                              <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
+                            )}
+                          </ul>
                         </div>
-                      )}
+                      </div>
 
                       <div>
                         <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Fecha evaluación intermedia</h4>
@@ -2638,16 +2643,18 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                 </div>
               </div>
 
-              {project.id !== 'PN-L1172' && project.id !== 'PN-L1161' && (
-                <div className="break-inside-avoid">
-                  <h4 className="text-sm font-bold text-zinc-900 mb-2">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
-                  <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
-                    <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                      <li>{(activeQualitativeData?.probabilidadObjetivos || []).join(' ')}</li>
-                    </ul>
-                  </div>
+              <div className="break-inside-avoid">
+                <h4 className="text-sm font-bold text-zinc-900 mb-2">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
+                <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
+                  <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
+                    {(activeQualitativeData?.probabilidadObjetivos || []).length > 0 ? (
+                      activeQualitativeData?.probabilidadObjetivos?.map((item, i) => <li key={i}>{item}</li>)
+                    ) : (
+                      <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
+                    )}
+                  </ul>
                 </div>
-              )}
+              </div>
 
               <div className="break-inside-avoid">
                 <h4 className="text-sm font-bold text-zinc-900 mb-2 uppercase tracking-tight">Fecha evaluación intermedia</h4>

@@ -386,9 +386,9 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
             <div className="space-y-6 animate-pulse">
               {[
                 'Estado de implementación / Principales riesgos',
+                'Acciones sugeridas / Pedidos',
                 'Productos destacados/innovadores del proyecto',
                 'Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR',
-                'Acciones sugeridas / Pedidos',
               ].map((title, i) => (
                 <div key={i} className="p-4 rounded-xl border border-zinc-100 bg-white space-y-3">
                   <div className="h-4 bg-zinc-200 rounded w-64" />
@@ -434,6 +434,27 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                 )}
               </div>
 
+              {/* Acciones Sugeridas */}
+              <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
+                <SectionHeader title="Acciones sugeridas / Pedidos" sectionId="accionesSugeridas" />
+                {editingSection === 'accionesSugeridas' ? (
+                  <textarea 
+                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
+                    value={data.accionesSugeridas.join('\n')}
+                    placeholder=""
+                    onChange={e => setData({...data, accionesSugeridas: e.target.value.split('\n')})}
+                  />
+                ) : (
+                  <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
+                    {data.accionesSugeridas.length > 0 && data.accionesSugeridas[0] !== '' ? (
+                      data.accionesSugeridas.map((item, i) => <li key={i}>{item}</li>)
+                    ) : (
+                      <li className="list-none">&nbsp;</li>
+                    )}
+                  </ul>
+                )}
+              </div>
+
               {/* Productos Destacados */}
               <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
                 <SectionHeader title="Productos destacados/innovadores del proyecto" sectionId="productosDestacados" />
@@ -469,27 +490,6 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
                     {data.probabilidadObjetivos.length > 0 && data.probabilidadObjetivos[0] !== '' ? (
                       data.probabilidadObjetivos.map((item, i) => <li key={i}>{item}</li>)
-                    ) : (
-                      <li className="list-none">&nbsp;</li>
-                    )}
-                  </ul>
-                )}
-              </div>
-
-              {/* Acciones Sugeridas */}
-              <div className={`p-4 rounded-xl border transition-colors ${isSubmitted && !isEditing ? 'bg-zinc-100 border-zinc-200' : 'bg-white border-zinc-100'}`}>
-                <SectionHeader title="Acciones sugeridas / Pedidos" sectionId="accionesSugeridas" />
-                {editingSection === 'accionesSugeridas' ? (
-                  <textarea 
-                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
-                    value={data.accionesSugeridas.join('\n')}
-                    placeholder=""
-                    onChange={e => setData({...data, accionesSugeridas: e.target.value.split('\n')})}
-                  />
-                ) : (
-                  <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    {data.accionesSugeridas.length > 0 && data.accionesSugeridas[0] !== '' ? (
-                      data.accionesSugeridas.map((item, i) => <li key={i}>{item}</li>)
                     ) : (
                       <li className="list-none">&nbsp;</li>
                     )}
