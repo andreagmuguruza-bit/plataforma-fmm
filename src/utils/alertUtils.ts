@@ -10,7 +10,7 @@ export function getAlertsForProject(projectId: string): AlertInfo[] {
   // Card 1
   if (['ME-L1309', 'UR-L1205'].includes(projectId)) {
     alerts.push({ number: 1, color: 'yellow', title: 'Pending legal effectiveness' });
-  } else if (['BR-L1656', 'BR-L1658', 'BR-L1629', 'AR-L1416'].includes(projectId)) {
+  } else if (['BR-L1656', 'BR-L1658', 'BR-L1629', 'AR-L1416', 'BR-L1642'].includes(projectId)) {
     alerts.push({ number: 1, color: 'green', title: 'Pending legal effectiveness' });
   }
 

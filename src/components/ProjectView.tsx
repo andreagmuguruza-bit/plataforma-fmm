@@ -24,6 +24,7 @@ const getDotColor = (status: string) => {
 
 const formatPMR = (pmr: string) => {
   const str = String(pmr || '').toUpperCase().trim();
+  if (str === 'N/A' || str === 'NA') return 'N/A';
   return str ? str.charAt(0) + str.slice(1).toLowerCase() : '';
 };
 

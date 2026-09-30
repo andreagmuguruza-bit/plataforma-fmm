@@ -59,6 +59,7 @@ export interface TableRow {
     disbursed: number;
     percent: number;
   }[];
+  qualitativeData?: any;
 }
 
 export interface ProjectDetails {
@@ -112,6 +113,7 @@ export interface ProjectDetails {
     projection: number;
     disbursed: number | null;
     projected_disbursed?: number;
+    combinedDisbursed?: number;
   }[];
   monthlyMonitoringData: {
     month: string;
@@ -309,6 +311,50 @@ const getVal = (row: any, col: string): string => {
   return '';
 };
 
+export const tempMockProject = {
+  projectNumber: 'BR-L1642',
+  operationNumber: '6151/OC-BR',
+  title: 'Fiscal Management Modernization Program for the State of Goiás – PROFISCO III GO',
+  countryName: 'Brazil',
+  lendingInstrumentId: 'LON-INV',
+  ttl: 'MARTINEZ FRITSCHER, ANDRE CARLOS',
+  status: 'Stage I', // Asignado por regla ya que operation_status_code es 'AF'
+  currentApprovedAmount: 90.366254,
+  disbursedLifeAmount: 0,
+  disbursedLifePercent: 0,
+  pmrClassification: 'N/A',
+  ageInExecution: '0.0', // Aprobado recientemente (Jun 2026)
+  monthsOfExtension: 0,
+  // Inicializamos la data cualitativa vacía para que la vista de pre-filling no falle y permita editar
+  qualitativeData: {
+    estadoImplementacion: [""],
+    productosDestacados: [""],
+    probabilidadObjetivos: [""],
+    accionesSugeridas: [""]
+  },
+  // Alias keys for CSV-oriented lookup helpers
+  project_number: 'BR-L1642',
+  operation_number: '6151/OC-BR',
+  title_english: 'Fiscal Management Modernization Program for the State of Goiás – PROFISCO III GO',
+  title_spanish: 'Programa de Modernización de la Gestión Fiscal del Estado de Goiás – PROFISCO III GO',
+  country_name: 'Brazil',
+  country_english: 'BR - Brazil',
+  country_code: 'BR',
+  team_leader: 'MARTINEZ FRITSCHER, ANDRE CARLOS',
+  operation_status_code: 'AF',
+  operation_status_spanish: 'AF - APROBADO POR DIRECTORIO Y FINANCIADO POR FINANZAS',
+  pmr_classification: 'N/A',
+  cumulative_extension_months: '0',
+  executor_name: 'SECRETARIA DE ESTADO DA ECONOMIA DE GOIÁS',
+  approval_date: '15/06/2026 0:00',
+  approval_year: '2026',
+  current_approved_amount: '90366254',
+  original_approved_amount: '90366254',
+  disbursed_life_amount: '0',
+  cancelled_amount: '0',
+  undisbursed_amount: '90366254'
+};
+
 export function usePortfolioData() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [tableData, setTableData] = useState<TableRow[]>([]);
@@ -326,13 +372,22 @@ export function usePortfolioData() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        const cacheBuster = `t=${new Date().getTime()}`;
+        const fetchOptions: RequestInit = {
+          cache: 'no-store',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        };
+
         const [activeRes, disbRes, consolidatedRes, workflowRes, performanceRes, histProjRes] = await Promise.all([
-          fetch(`/active_portfolio.csv?t=${Date.now()}`),
-          fetch(`/disbursements_actuals_and_projections.csv?t=${Date.now()}`),
-          fetch(`/vw_spd_proj_cnsldtd.csv?t=${Date.now()}`),
-          fetch(`/oper_ods_workflow_cmnt.csv?t=${Date.now()}`),
-          fetch(`/oper_ods_performance.csv?t=${Date.now()}`),
-          fetch(`/sl_hist_disbursement_projections_all.csv?t=${Date.now()}`)
+          fetch(`/active_portfolio.csv?${cacheBuster}`, fetchOptions),
+          fetch(`/disbursements_actuals_and_projections.csv?${cacheBuster}`, fetchOptions),
+          fetch(`/vw_spd_proj_cnsldtd.csv?${cacheBuster}`, fetchOptions),
+          fetch(`/oper_ods_workflow_cmnt.csv?${cacheBuster}`, fetchOptions),
+          fetch(`/oper_ods_performance.csv?${cacheBuster}`, fetchOptions),
+          fetch(`/sl_hist_disbursement_projections_all.csv?${cacheBuster}`, fetchOptions)
         ]);
 
         const activeText = await activeRes.text();
@@ -351,6 +406,15 @@ export function usePortfolioData() {
 
         const activeData = activeParsed.data as any[];
         
+        // Inject temporary mock project BR-L1642 immediately after fetch and parse
+        const hasBR1642 = activeData.some(row => {
+          const num = String(row['Project Number'] || row['project_number'] || row['projectNumber'] || '').toUpperCase().trim();
+          return num === 'BR-L1642';
+        });
+        if (!hasBR1642) {
+          activeData.push(tempMockProject);
+        }
+
         // Inject 2 new projects only if they are not already in active_portfolio.csv
         const hasAR = activeData.some(row => {
           const num = String(row['Project Number'] || row['project_number'] || '').toUpperCase().trim();
@@ -814,6 +878,51 @@ export function usePortfolioData() {
           });
         });
 
+        // Ensure tempMockProject is in tableRows right after BR-L1643 (and after BR-L1629)
+        if (!tableRows.some(r => r.projectNumber === tempMockProject.projectNumber)) {
+          const newRow: TableRow = {
+            index: 0,
+            projectNumber: tempMockProject.projectNumber,
+            title: tempMockProject.title,
+            operationNumber: tempMockProject.operationNumber,
+            countryCode: 'BR',
+            countryName: tempMockProject.countryName,
+            ttl: tempMockProject.ttl,
+            status: tempMockProject.status,
+            currentApprovedAmount: tempMockProject.currentApprovedAmount,
+            disbursedLifeAmount: tempMockProject.disbursedLifeAmount,
+            disbursedLifePercent: tempMockProject.disbursedLifePercent,
+            pmrClassification: 'N/A',
+            lendingInstrumentId: tempMockProject.lendingInstrumentId,
+            ageInExecution: String(tempMockProject.ageInExecution),
+            monthsOfExtension: String(tempMockProject.monthsOfExtension),
+            operations: [{
+              number: tempMockProject.operationNumber,
+              approved: tempMockProject.currentApprovedAmount,
+              disbursed: tempMockProject.disbursedLifeAmount,
+              percent: 0
+            }],
+            qualitativeData: tempMockProject.qualitativeData
+          };
+
+          const idx1643 = tableRows.findIndex(r => r.projectNumber === 'BR-L1643');
+          if (idx1643 !== -1) {
+            tableRows.splice(idx1643, 0, newRow);
+          } else {
+            const idx1629 = tableRows.findIndex(r => r.projectNumber === 'BR-L1629');
+            if (idx1629 !== -1) {
+              tableRows.splice(idx1629 + 1, 0, newRow);
+            } else {
+              tableRows.push(newRow);
+            }
+          }
+
+          // Re-index all rows sequentially
+          tableRows.forEach((row, i) => {
+            row.index = i + 1;
+          });
+        }
+
         setMetrics(metrics);
         setTableData(tableRows);
       } catch (err: any) {
@@ -828,6 +937,71 @@ export function usePortfolioData() {
   }, []);
 
   const getProjectDetails = (projectId: string): ProjectDetails | null => {
+    if (projectId === 'BR-L1642') {
+      const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const monthlyMonitoringData = monthNames.map(month => ({
+        month,
+        cumulativeProjection: 0,
+        cumulativeDisbursed: null,
+        cumulativeDisbursedReal: null,
+        projectId: 'BR-L1642',
+        projectCode: 'BR-L1642'
+      }));
+
+      return {
+        id: 'BR-L1642',
+        name: tempMockProject.title,
+        country: 'BR - Brazil',
+        countryCode: 'BR',
+        countryName: tempMockProject.countryName,
+        ttl: tempMockProject.ttl,
+        pmrStatus: 'N/A',
+        operationStatus: 'AF - Approved by the Board and funded by Finance',
+        executingAgency: 'SECRETARIA DE ESTADO DA ECONOMIA DE GOIÁS',
+        linkedLoans: [tempMockProject.operationNumber],
+        currentApprovedAmount: 90366254,
+        disbursedLifeAmount: 0,
+        disbursedLifePercent: 0,
+        ageInExecution: '0.0',
+        monthsOfExtension: '0 months',
+        objective: 'Programa de Modernización de la Gestión Fiscal del Estado de Goiás – PROFISCO III GO. El objetivo es modernizar la gestión fiscal, mejorar la recaudación tributaria y fortalecer la eficiencia del gasto público en el Estado de Goiás.',
+        timeline: {
+          approval: { date: '15/JUN/2026', status: 'completed' },
+          effectiveness: { date: 'Pending', status: 'pending' },
+          eligibility: { date: 'Pending', status: 'pending' },
+          firstDisbursement: { date: 'Pending', status: 'pending' },
+          lastDisbursement: { date: 'Pending', status: 'pending', currentDeadline: 'Pending' },
+          extension: { text: '0 months', status: 'pending' },
+          closure: { date: 'Pending', status: 'pending' }
+        },
+        lastDisbursementMade: 'N/A',
+        localContribution: '$0.0M',
+        undisbursedAmountStr: '$90M',
+        financial: {
+          originalApprovedAmount: 90366254,
+          canceledAmount: 0,
+          currentApprovedAmount: 90366254,
+          deadlineLastDisbursement: 'Pending',
+          timeWithoutDisbursements: undefined,
+          currentApprovedAmountM: 90.366254,
+          disbursedLifeAmountM: 0,
+          disbursedLifePercent: 0,
+          isDisbursedFully: false
+        },
+        pmrHistory: [],
+        historicalPerformanceData: [
+          {
+            year: '2026',
+            projection: 0,
+            disbursed: null,
+            projected_disbursed: 0,
+            combinedDisbursed: 0
+          }
+        ],
+        monthlyMonitoringData
+      };
+    }
+
     const projectRecords = activeRecords.filter(r => getVal(r, 'Project Number') === projectId);
     if (projectRecords.length === 0) return null;
 

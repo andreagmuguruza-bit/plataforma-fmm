@@ -65,13 +65,13 @@ function MainApp() {
         countryName: row.countryName,
         ttl: row.ttl,
         status: row.status,
-        isPrefilledByTeam: true,
+        isPrefilledByTeam: row.projectNumber === 'BR-L1642' ? false : true,
         validatedByTTLDate: null,
         qualitativeData: {
-          estadoImplementacion: QUALITATIVE_METADATA_MAP[row.projectNumber]?.estadoImplementacion || [],
-          productosDestacados: QUALITATIVE_METADATA_MAP[row.projectNumber]?.productosDestacados || [],
-          probabilidadObjetivos: QUALITATIVE_METADATA_MAP[row.projectNumber]?.probabilidadObjetivos || [],
-          accionesSugeridas: QUALITATIVE_METADATA_MAP[row.projectNumber]?.accionesSugeridas || [],
+          estadoImplementacion: (row as any).qualitativeData?.estadoImplementacion || QUALITATIVE_METADATA_MAP[row.projectNumber]?.estadoImplementacion || [],
+          productosDestacados: (row as any).qualitativeData?.productosDestacados || QUALITATIVE_METADATA_MAP[row.projectNumber]?.productosDestacados || [],
+          probabilidadObjetivos: (row as any).qualitativeData?.probabilidadObjetivos || QUALITATIVE_METADATA_MAP[row.projectNumber]?.probabilidadObjetivos || [],
+          accionesSugeridas: (row as any).qualitativeData?.accionesSugeridas || QUALITATIVE_METADATA_MAP[row.projectNumber]?.accionesSugeridas || [],
           fechaEvaluacionIntermedia: QUALITATIVE_METADATA_MAP[row.projectNumber]?.fechaEvaluacionIntermedia || '',
           fechaTalleresArranque: QUALITATIVE_METADATA_MAP[row.projectNumber]?.fechaTalleresArranque || '',
           temasCriticosSimulador: QUALITATIVE_METADATA_MAP[row.projectNumber]?.temasCriticosSimulador || '',
@@ -93,8 +93,63 @@ function MainApp() {
         }
       }));
       setProjects(mappedProjects);
+    } else if (tableData.length > 0 && projects.length > 1) {
+      // Check if BR-L1642 is missing in projects
+      const hasBR1642 = projects.some(p => p.id === 'BR-L1642');
+      const brRow = tableData.find(r => r.projectNumber === 'BR-L1642');
+      if (!hasBR1642 && brRow) {
+        const newProj: Project = {
+          index: brRow.index,
+          id: brRow.projectNumber,
+          operationNumber: brRow.operationNumber,
+          name: brRow.title,
+          country: brRow.countryName,
+          countryCode: brRow.countryCode,
+          countryName: brRow.countryName,
+          ttl: brRow.ttl,
+          status: brRow.status,
+          isPrefilledByTeam: false,
+          validatedByTTLDate: null,
+          qualitativeData: {
+            estadoImplementacion: (brRow as any).qualitativeData?.estadoImplementacion || [""],
+            productosDestacados: (brRow as any).qualitativeData?.productosDestacados || [""],
+            probabilidadObjetivos: (brRow as any).qualitativeData?.probabilidadObjetivos || [""],
+            accionesSugeridas: (brRow as any).qualitativeData?.accionesSugeridas || [""],
+            fechaEvaluacionIntermedia: '',
+            fechaTalleresArranque: '',
+            temasCriticosSimulador: '',
+            verificadorContenidos: '',
+          },
+          metadata: {
+            investmentAmount: `$${brRow.currentApprovedAmount.toFixed(1)}M`,
+            disbursementPercent: brRow.disbursedLifePercent,
+            elapsedYears: 0,
+            siScore: 0,
+            pmr2026: {
+              status: 'N/A',
+              score: 0
+            }
+          }
+        };
+
+        setProjects(prev => {
+          const next = [...prev];
+          const idx1643 = next.findIndex(p => p.id === 'BR-L1643');
+          if (idx1643 !== -1) {
+            next.splice(idx1643, 0, newProj);
+          } else {
+            const idx1629 = next.findIndex(p => p.id === 'BR-L1629');
+            if (idx1629 !== -1) {
+              next.splice(idx1629 + 1, 0, newProj);
+            } else {
+              next.push(newProj);
+            }
+          }
+          return next;
+        });
+      }
     }
-  }, [tableData, projects.length]);
+  }, [tableData, projects]);
 
   // Scroll to top on view change
   useEffect(() => {

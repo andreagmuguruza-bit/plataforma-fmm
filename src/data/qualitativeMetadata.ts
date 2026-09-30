@@ -10,6 +10,16 @@ export interface ProjectQualitativeMetadata {
 }
 
 export const QUALITATIVE_METADATA_MAP: Record<string, ProjectQualitativeMetadata> = {
+  'BR-L1642': {
+    estadoImplementacion: [""],
+    productosDestacados: [""],
+    probabilidadObjetivos: [""],
+    accionesSugeridas: [""],
+    fechaEvaluacionIntermedia: "",
+    fechaTalleresArranque: "",
+    temasCriticosSimulador: "",
+    verificadorContenidos: ""
+  },
   'EC-L1253': {
     estadoImplementacion: [
       'El nivel de ejecución financiera se afectó por dos licitaciones fallidas del componente más importante (administración tributaria).',

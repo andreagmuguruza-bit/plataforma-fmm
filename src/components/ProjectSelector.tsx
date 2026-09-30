@@ -115,6 +115,30 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
     return matchesProject && matchesCountry && matchesStatus;
   });
 
+  const orderedFilteredProjects = React.useMemo(() => {
+    const list = [...filteredProjects];
+    const idx1642 = list.findIndex(p => p.id === 'BR-L1642');
+    const idx1643 = list.findIndex(p => p.id === 'BR-L1643');
+    const idx1629 = list.findIndex(p => p.id === 'BR-L1629');
+
+    if (idx1642 !== -1) {
+      if (idx1643 !== -1) {
+        if (idx1642 !== idx1643 - 1) {
+          const [item1642] = list.splice(idx1642, 1);
+          const newIdx1643 = list.findIndex(p => p.id === 'BR-L1643');
+          list.splice(newIdx1643, 0, item1642);
+        }
+      } else if (idx1629 !== -1) {
+        if (idx1642 !== idx1629 + 1) {
+          const [item1642] = list.splice(idx1642, 1);
+          const newIdx1629 = list.findIndex(p => p.id === 'BR-L1629');
+          list.splice(newIdx1629 + 1, 0, item1642);
+        }
+      }
+    }
+    return list;
+  }, [filteredProjects]);
+
   const uniqueCountries = Array.from(new Set(projects.map(p => p.country))).filter(Boolean).sort();
   const pmrStatuses = [
     'Pending Effectiveness Team prefilling',
@@ -244,7 +268,7 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
           <div className="col-span-2 text-left">ACTION</div>
         </div>
         <div className="divide-y divide-zinc-200 bg-white">
-          {filteredProjects.map((project, idx) => {
+          {orderedFilteredProjects.map((project, idx) => {
             const status = getStatusDisplay(project);
             return (
               <div key={project.id} className="flex flex-col lg:grid lg:grid-cols-12 gap-3 lg:gap-4 py-4 px-4 lg:px-6 items-start lg:items-center hover:bg-zinc-50 transition-colors">
