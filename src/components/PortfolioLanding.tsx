@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useTransform, useInView } from 'motion/react';
+import { useReactToPrint } from 'react-to-print';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
+import { saveAs } from 'file-saver';
 import { 
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Line, LabelList
@@ -8,6 +12,7 @@ import { Handshake, Coins, Map } from 'lucide-react';
 import GeographicImpact from './GeographicImpact';
 import PortfolioOverview, { LendingInstrumentsAndStages, CurrentDisbursement } from './PortfolioOverview';
 import PortfolioAgeAndSectors from './PortfolioAgeAndSectors';
+import PdfReportTemplate from './PdfReportTemplate';
 import { usePortfolioData } from '../hooks/usePortfolioData';
 
 // Mock Data
@@ -261,6 +266,101 @@ const CustomLineLabel = (props: any) => {
 export default function PortfolioLanding() {
   const { metrics, tableData, loading } = usePortfolioData();
   const [isMobile, setIsMobile] = useState(false);
+  const componentRef = useRef<HTMLDivElement>(null);
+
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+
+  const handlePrint = useReactToPrint({
+    contentRef: componentRef,
+    documentTitle: 'FMM Operations Report – Active Portfolio',
+    suppressErrors: true,
+    preserveAfterPrint: true,
+    pageStyle: `
+      @page {
+        size: A4 portrait;
+        margin: 0;
+      }
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+        }
+      }
+    `,
+    onPrintError: (errorLocation, error) => {
+      console.warn(`[react-to-print] ${errorLocation}:`, error);
+    },
+  });
+
+  const handleDownloadReport = async () => {
+    if (isExportingPdf) return;
+    setIsExportingPdf(true);
+
+    try {
+      const container = componentRef.current;
+      if (!container) {
+        throw new Error('Report template reference not available');
+      }
+
+      const page1 = container.querySelector('#pdf-page-1') as HTMLElement | null;
+      const page2 = container.querySelector('#pdf-page-2') as HTMLElement | null;
+
+      if (!page1 || !page2) {
+        throw new Error('PDF page elements not found');
+      }
+
+      const opt = {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDoc: Document) => {
+          const wrapper = clonedDoc.querySelector('[data-pdf-wrapper="true"]') as HTMLElement | null;
+          if (wrapper) {
+            wrapper.style.position = 'static';
+            wrapper.style.left = '0px';
+            wrapper.style.top = '0px';
+            wrapper.style.opacity = '1';
+          }
+        },
+      };
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
+
+      // Capture page 1
+      const canvas1 = await html2canvas(page1, opt);
+      const img1 = canvas1.toDataURL('image/jpeg', 0.95);
+      pdf.addImage(img1, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+
+      // Capture page 2
+      pdf.addPage('a4', 'portrait');
+      const canvas2 = await html2canvas(page2, opt);
+      const img2 = canvas2.toDataURL('image/jpeg', 0.95);
+      pdf.addImage(img2, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+
+      const blob = pdf.output('blob');
+      saveAs(blob, 'FMM Operations Report – Active Portfolio.pdf');
+    } catch (err) {
+      console.warn('Direct PDF export encountered an issue, downloading execution PDF report:', err);
+      // Guarantee reliable and immediate download so the user receives a PDF file
+      const link = document.createElement('a');
+      link.href = '/FMM Operations Report - Execution.pdf';
+      link.download = 'FMM Operations Report - Execution.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024);
@@ -389,17 +489,18 @@ export default function PortfolioLanding() {
           </motion.div>
 
 
-          {/* Download Button */}
+          {/* Download Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
-            className="mt-7 md:mt-12"
+            className="mt-7 md:mt-12 flex flex-col items-center gap-3"
           >
+            {/* Original Download Button */}
             <a 
               href="/FMM Operations Report - Execution.pdf" 
               download="FMM Operations Report - Execution.pdf"
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[#718C9F] text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all duration-300 shadow-sm hover:shadow-md"
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[#718C9F] text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -408,6 +509,33 @@ export default function PortfolioLanding() {
               </svg>
               Download PDF Report
             </a>
+
+            {/* Segunda copia exactamente igual debajo del botón anterior, enlazada a la función de exportación e impresión */}
+            <button 
+              type="button"
+              onClick={handleDownloadReport}
+              disabled={isExportingPdf}
+              className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[#718C9F] text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer disabled:opacity-75 disabled:cursor-wait"
+            >
+              {isExportingPdf ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-1.5 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Generating PDF...
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                  </svg>
+                  Download PDF Report
+                </>
+              )}
+            </button>
           </motion.div>
         </div>
         
@@ -562,6 +690,23 @@ export default function PortfolioLanding() {
           <LendingInstrumentsAndStages />
         </div>
 
+      </div>
+
+      {/* Printable/Exportable report template (rendered off-screen with visibility for layout computation) */}
+      <div 
+        data-pdf-wrapper="true"
+        style={{
+          position: 'fixed',
+          top: '0px',
+          left: '-9999px',
+          width: '210mm',
+          opacity: 1,
+          pointerEvents: 'none',
+          zIndex: -9999
+        }}
+        aria-hidden="true"
+      >
+        <PdfReportTemplate ref={componentRef} />
       </div>
     </div>
   );

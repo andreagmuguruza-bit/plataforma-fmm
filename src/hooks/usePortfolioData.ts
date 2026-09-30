@@ -372,22 +372,13 @@ export function usePortfolioData() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const cacheBuster = `t=${new Date().getTime()}`;
-        const fetchOptions: RequestInit = {
-          cache: 'no-store',
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        };
-
         const [activeRes, disbRes, consolidatedRes, workflowRes, performanceRes, histProjRes] = await Promise.all([
-          fetch(`/active_portfolio.csv?${cacheBuster}`, fetchOptions),
-          fetch(`/disbursements_actuals_and_projections.csv?${cacheBuster}`, fetchOptions),
-          fetch(`/vw_spd_proj_cnsldtd.csv?${cacheBuster}`, fetchOptions),
-          fetch(`/oper_ods_workflow_cmnt.csv?${cacheBuster}`, fetchOptions),
-          fetch(`/oper_ods_performance.csv?${cacheBuster}`, fetchOptions),
-          fetch(`/sl_hist_disbursement_projections_all.csv?${cacheBuster}`, fetchOptions)
+          fetch(`/active_portfolio.csv?t=${Date.now()}`),
+          fetch(`/disbursements_actuals_and_projections.csv?t=${Date.now()}`),
+          fetch(`/vw_spd_proj_cnsldtd.csv?t=${Date.now()}`),
+          fetch(`/oper_ods_workflow_cmnt.csv?t=${Date.now()}`),
+          fetch(`/oper_ods_performance.csv?t=${Date.now()}`),
+          fetch(`/sl_hist_disbursement_projections_all.csv?t=${Date.now()}`)
         ]);
 
         const activeText = await activeRes.text();

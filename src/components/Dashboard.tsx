@@ -7,7 +7,6 @@ import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { usePortfolioData } from '../hooks/usePortfolioData';
-import { GOOGLE_APPS_SCRIPT_URL } from '../hooks/useQualitativeData';
 import { AlertTriangles } from './AlertTriangles';
 import { getAlertsForProject } from '../utils/alertUtils';
 
@@ -380,32 +379,6 @@ export default function Dashboard({
   });
 
   const handleDownloadXLS = async () => {
-    // Strict cache-busting fetch to Google Sheets database before generating Excel
-    let remoteMap: Record<string, any> = {};
-    if (GOOGLE_APPS_SCRIPT_URL) {
-      try {
-        const separator = GOOGLE_APPS_SCRIPT_URL.includes('?') ? '&' : '?';
-        const queryUrl = `${GOOGLE_APPS_SCRIPT_URL}${separator}action=getAll&t=${new Date().getTime()}`;
-        const response = await fetch(queryUrl, {
-          method: 'GET',
-          cache: 'no-store',
-          headers: {
-            'Accept': 'application/json',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        });
-        if (response.ok) {
-          const resJson = await response.json();
-          if (resJson && typeof resJson === 'object') {
-            remoteMap = resJson;
-          }
-        }
-      } catch (err) {
-        console.warn('Could not fetch latest Google Sheets qualitative data for XLS, using memory state:', err);
-      }
-    }
-
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Portfolio', {
       views: [{ showGridLines: false }]
@@ -446,24 +419,7 @@ export default function Dashboard({
     // Rows
     let currentRowN = 1;
     filteredTableData.forEach((project) => {
-      const localQualitative = projects.find(p => p.id === project.projectNumber)?.qualitativeData;
-      const remoteEntry = remoteMap[project.projectNumber] || remoteMap[project.operationNumber];
-      const remoteData = (remoteEntry && typeof remoteEntry === 'object' && remoteEntry.formData) ? remoteEntry.formData : remoteEntry;
-
-      const qualitativeInfo = {
-        estadoImplementacion: (remoteData?.estadoImplementacion && Array.isArray(remoteData.estadoImplementacion) && remoteData.estadoImplementacion.length > 0)
-          ? remoteData.estadoImplementacion
-          : localQualitative?.estadoImplementacion,
-        productosDestacados: (remoteData?.productosDestacados && Array.isArray(remoteData.productosDestacados) && remoteData.productosDestacados.length > 0)
-          ? remoteData.productosDestacados
-          : localQualitative?.productosDestacados,
-        probabilidadObjetivos: (remoteData?.probabilidadObjetivos && Array.isArray(remoteData.probabilidadObjetivos) && remoteData.probabilidadObjetivos.length > 0)
-          ? remoteData.probabilidadObjetivos
-          : localQualitative?.probabilidadObjetivos,
-        accionesSugeridas: (remoteData?.accionesSugeridas && Array.isArray(remoteData.accionesSugeridas) && remoteData.accionesSugeridas.length > 0)
-          ? remoteData.accionesSugeridas
-          : localQualitative?.accionesSugeridas,
-      };
+      const qualitativeInfo = projects.find(p => p.id === project.projectNumber)?.qualitativeData;
 
       if (project.operations && project.operations.length > 1) {
         const projectN = currentRowN++;
