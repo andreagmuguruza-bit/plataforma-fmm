@@ -38,3 +38,25 @@
   0% { background-position: -200% center; }
   100% { background-position: 200% center; }
 }
+
+.pmr-tooltip-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pmr-tooltip-popup {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.pmr-tooltip-container:hover .pmr-tooltip-popup {
+  display: block !important;
+}

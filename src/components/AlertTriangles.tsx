@@ -48,7 +48,7 @@ export function AlertTriangles({ projectId }: AlertTrianglesProps) {
         return (
           <div 
             key={alert.number} 
-            className="relative flex items-center justify-center select-none group/alert cursor-help z-10 hover:z-40"
+            className="relative flex items-center justify-center select-none group/alert cursor-pointer z-10 hover:z-40"
           >
             {/* Custom Inline SVG for Triangle to fit the number inside perfectly */}
             <svg 

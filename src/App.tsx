@@ -65,7 +65,7 @@ function MainApp() {
         countryName: row.countryName,
         ttl: row.ttl,
         status: row.status,
-        isPrefilledByTeam: row.projectNumber === 'BR-L1642' ? false : true,
+        isPrefilledByTeam: (row.projectNumber === 'BR-L1642' || row.projectNumber === 'HO-L1261') ? false : true,
         validatedByTTLDate: null,
         qualitativeData: {
           estadoImplementacion: (row as any).qualitativeData?.estadoImplementacion || QUALITATIVE_METADATA_MAP[row.projectNumber]?.estadoImplementacion || [],
@@ -144,6 +144,56 @@ function MainApp() {
             } else {
               next.push(newProj);
             }
+          }
+          return next;
+        });
+      }
+
+      // Check if HO-L1261 is missing in projects
+      const hasHO1261 = projects.some(p => p.id === 'HO-L1261');
+      const hoRow = tableData.find(r => r.projectNumber === 'HO-L1261');
+      if (!hasHO1261 && hoRow) {
+        const newProjHO: Project = {
+          index: hoRow.index,
+          id: hoRow.projectNumber,
+          operationNumber: hoRow.operationNumber,
+          name: hoRow.title,
+          country: hoRow.countryName,
+          countryCode: hoRow.countryCode,
+          countryName: hoRow.countryName,
+          ttl: hoRow.ttl,
+          status: hoRow.status,
+          isPrefilledByTeam: false,
+          validatedByTTLDate: null,
+          qualitativeData: {
+            estadoImplementacion: (hoRow as any).qualitativeData?.estadoImplementacion || [""],
+            productosDestacados: (hoRow as any).qualitativeData?.productosDestacados || [""],
+            probabilidadObjetivos: (hoRow as any).qualitativeData?.probabilidadObjetivos || [""],
+            accionesSugeridas: (hoRow as any).qualitativeData?.accionesSugeridas || [""],
+            fechaEvaluacionIntermedia: '',
+            fechaTalleresArranque: '',
+            temasCriticosSimulador: '',
+            verificadorContenidos: '',
+          },
+          metadata: {
+            investmentAmount: `$${hoRow.currentApprovedAmount.toFixed(1)}M`,
+            disbursementPercent: hoRow.disbursedLifePercent,
+            elapsedYears: 0,
+            siScore: 0,
+            pmr2026: {
+              status: 'N/A',
+              score: 0
+            }
+          }
+        };
+
+        setProjects(prev => {
+          const next = [...prev];
+          const idxME = next.findIndex(p => p.id.startsWith('ME-'));
+          if (idxME !== -1) {
+            next.splice(idxME, 0, newProjHO);
+          } else {
+            next.push(newProjHO);
           }
           return next;
         });

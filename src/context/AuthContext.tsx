@@ -71,6 +71,14 @@ export const PREDEFINED_USERS: PredefinedUserConfig[] = [
 
   // 4. TTLs
   {
+    username: 'luisalejos',
+    aliases: ['luis alejos', 'luis alejandro alejos', 'luis alejandro alejos marroquin', 'alejos marroquin, luis alejandro'],
+    name: 'Luis Alejos',
+    email: 'lalejos@iadb.org',
+    role: 'TTL',
+    ttlName: 'ALEJOS MARROQUIN, LUIS ALEJANDRO'
+  },
+  {
     username: 'martinardanaz',
     aliases: ['martin ardanaz', 'martin jorge ardanaz'],
     name: 'Martin Ardanaz',

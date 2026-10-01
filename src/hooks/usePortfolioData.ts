@@ -355,6 +355,50 @@ export const tempMockProject = {
   undisbursed_amount: '90366254'
 };
 
+export const tempMockProject2 = {
+  projectNumber: 'HO-L1261',
+  operationNumber: '6144/BL-HO',
+  title: 'Fiscal Strengthening Program for Inclusive Growth',
+  countryName: 'Honduras',
+  lendingInstrumentId: 'LON-PBL',
+  ttl: 'ALEJOS MARROQUIN, LUIS ALEJANDRO',
+  status: 'Stage I', // Asignado por regla ya que operation_status_code es 'EF'
+  currentApprovedAmount: 100.0,
+  disbursedLifeAmount: 0,
+  disbursedLifePercent: 0,
+  pmrClassification: 'N/A',
+  ageInExecution: '0.0', // Aprobado recientemente (Ago 2026)
+  monthsOfExtension: 0,
+  // Inicializamos la data cualitativa vacía para que la vista de pre-filling funcione
+  qualitativeData: {
+    estadoImplementacion: [""],
+    productosDestacados: [""],
+    probabilidadObjetivos: [""],
+    accionesSugeridas: [""]
+  },
+  // Alias keys for CSV-oriented lookup helpers
+  project_number: 'HO-L1261',
+  operation_number: '6144/BL-HO',
+  title_english: 'Fiscal Strengthening Program for Inclusive Growth',
+  title_spanish: 'Programa de Fortalecimiento Fiscal para el Crecimiento Inclusivo',
+  country_name: 'Honduras',
+  country_english: 'HO - Honduras',
+  country_code: 'HN',
+  team_leader: 'ALEJOS MARROQUIN, LUIS ALEJANDRO',
+  operation_status_code: 'EF',
+  operation_status_spanish: 'EF - EN ESPERA DE FIRMA / ELEGIBILIDAD',
+  pmr_classification: 'N/A',
+  cumulative_extension_months: '0',
+  executor_name: 'SECRETARIA DE FINANZAS DE HONDURAS (SEFIN)',
+  approval_date: '15/08/2026 0:00',
+  approval_year: '2026',
+  current_approved_amount: '100000000',
+  original_approved_amount: '100000000',
+  disbursed_life_amount: '0',
+  cancelled_amount: '0',
+  undisbursed_amount: '100000000'
+};
+
 export function usePortfolioData() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [tableData, setTableData] = useState<TableRow[]>([]);
@@ -404,6 +448,15 @@ export function usePortfolioData() {
         });
         if (!hasBR1642) {
           activeData.push(tempMockProject);
+        }
+
+        // Inject temporary mock project HO-L1261 immediately after fetch and parse
+        const hasHO1261 = activeData.some(row => {
+          const num = String(row['Project Number'] || row['project_number'] || row['projectNumber'] || '').toUpperCase().trim();
+          return num === 'HO-L1261';
+        });
+        if (!hasHO1261) {
+          activeData.push(tempMockProject2);
         }
 
         // Inject 2 new projects only if they are not already in active_portfolio.csv
@@ -914,6 +967,46 @@ export function usePortfolioData() {
           });
         }
 
+        // Ensure tempMockProject2 (HO-L1261) is in tableRows in alphabetical order (after EC projects, before ME projects)
+        if (!tableRows.some(r => r.projectNumber === tempMockProject2.projectNumber)) {
+          const newRowHO: TableRow = {
+            index: 0,
+            projectNumber: tempMockProject2.projectNumber,
+            title: tempMockProject2.title,
+            operationNumber: tempMockProject2.operationNumber,
+            countryCode: 'HN',
+            countryName: tempMockProject2.countryName,
+            ttl: tempMockProject2.ttl,
+            status: tempMockProject2.status,
+            currentApprovedAmount: tempMockProject2.currentApprovedAmount,
+            disbursedLifeAmount: tempMockProject2.disbursedLifeAmount,
+            disbursedLifePercent: tempMockProject2.disbursedLifePercent,
+            pmrClassification: 'N/A',
+            lendingInstrumentId: tempMockProject2.lendingInstrumentId,
+            ageInExecution: String(tempMockProject2.ageInExecution),
+            monthsOfExtension: String(tempMockProject2.monthsOfExtension),
+            operations: [{
+              number: tempMockProject2.operationNumber,
+              approved: tempMockProject2.currentApprovedAmount,
+              disbursed: tempMockProject2.disbursedLifeAmount,
+              percent: 0
+            }],
+            qualitativeData: tempMockProject2.qualitativeData
+          };
+
+          const idxME = tableRows.findIndex(r => r.projectNumber.startsWith('ME-'));
+          if (idxME !== -1) {
+            tableRows.splice(idxME, 0, newRowHO);
+          } else {
+            tableRows.push(newRowHO);
+          }
+
+          // Re-index all rows sequentially
+          tableRows.forEach((row, i) => {
+            row.index = i + 1;
+          });
+        }
+
         setMetrics(metrics);
         setTableData(tableRows);
       } catch (err: any) {
@@ -928,6 +1021,71 @@ export function usePortfolioData() {
   }, []);
 
   const getProjectDetails = (projectId: string): ProjectDetails | null => {
+    if (projectId === 'HO-L1261') {
+      const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+      const monthlyMonitoringData = monthNames.map(month => ({
+        month,
+        cumulativeProjection: 0,
+        cumulativeDisbursed: null,
+        cumulativeDisbursedReal: null,
+        projectId: 'HO-L1261',
+        projectCode: 'HO-L1261'
+      }));
+
+      return {
+        id: 'HO-L1261',
+        name: tempMockProject2.title,
+        country: 'HO - Honduras',
+        countryCode: 'HN',
+        countryName: tempMockProject2.countryName,
+        ttl: tempMockProject2.ttl,
+        pmrStatus: 'N/A',
+        operationStatus: 'EF - Waiting for Signature / Eligibility',
+        executingAgency: 'SECRETARIA DE FINANZAS DE HONDURAS (SEFIN)',
+        linkedLoans: [tempMockProject2.operationNumber],
+        currentApprovedAmount: 100000000,
+        disbursedLifeAmount: 0,
+        disbursedLifePercent: 0,
+        ageInExecution: '0.0',
+        monthsOfExtension: '0 months',
+        objective: 'Programa de Fortalecimiento Fiscal para el Crecimiento Inclusivo. El objetivo es fortalecer la sostenibilidad fiscal y la eficiencia del marco de gasto público para apoyar el crecimiento económico inclusivo.',
+        timeline: {
+          approval: { date: '15/AGO/2026', status: 'completed' },
+          effectiveness: { date: 'Pending', status: 'pending' },
+          eligibility: { date: 'Pending', status: 'pending' },
+          firstDisbursement: { date: 'Pending', status: 'pending' },
+          lastDisbursement: { date: 'Pending', status: 'pending', currentDeadline: 'Pending' },
+          extension: { text: '0 months', status: 'pending' },
+          closure: { date: 'Pending', status: 'pending' }
+        },
+        lastDisbursementMade: 'N/A',
+        localContribution: '$0.0M',
+        undisbursedAmountStr: '$100M',
+        financial: {
+          originalApprovedAmount: 100000000,
+          canceledAmount: 0,
+          currentApprovedAmount: 100000000,
+          deadlineLastDisbursement: 'Pending',
+          timeWithoutDisbursements: undefined,
+          currentApprovedAmountM: 100.0,
+          disbursedLifeAmountM: 0,
+          disbursedLifePercent: 0,
+          isDisbursedFully: false
+        },
+        pmrHistory: [],
+        historicalPerformanceData: [
+          {
+            year: '2026',
+            projection: 0,
+            disbursed: null,
+            projected_disbursed: 0,
+            combinedDisbursed: 0
+          }
+        ],
+        monthlyMonitoringData
+      };
+    }
+
     if (projectId === 'BR-L1642') {
       const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
       const monthlyMonitoringData = monthNames.map(month => ({

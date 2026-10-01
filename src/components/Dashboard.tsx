@@ -57,7 +57,8 @@ const syntheticIndicatorsMap: Record<string, string> = {
   'BR-L1643': '',
   'BR-L1614': '',
   'PE-L1278': '',
-  'BR-L1642': ''
+  'BR-L1642': '',
+  'HO-L1261': ''
 };
 
 interface DashboardProps {

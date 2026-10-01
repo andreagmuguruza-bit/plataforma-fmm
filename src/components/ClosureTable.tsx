@@ -163,7 +163,7 @@ export default function ClosureTable() {
     return (
       <div className="relative group flex items-center justify-center w-full h-full min-h-[46px] transition-all duration-150">
         <div 
-          className={`w-full py-2.5 px-2 flex items-center justify-center font-bold text-xs border rounded-md shadow-xs transition-transform duration-100 group-hover:scale-[1.03] select-none cursor-help ${style.bg} ${style.text} ${style.border}`}
+          className={`w-full py-2.5 px-2 flex items-center justify-center font-bold text-xs border rounded-md shadow-xs transition-transform duration-100 group-hover:scale-[1.03] select-none cursor-pointer ${style.bg} ${style.text} ${style.border}`}
         >
           {cell.code}
         </div>

@@ -53,6 +53,7 @@ export function isTtlMatch(projectTtl?: string, userTtlName?: string, username?:
     if (un.includes('reyes') && p.includes('REYES')) return true;
     if (un.includes('zaltsman') && p.includes('ZALTSMAN')) return true;
     if (un.includes('yarygina') && p.includes('YARYGINA')) return true;
+    if (un.includes('alejos') && p.includes('ALEJOS')) return true;
   }
   return false;
 }
@@ -136,6 +137,15 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
         }
       }
     }
+
+    const idxHO = list.findIndex(p => p.id === 'HO-L1261');
+    const idxME = list.findIndex(p => p.id.startsWith('ME-'));
+    if (idxHO !== -1 && idxME !== -1 && idxHO > idxME) {
+      const [itemHO] = list.splice(idxHO, 1);
+      const newIdxME = list.findIndex(p => p.id.startsWith('ME-'));
+      list.splice(newIdxME, 0, itemHO);
+    }
+
     return list;
   }, [filteredProjects]);
 
@@ -157,6 +167,7 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
     if (upper.includes('RADICS') && upper.includes('GUSTAVO AXEL')) return 'Axel';
     if (upper.includes('MENDOZA CASTRO') && upper.includes('HECTOR AGUSTIN')) return 'Hector Agustin';
     if (upper.includes('GUARDIA MUGURUZA') && upper.includes('ANDREA')) return 'Andrea';
+    if (upper.includes('ALEJOS') && upper.includes('LUIS')) return 'Luis';
 
     let name = '';
     if (fullName.includes(',')) {

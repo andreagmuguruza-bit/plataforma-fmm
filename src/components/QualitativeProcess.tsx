@@ -13,6 +13,12 @@ const getDotColor = (status: string) => {
   return '#9CA3AF'; // N/A
 };
 
+const formatPMR = (pmr: string) => {
+  const str = String(pmr || '').toUpperCase().trim();
+  if (str === 'N/A' || str === 'NA' || !str) return 'N/A';
+  return str ? str.charAt(0) + str.slice(1).toLowerCase() : 'N/A';
+};
+
 const getDotIcon = (status: string) => {
   const s = String(status || '').toUpperCase();
   if (s.includes('SATISFACTORY')) {
@@ -99,6 +105,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [justSubmitted, setJustSubmitted] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [hoveredPmrTooltip, setHoveredPmrTooltip] = useState<string | null>(null);
 
   const handleEdit = (section: string) => {
     if (editingSection === section) {
@@ -258,16 +265,26 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                     {details.pmrHistory.map((item, index, array) => (
                       <React.Fragment key={item.year}>
                         <div className="w-6 flex justify-center">
-                          <div className="relative group">
+                          <div 
+                            className="pmr-tooltip-container cursor-pointer"
+                            onMouseEnter={() => setHoveredPmrTooltip(`pre-auto-${item.year}`)}
+                            onMouseLeave={() => setHoveredPmrTooltip(null)}
+                            title={`PMR March Cycle ${item.year}: ${formatPMR(item.autoCalculatedStatus)}`}
+                          >
                             <div 
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm cursor-help transition-transform duration-200 group-hover:scale-110 ring-[2px] ring-zinc-50 relative z-10"
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm transition-transform duration-200 hover:scale-110 ring-[2px] ring-zinc-50 relative z-10"
                               style={{ backgroundColor: getDotColor(item.autoCalculatedStatus) }}
                             >
                               {getDotIcon(item.autoCalculatedStatus)}
                             </div>
-                            <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-2 py-1 bg-zinc-900 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg z-20">
-                              {item.autoCalculatedStatus}
-                              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
+                            {/* Tooltip */}
+                            <div 
+                              className={`pmr-tooltip-popup ${hoveredPmrTooltip === `pre-auto-${item.year}` ? '!block' : ''}`}
+                            >
+                              <div className="px-2.5 py-1 bg-zinc-900 text-white text-[10px] font-bold rounded whitespace-nowrap shadow-lg relative">
+                                PMR March Cycle {item.year}: {formatPMR(item.autoCalculatedStatus)}
+                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -289,16 +306,26 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                     {details.pmrHistory.map((item, index, array) => (
                       <React.Fragment key={item.year}>
                         <div className="w-6 flex justify-center">
-                          <div className="relative group">
+                          <div 
+                            className="pmr-tooltip-container cursor-pointer"
+                            onMouseEnter={() => setHoveredPmrTooltip(`pre-val-${item.year}`)}
+                            onMouseLeave={() => setHoveredPmrTooltip(null)}
+                            title={`PMR March Cycle ${item.year}: ${formatPMR(item.validatedStatus)}`}
+                          >
                             <div 
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm cursor-help transition-transform duration-200 group-hover:scale-110 ring-[2px] ring-zinc-50 relative z-10"
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm transition-transform duration-200 hover:scale-110 ring-[2px] ring-zinc-50 relative z-10"
                               style={{ backgroundColor: getDotColor(item.validatedStatus) }}
                             >
                               {getDotIcon(item.validatedStatus)}
                             </div>
-                            <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-2 py-1 bg-zinc-900 text-white text-[10px] font-bold rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-lg z-20">
-                              {item.hoverText}: {item.validatedStatus}
-                              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
+                            {/* Tooltip */}
+                            <div 
+                              className={`pmr-tooltip-popup ${hoveredPmrTooltip === `pre-val-${item.year}` ? '!block' : ''}`}
+                            >
+                              <div className="px-2.5 py-1 bg-zinc-900 text-white text-[10px] font-bold rounded whitespace-nowrap shadow-lg relative">
+                                PMR March Cycle {item.year}: {formatPMR(item.validatedStatus)}
+                                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -324,18 +351,48 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                       <div className="text-xs font-bold text-zinc-900">{item.year}</div>
                       <div className="flex justify-center">
                         <div 
-                          className="w-5 h-5 rounded-full flex items-center justify-center text-white shadow-sm ring-1 ring-zinc-100"
-                          style={{ backgroundColor: getDotColor(item.autoCalculatedStatus) }}
+                          className="pmr-tooltip-container cursor-pointer"
+                          onMouseEnter={() => setHoveredPmrTooltip(`pre-mob-auto-${item.year}`)}
+                          onMouseLeave={() => setHoveredPmrTooltip(null)}
+                          title={`PMR March Cycle ${item.year}: ${formatPMR(item.autoCalculatedStatus)}`}
                         >
-                          {getDotIcon(item.autoCalculatedStatus)}
+                          <div 
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-white shadow-sm ring-1 ring-zinc-100"
+                            style={{ backgroundColor: getDotColor(item.autoCalculatedStatus) }}
+                          >
+                            {getDotIcon(item.autoCalculatedStatus)}
+                          </div>
+                          <div 
+                            className={`pmr-tooltip-popup ${hoveredPmrTooltip === `pre-mob-auto-${item.year}` ? '!block' : ''}`}
+                          >
+                            <div className="px-2 py-1 bg-zinc-900 text-white text-[9px] font-bold rounded whitespace-nowrap shadow-lg relative">
+                              PMR March Cycle {item.year}: {formatPMR(item.autoCalculatedStatus)}
+                              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
+                            </div>
+                          </div>
                         </div>
                       </div>
                       <div className="flex justify-center">
                         <div 
-                          className="w-5 h-5 rounded-full flex items-center justify-center text-white shadow-sm ring-1 ring-zinc-100"
-                          style={{ backgroundColor: getDotColor(item.validatedStatus) }}
+                          className="pmr-tooltip-container cursor-pointer"
+                          onMouseEnter={() => setHoveredPmrTooltip(`pre-mob-val-${item.year}`)}
+                          onMouseLeave={() => setHoveredPmrTooltip(null)}
+                          title={`PMR March Cycle ${item.year}: ${formatPMR(item.validatedStatus)}`}
                         >
-                          {getDotIcon(item.validatedStatus)}
+                          <div 
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-white shadow-sm ring-1 ring-zinc-100"
+                            style={{ backgroundColor: getDotColor(item.validatedStatus) }}
+                          >
+                            {getDotIcon(item.validatedStatus)}
+                          </div>
+                          <div 
+                            className={`pmr-tooltip-popup ${hoveredPmrTooltip === `pre-mob-val-${item.year}` ? '!block' : ''}`}
+                          >
+                            <div className="px-2 py-1 bg-zinc-900 text-white text-[9px] font-bold rounded whitespace-nowrap shadow-lg relative">
+                              PMR March Cycle {item.year}: {formatPMR(item.validatedStatus)}
+                              <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </React.Fragment>
