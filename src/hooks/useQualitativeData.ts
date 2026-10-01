@@ -142,15 +142,9 @@ export function useQualitativeData(
     setError(null);
 
     try {
-      const queryUrl = `${GOOGLE_APPS_SCRIPT_URL}${GOOGLE_APPS_SCRIPT_URL.includes('?') ? '&' : '?'}action=getProject&projectId=${encodeURIComponent(currentProj.id)}&t=${new Date().getTime()}`;
+      const queryUrl = `${GOOGLE_APPS_SCRIPT_URL}${GOOGLE_APPS_SCRIPT_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
       const response = await fetch(queryUrl, {
-        method: 'GET',
-        cache: 'no-store',
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
+        method: 'GET'
       });
 
       if (response.ok) {

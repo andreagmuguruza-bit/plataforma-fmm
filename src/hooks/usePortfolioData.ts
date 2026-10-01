@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
+import { GOOGLE_APPS_SCRIPT_URL } from './useQualitativeData';
 
 export interface DashboardMetrics {
   totalProjects: number;
@@ -60,6 +61,8 @@ export interface TableRow {
     percent: number;
   }[];
   qualitativeData?: any;
+  isPrefilledByTeam?: boolean;
+  validatedByTTLDate?: string | null;
 }
 
 export interface ProjectDetails {
@@ -416,14 +419,27 @@ export function usePortfolioData() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [activeRes, disbRes, consolidatedRes, workflowRes, performanceRes, histProjRes] = await Promise.all([
+        const [activeRes, disbRes, consolidatedRes, workflowRes, performanceRes, histProjRes, gSheetRes] = await Promise.all([
           fetch(`/active_portfolio.csv?t=${Date.now()}`),
           fetch(`/disbursements_actuals_and_projections.csv?t=${Date.now()}`),
           fetch(`/vw_spd_proj_cnsldtd.csv?t=${Date.now()}`),
           fetch(`/oper_ods_workflow_cmnt.csv?t=${Date.now()}`),
           fetch(`/oper_ods_performance.csv?t=${Date.now()}`),
-          fetch(`/sl_hist_disbursement_projections_all.csv?t=${Date.now()}`)
+          fetch(`/sl_hist_disbursement_projections_all.csv?t=${Date.now()}`),
+          fetch(`${GOOGLE_APPS_SCRIPT_URL}?t=${Date.now()}`).catch(err => {
+            console.warn('Google Apps Script fetch warning in usePortfolioData:', err);
+            return null;
+          })
         ]);
+
+        let gSheetData: Record<string, any> = {};
+        if (gSheetRes && gSheetRes.ok) {
+          try {
+            gSheetData = await gSheetRes.json();
+          } catch (e) {
+            console.warn('Error parsing Google Apps Script data:', e);
+          }
+        }
 
         const activeText = await activeRes.text();
         const disbText = await disbRes.text();
@@ -902,6 +918,32 @@ export function usePortfolioData() {
 
           const operationNumber = row.operations.map((o: any) => o.number).filter(Boolean).join('\n');
 
+          const remoteQual = gSheetData[projNum] || 
+            (row.operations && row.operations.find((o: any) => gSheetData[o.number]) ? gSheetData[row.operations.find((o: any) => gSheetData[o.number]).number] : undefined);
+          
+          let qualData: any = undefined;
+          let isPrefilled: boolean | undefined = undefined;
+          let validatedDate: string | null | undefined = undefined;
+
+          if (remoteQual) {
+            qualData = {
+              estadoImplementacion: remoteQual.estadoImplementacion || [],
+              productosDestacados: remoteQual.productosDestacados || [],
+              probabilidadObjetivos: remoteQual.probabilidadObjetivos || [],
+              accionesSugeridas: remoteQual.accionesSugeridas || [],
+              fechaEvaluacionIntermedia: remoteQual.fechaEvaluacionIntermedia || '',
+              fechaTalleresArranque: remoteQual.fechaTalleresArranque || '',
+              temasCriticosSimulador: remoteQual.temasCriticosSimulador || '',
+              verificadorContenidos: remoteQual.verificadorContenidos || '',
+            };
+            if (remoteQual.isPrefilledByTeam !== undefined) {
+              isPrefilled = remoteQual.isPrefilledByTeam === true || remoteQual.isPrefilledByTeam === 'true' || remoteQual.isPrefilledByTeam === 'TRUE' || remoteQual.isPrefilledByTeam === 1;
+            }
+            if (remoteQual.validatedByTTLDate !== undefined) {
+              validatedDate = remoteQual.validatedByTTLDate && String(remoteQual.validatedByTTLDate).trim() !== '' && String(remoteQual.validatedByTTLDate).toLowerCase() !== 'null' ? String(remoteQual.validatedByTTLDate) : null;
+            }
+          }
+
           tableRows.push({
             index: index++,
             projectNumber: projNum,
@@ -918,12 +960,16 @@ export function usePortfolioData() {
             lendingInstrumentId: row.lendingInstrumentId,
             ageInExecution: ageInExecution,
             monthsOfExtension: monthsOfExtension,
-            operations: row.operations
+            operations: row.operations,
+            qualitativeData: qualData,
+            isPrefilledByTeam: isPrefilled,
+            validatedByTTLDate: validatedDate
           });
         });
 
         // Ensure tempMockProject is in tableRows right after BR-L1643 (and after BR-L1629)
         if (!tableRows.some(r => r.projectNumber === tempMockProject.projectNumber)) {
+          const remoteBR = gSheetData['BR-L1642'];
           const newRow: TableRow = {
             index: 0,
             projectNumber: tempMockProject.projectNumber,
@@ -946,7 +992,18 @@ export function usePortfolioData() {
               disbursed: tempMockProject.disbursedLifeAmount,
               percent: 0
             }],
-            qualitativeData: tempMockProject.qualitativeData
+            qualitativeData: remoteBR ? {
+              estadoImplementacion: remoteBR.estadoImplementacion || tempMockProject.qualitativeData.estadoImplementacion,
+              productosDestacados: remoteBR.productosDestacados || tempMockProject.qualitativeData.productosDestacados,
+              probabilidadObjetivos: remoteBR.probabilidadObjetivos || tempMockProject.qualitativeData.probabilidadObjetivos,
+              accionesSugeridas: remoteBR.accionesSugeridas || tempMockProject.qualitativeData.accionesSugeridas,
+              fechaEvaluacionIntermedia: remoteBR.fechaEvaluacionIntermedia || '',
+              fechaTalleresArranque: remoteBR.fechaTalleresArranque || '',
+              temasCriticosSimulador: remoteBR.temasCriticosSimulador || '',
+              verificadorContenidos: remoteBR.verificadorContenidos || '',
+            } : tempMockProject.qualitativeData,
+            isPrefilledByTeam: remoteBR?.isPrefilledByTeam !== undefined ? (remoteBR.isPrefilledByTeam === true || remoteBR.isPrefilledByTeam === 'true') : false,
+            validatedByTTLDate: remoteBR?.validatedByTTLDate !== undefined ? (remoteBR.validatedByTTLDate && String(remoteBR.validatedByTTLDate).trim() !== '' ? String(remoteBR.validatedByTTLDate) : null) : null
           };
 
           const idx1643 = tableRows.findIndex(r => r.projectNumber === 'BR-L1643');
@@ -969,6 +1026,7 @@ export function usePortfolioData() {
 
         // Ensure tempMockProject2 (HO-L1261) is in tableRows in alphabetical order (after EC projects, before ME projects)
         if (!tableRows.some(r => r.projectNumber === tempMockProject2.projectNumber)) {
+          const remoteHO = gSheetData['HO-L1261'];
           const newRowHO: TableRow = {
             index: 0,
             projectNumber: tempMockProject2.projectNumber,
@@ -991,7 +1049,18 @@ export function usePortfolioData() {
               disbursed: tempMockProject2.disbursedLifeAmount,
               percent: 0
             }],
-            qualitativeData: tempMockProject2.qualitativeData
+            qualitativeData: remoteHO ? {
+              estadoImplementacion: remoteHO.estadoImplementacion || tempMockProject2.qualitativeData.estadoImplementacion,
+              productosDestacados: remoteHO.productosDestacados || tempMockProject2.qualitativeData.productosDestacados,
+              probabilidadObjetivos: remoteHO.probabilidadObjetivos || tempMockProject2.qualitativeData.probabilidadObjetivos,
+              accionesSugeridas: remoteHO.accionesSugeridas || tempMockProject2.qualitativeData.accionesSugeridas,
+              fechaEvaluacionIntermedia: remoteHO.fechaEvaluacionIntermedia || '',
+              fechaTalleresArranque: remoteHO.fechaTalleresArranque || '',
+              temasCriticosSimulador: remoteHO.temasCriticosSimulador || '',
+              verificadorContenidos: remoteHO.verificadorContenidos || '',
+            } : tempMockProject2.qualitativeData,
+            isPrefilledByTeam: remoteHO?.isPrefilledByTeam !== undefined ? (remoteHO.isPrefilledByTeam === true || remoteHO.isPrefilledByTeam === 'true') : false,
+            validatedByTTLDate: remoteHO?.validatedByTTLDate !== undefined ? (remoteHO.validatedByTTLDate && String(remoteHO.validatedByTTLDate).trim() !== '' ? String(remoteHO.validatedByTTLDate) : null) : null
           };
 
           const idxME = tableRows.findIndex(r => r.projectNumber.startsWith('ME-'));

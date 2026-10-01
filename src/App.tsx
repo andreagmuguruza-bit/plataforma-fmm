@@ -65,8 +65,10 @@ function MainApp() {
         countryName: row.countryName,
         ttl: row.ttl,
         status: row.status,
-        isPrefilledByTeam: (row.projectNumber === 'BR-L1642' || row.projectNumber === 'HO-L1261') ? false : true,
-        validatedByTTLDate: null,
+        isPrefilledByTeam: (row as any).isPrefilledByTeam !== undefined 
+          ? (row as any).isPrefilledByTeam 
+          : ((row.projectNumber === 'BR-L1642' || row.projectNumber === 'HO-L1261') ? false : true),
+        validatedByTTLDate: (row as any).validatedByTTLDate !== undefined ? (row as any).validatedByTTLDate : null,
         qualitativeData: {
           estadoImplementacion: (row as any).qualitativeData?.estadoImplementacion || QUALITATIVE_METADATA_MAP[row.projectNumber]?.estadoImplementacion || [],
           productosDestacados: (row as any).qualitativeData?.productosDestacados || QUALITATIVE_METADATA_MAP[row.projectNumber]?.productosDestacados || [],
@@ -198,8 +200,40 @@ function MainApp() {
           return next;
         });
       }
+
+      // Sync any remote Google Sheets updates from tableData to projects
+      setProjects(prev => {
+        let changed = false;
+        const next = prev.map(p => {
+          const row = tableData.find(r => r.projectNumber === p.id);
+          if (!row) return p;
+          const remotePrefilled = (row as any).isPrefilledByTeam;
+          const remoteValidated = (row as any).validatedByTTLDate;
+          const remoteQual = (row as any).qualitativeData;
+          if (remotePrefilled !== undefined && remotePrefilled !== p.isPrefilledByTeam) {
+            changed = true;
+            return {
+              ...p,
+              isPrefilledByTeam: remotePrefilled,
+              validatedByTTLDate: remoteValidated !== undefined ? remoteValidated : p.validatedByTTLDate,
+              qualitativeData: remoteQual || p.qualitativeData
+            };
+          }
+          if (remoteValidated !== undefined && remoteValidated !== p.validatedByTTLDate) {
+            changed = true;
+            return {
+              ...p,
+              validatedByTTLDate: remoteValidated,
+              isPrefilledByTeam: remotePrefilled !== undefined ? remotePrefilled : p.isPrefilledByTeam,
+              qualitativeData: remoteQual || p.qualitativeData
+            };
+          }
+          return p;
+        });
+        return changed ? next : prev;
+      });
     }
-  }, [tableData, projects]);
+  }, [tableData]);
 
   // Scroll to top on view change
   useEffect(() => {

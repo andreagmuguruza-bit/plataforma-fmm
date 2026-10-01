@@ -420,7 +420,7 @@ export default function Dashboard({
     // Rows
     let currentRowN = 1;
     filteredTableData.forEach((project) => {
-      const qualitativeInfo = projects.find(p => p.id === project.projectNumber)?.qualitativeData;
+      const qualitativeInfo = (project as any).qualitativeData || projects.find(p => p.id === project.projectNumber)?.qualitativeData;
 
       if (project.operations && project.operations.length > 1) {
         const projectN = currentRowN++;
