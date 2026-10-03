@@ -120,6 +120,26 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
     setJustSubmitted(false);
   };
 
+  // Helper to format clean text array into visual bullet text for textarea display
+  const formatWithVisualBullets = (items: string[]): string => {
+    const text = (items || []).join('\n');
+    return text
+      .split('\n')
+      .map(line => {
+        if (!line.trim()) return '';
+        const clean = line.replace(/^•\s*/, '');
+        return clean.trim() ? `• ${clean}` : '';
+      })
+      .join('\n');
+  };
+
+  const handleTextareaChange = (field: keyof QualitativeFormData, rawValue: string) => {
+    // Dynamic cleanup: remove visual bullet marker "• " from start of all lines
+    const cleanText = rawValue.replace(/^•\s*/gm, '');
+    const cleanLines = cleanText.split('\n');
+    setData(prev => ({ ...prev, [field]: cleanLines }));
+  };
+
   const handleSend = async () => {
     const formattedDate = formatDDMMMYY(new Date());
     await saveData({
@@ -475,15 +495,20 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                 <SectionHeader title="Estado de implementación / Principales riesgos" sectionId="estadoImplementacion" />
                 {editingSection === 'estadoImplementacion' ? (
                   <textarea 
-                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
-                    value={data.estadoImplementacion.join('\n')}
+                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32 focus:outline-none focus:ring-1 focus:ring-[#005173]"
+                    value={formatWithVisualBullets(data.estadoImplementacion)}
                     placeholder=""
-                    onChange={e => setData({...data, estadoImplementacion: e.target.value.split('\n')})}
+                    spellCheck="true"
+                    lang="es"
+                    onChange={e => handleTextareaChange('estadoImplementacion', e.target.value)}
                   />
                 ) : (
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    {data.estadoImplementacion.length > 0 && data.estadoImplementacion[0] !== '' ? (
-                      data.estadoImplementacion.map((item, i) => <li key={i}>{item}</li>)
+                    {data.estadoImplementacion.some(line => line && line.trim()) ? (
+                      data.estadoImplementacion.map((item, i) => {
+                        if (!item || !item.trim()) return null;
+                        return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
+                      })
                     ) : (
                       <li className="list-none">&nbsp;</li>
                     )}
@@ -496,15 +521,20 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                 <SectionHeader title="Acciones sugeridas / Pedidos" sectionId="accionesSugeridas" />
                 {editingSection === 'accionesSugeridas' ? (
                   <textarea 
-                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
-                    value={data.accionesSugeridas.join('\n')}
+                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32 focus:outline-none focus:ring-1 focus:ring-[#005173]"
+                    value={formatWithVisualBullets(data.accionesSugeridas)}
                     placeholder=""
-                    onChange={e => setData({...data, accionesSugeridas: e.target.value.split('\n')})}
+                    spellCheck="true"
+                    lang="es"
+                    onChange={e => handleTextareaChange('accionesSugeridas', e.target.value)}
                   />
                 ) : (
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    {data.accionesSugeridas.length > 0 && data.accionesSugeridas[0] !== '' ? (
-                      data.accionesSugeridas.map((item, i) => <li key={i}>{item}</li>)
+                    {data.accionesSugeridas.some(line => line && line.trim()) ? (
+                      data.accionesSugeridas.map((item, i) => {
+                        if (!item || !item.trim()) return null;
+                        return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
+                      })
                     ) : (
                       <li className="list-none">&nbsp;</li>
                     )}
@@ -517,15 +547,20 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                 <SectionHeader title="Productos destacados/innovadores del proyecto" sectionId="productosDestacados" />
                 {editingSection === 'productosDestacados' ? (
                   <textarea 
-                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
-                    value={data.productosDestacados.join('\n')}
+                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32 focus:outline-none focus:ring-1 focus:ring-[#005173]"
+                    value={formatWithVisualBullets(data.productosDestacados)}
                     placeholder=""
-                    onChange={e => setData({...data, productosDestacados: e.target.value.split('\n')})}
+                    spellCheck="true"
+                    lang="es"
+                    onChange={e => handleTextareaChange('productosDestacados', e.target.value)}
                   />
                 ) : (
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    {data.productosDestacados.length > 0 && data.productosDestacados[0] !== '' ? (
-                      data.productosDestacados.map((item, i) => <li key={i}>{item}</li>)
+                    {data.productosDestacados.some(line => line && line.trim()) ? (
+                      data.productosDestacados.map((item, i) => {
+                        if (!item || !item.trim()) return null;
+                        return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
+                      })
                     ) : (
                       <li className="list-none">&nbsp;</li>
                     )}
@@ -538,15 +573,20 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                 <SectionHeader title="Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR" sectionId="probabilidadObjetivos" />
                 {editingSection === 'probabilidadObjetivos' ? (
                   <textarea 
-                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32"
-                    value={data.probabilidadObjetivos.join('\n')}
+                    className="w-full text-sm border border-zinc-200 rounded px-2 py-1 h-32 focus:outline-none focus:ring-1 focus:ring-[#005173]"
+                    value={formatWithVisualBullets(data.probabilidadObjetivos)}
                     placeholder=""
-                    onChange={e => setData({...data, probabilidadObjetivos: e.target.value.split('\n')})}
+                    spellCheck="true"
+                    lang="es"
+                    onChange={e => handleTextareaChange('probabilidadObjetivos', e.target.value)}
                   />
                 ) : (
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    {data.probabilidadObjetivos.length > 0 && data.probabilidadObjetivos[0] !== '' ? (
-                      data.probabilidadObjetivos.map((item, i) => <li key={i}>{item}</li>)
+                    {data.probabilidadObjetivos.some(line => line && line.trim()) ? (
+                      data.probabilidadObjetivos.map((item, i) => {
+                        if (!item || !item.trim()) return null;
+                        return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
+                      })
                     ) : (
                       <li className="list-none">&nbsp;</li>
                     )}

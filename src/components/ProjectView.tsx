@@ -1388,8 +1388,11 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Estado de implementación / Principales riesgos</h4>
                         <div className="bg-white p-4 rounded-xl border border-zinc-100">
                           <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                            {(activeQualitativeData?.estadoImplementacion || []).length > 0 ? (
-                              activeQualitativeData?.estadoImplementacion?.map((item, i) => <li key={i}>{item}</li>)
+                            {(activeQualitativeData?.estadoImplementacion || []).some(line => line && line.trim()) ? (
+                              activeQualitativeData?.estadoImplementacion?.map((item, i) => {
+                                if (!item || !item.trim()) return null;
+                                return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
+                              })
                             ) : (
                               <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
                             )}
@@ -1401,8 +1404,11 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Acciones sugeridas / Pedidos</h4>
                         <div className="bg-white p-4 rounded-xl border border-zinc-100">
                           <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                            {(activeQualitativeData?.accionesSugeridas || []).length > 0 ? (
-                              activeQualitativeData?.accionesSugeridas?.map((item, i) => <li key={i}>{item}</li>)
+                            {(activeQualitativeData?.accionesSugeridas || []).some(line => line && line.trim()) ? (
+                              activeQualitativeData?.accionesSugeridas?.map((item, i) => {
+                                if (!item || !item.trim()) return null;
+                                return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
+                              })
                             ) : (
                               <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
                             )}
@@ -1414,8 +1420,11 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Productos destacados/innovadores del proyecto</h4>
                         <div className="bg-white p-4 rounded-xl border border-zinc-100">
                           <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                            {(activeQualitativeData?.productosDestacados || []).length > 0 ? (
-                              activeQualitativeData?.productosDestacados?.map((item, i) => <li key={i}>{item}</li>)
+                            {(activeQualitativeData?.productosDestacados || []).some(line => line && line.trim()) ? (
+                              activeQualitativeData?.productosDestacados?.map((item, i) => {
+                                if (!item || !item.trim()) return null;
+                                return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
+                              })
                             ) : (
                               <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
                             )}
@@ -1427,8 +1436,11 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
                         <div className="bg-white p-4 rounded-xl border border-zinc-100">
                           <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                            {(activeQualitativeData?.probabilidadObjetivos || []).length > 0 ? (
-                              activeQualitativeData?.probabilidadObjetivos?.map((item, i) => <li key={i}>{item}</li>)
+                            {(activeQualitativeData?.probabilidadObjetivos || []).some(line => line && line.trim()) ? (
+                              activeQualitativeData?.probabilidadObjetivos?.map((item, i) => {
+                                if (!item || !item.trim()) return null;
+                                return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
+                              })
                             ) : (
                               <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
                             )}
@@ -2691,8 +2703,11 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                 <h4 className="text-sm font-bold text-zinc-900 mb-2">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
                 <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    {(activeQualitativeData?.probabilidadObjetivos || []).length > 0 ? (
-                      activeQualitativeData?.probabilidadObjetivos?.map((item, i) => <li key={i}>{item}</li>)
+                    {(activeQualitativeData?.probabilidadObjetivos || []).some(line => line && line.trim()) ? (
+                      activeQualitativeData?.probabilidadObjetivos?.map((item, i) => {
+                        if (!item || !item.trim()) return null;
+                        return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
+                      })
                     ) : (
                       <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
                     )}
