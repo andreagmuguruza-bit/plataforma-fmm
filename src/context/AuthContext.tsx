@@ -252,16 +252,20 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const AUTH_STORAGE_KEY = 'fmm_auth_user_session';
+const AUTH_FLAG_KEY = 'fmm_logged_in';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
     try {
-      const stored = sessionStorage.getItem(AUTH_STORAGE_KEY);
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY) || sessionStorage.getItem(AUTH_STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.username) {
+          return parsed;
+        }
       }
     } catch (e) {
-      console.error('Error reading auth session:', e);
+      console.error('Error reading auth session from storage:', e);
     }
     return null;
   });
@@ -274,15 +278,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return user?.ttlName || '';
   });
 
+  // Effect on mount: Read localStorage and auto-login if valid session exists
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY) || sessionStorage.getItem(AUTH_STORAGE_KEY);
+      if (stored) {
+        const parsed: AuthUser = JSON.parse(stored);
+        if (parsed && parsed.username) {
+          setUser(parsed);
+          setActiveRoleState(parsed.activeRole || parsed.role || 'GENERAL_FMM');
+          if (parsed.ttlName) {
+            setSelectedTTL(parsed.ttlName);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Error auto-logging in from localStorage:', e);
+    }
+  }, []);
+
   useEffect(() => {
     if (user) {
-      sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+      try {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+        localStorage.setItem(AUTH_FLAG_KEY, 'true');
+        sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+        sessionStorage.setItem(AUTH_FLAG_KEY, 'true');
+      } catch (e) {
+        console.error('Error saving auth to storage:', e);
+      }
       setActiveRoleState(user.activeRole);
       if (user.ttlName) {
         setSelectedTTL(user.ttlName);
       }
     } else {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(AUTH_FLAG_KEY);
       sessionStorage.removeItem(AUTH_STORAGE_KEY);
+      sessionStorage.removeItem(AUTH_FLAG_KEY);
     }
   }, [user]);
 
@@ -311,6 +344,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isDualRole: matched.isDualRole
     };
 
+    try {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authUser));
+      localStorage.setItem(AUTH_FLAG_KEY, 'true');
+      sessionStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authUser));
+      sessionStorage.setItem(AUTH_FLAG_KEY, 'true');
+    } catch (e) {
+      console.error('Error saving auth to localStorage during login:', e);
+    }
+
     setUser(authUser);
     setActiveRoleState(authUser.activeRole);
     if (authUser.ttlName) {
@@ -322,8 +364,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     setUser(null);
     setSelectedTTL('');
-    sessionStorage.removeItem(AUTH_STORAGE_KEY);
-    sessionStorage.removeItem('fmm_logged_in');
+    try {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem(AUTH_FLAG_KEY);
+      sessionStorage.removeItem(AUTH_STORAGE_KEY);
+      sessionStorage.removeItem(AUTH_FLAG_KEY);
+    } catch (e) {
+      console.error('Error clearing storage on logout:', e);
+    }
   };
 
   const setActiveRole = (newRole: UserRole) => {

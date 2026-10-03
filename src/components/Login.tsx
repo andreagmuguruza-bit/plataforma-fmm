@@ -23,7 +23,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     setTimeout(() => {
       const res = login(username.trim(), password.trim());
       if (res.success) {
-        sessionStorage.setItem('fmm_logged_in', 'true');
+        localStorage.setItem('fmm_logged_in', 'true');
         if (onLoginSuccess) {
           onLoginSuccess();
         }
