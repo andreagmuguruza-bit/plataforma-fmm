@@ -140,6 +140,28 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
     setData(prev => ({ ...prev, [field]: cleanLines }));
   };
 
+  // Helper for read-only rendering without dropping empty lines (preserving paragraph breaks)
+  const renderReadOnlyList = (items: string[]) => {
+    const lines = (items || []).join('\n').split('\n');
+    const hasContent = lines.some(l => l && l.trim().length > 0);
+    if (!hasContent) {
+      return <li className="list-none">&nbsp;</li>;
+    }
+    return lines.map((line, index) => {
+      const cleanLine = line.replace(/^•\s*/, '').trim();
+      if (cleanLine) {
+        return <li key={index}>{cleanLine}</li>;
+      }
+      return (
+        <li 
+          key={index} 
+          className="list-none min-h-[1.5em]" 
+          style={{ listStyle: 'none', minHeight: '1.5em' }}
+        />
+      );
+    });
+  };
+
   const handleSend = async () => {
     const formattedDate = formatDDMMMYY(new Date());
     await saveData({
@@ -504,14 +526,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                   />
                 ) : (
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    {data.estadoImplementacion.some(line => line && line.trim()) ? (
-                      data.estadoImplementacion.map((item, i) => {
-                        if (!item || !item.trim()) return null;
-                        return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
-                      })
-                    ) : (
-                      <li className="list-none">&nbsp;</li>
-                    )}
+                    {renderReadOnlyList(data.estadoImplementacion)}
                   </ul>
                 )}
               </div>
@@ -530,14 +545,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                   />
                 ) : (
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    {data.accionesSugeridas.some(line => line && line.trim()) ? (
-                      data.accionesSugeridas.map((item, i) => {
-                        if (!item || !item.trim()) return null;
-                        return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
-                      })
-                    ) : (
-                      <li className="list-none">&nbsp;</li>
-                    )}
+                    {renderReadOnlyList(data.accionesSugeridas)}
                   </ul>
                 )}
               </div>
@@ -556,14 +564,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                   />
                 ) : (
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    {data.productosDestacados.some(line => line && line.trim()) ? (
-                      data.productosDestacados.map((item, i) => {
-                        if (!item || !item.trim()) return null;
-                        return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
-                      })
-                    ) : (
-                      <li className="list-none">&nbsp;</li>
-                    )}
+                    {renderReadOnlyList(data.productosDestacados)}
                   </ul>
                 )}
               </div>
@@ -582,14 +583,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                   />
                 ) : (
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    {data.probabilidadObjetivos.some(line => line && line.trim()) ? (
-                      data.probabilidadObjetivos.map((item, i) => {
-                        if (!item || !item.trim()) return null;
-                        return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
-                      })
-                    ) : (
-                      <li className="list-none">&nbsp;</li>
-                    )}
+                    {renderReadOnlyList(data.probabilidadObjetivos)}
                   </ul>
                 )}
               </div>

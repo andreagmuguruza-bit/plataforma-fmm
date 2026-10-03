@@ -520,6 +520,27 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
   const generalDetailsImage = React.useMemo(() => renderTextToDataURL('General Details', 'bold 24px Inter, system-ui, sans-serif', '#18181b', 500), []);
   const financialProgressImage = React.useMemo(() => renderTextToDataURL('Financial Progress', 'bold 24px Inter, system-ui, sans-serif', '#18181b', 500), []);
 
+  const renderReadOnlyQualitativeList = (items?: string[]) => {
+    const lines = (items || []).join('\n').split('\n');
+    const hasContent = lines.some(l => l && l.trim().length > 0);
+    if (!hasContent) {
+      return <li className="text-zinc-400 italic list-none -ml-5">No information available</li>;
+    }
+    return lines.map((line, index) => {
+      const cleanLine = line.replace(/^•\s*/, '').trim();
+      if (cleanLine) {
+        return <li key={index}>{cleanLine}</li>;
+      }
+      return (
+        <li 
+          key={index} 
+          className="list-none min-h-[1.5em]" 
+          style={{ listStyle: 'none', minHeight: '1.5em' }}
+        />
+      );
+    });
+  };
+
   // Scroll to top when tab changes
   React.useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1388,14 +1409,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Estado de implementación / Principales riesgos</h4>
                         <div className="bg-white p-4 rounded-xl border border-zinc-100">
                           <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                            {(activeQualitativeData?.estadoImplementacion || []).some(line => line && line.trim()) ? (
-                              activeQualitativeData?.estadoImplementacion?.map((item, i) => {
-                                if (!item || !item.trim()) return null;
-                                return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
-                              })
-                            ) : (
-                              <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
-                            )}
+                            {renderReadOnlyQualitativeList(activeQualitativeData?.estadoImplementacion)}
                           </ul>
                         </div>
                       </div>
@@ -1404,14 +1418,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Acciones sugeridas / Pedidos</h4>
                         <div className="bg-white p-4 rounded-xl border border-zinc-100">
                           <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                            {(activeQualitativeData?.accionesSugeridas || []).some(line => line && line.trim()) ? (
-                              activeQualitativeData?.accionesSugeridas?.map((item, i) => {
-                                if (!item || !item.trim()) return null;
-                                return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
-                              })
-                            ) : (
-                              <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
-                            )}
+                            {renderReadOnlyQualitativeList(activeQualitativeData?.accionesSugeridas)}
                           </ul>
                         </div>
                       </div>
@@ -1420,14 +1427,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Productos destacados/innovadores del proyecto</h4>
                         <div className="bg-white p-4 rounded-xl border border-zinc-100">
                           <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                            {(activeQualitativeData?.productosDestacados || []).some(line => line && line.trim()) ? (
-                              activeQualitativeData?.productosDestacados?.map((item, i) => {
-                                if (!item || !item.trim()) return null;
-                                return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
-                              })
-                            ) : (
-                              <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
-                            )}
+                            {renderReadOnlyQualitativeList(activeQualitativeData?.productosDestacados)}
                           </ul>
                         </div>
                       </div>
@@ -1436,14 +1436,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <h4 className="text-[11px] lg:text-sm font-bold text-zinc-900 mb-3 uppercase tracking-tight">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
                         <div className="bg-white p-4 rounded-xl border border-zinc-100">
                           <ul className="list-disc pl-5 text-[11px] lg:text-sm text-zinc-700 space-y-1">
-                            {(activeQualitativeData?.probabilidadObjetivos || []).some(line => line && line.trim()) ? (
-                              activeQualitativeData?.probabilidadObjetivos?.map((item, i) => {
-                                if (!item || !item.trim()) return null;
-                                return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
-                              })
-                            ) : (
-                              <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
-                            )}
+                            {renderReadOnlyQualitativeList(activeQualitativeData?.probabilidadObjetivos)}
                           </ul>
                         </div>
                       </div>
@@ -2703,14 +2696,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                 <h4 className="text-sm font-bold text-zinc-900 mb-2">Probabilidad de alcanzar objetivos de desarrollo / Temas a considerar en el PCR</h4>
                 <div className="bg-white p-4 rounded-xl border border-zinc-100 break-inside-avoid">
                   <ul className="list-disc pl-5 text-sm text-zinc-700 space-y-1">
-                    {(activeQualitativeData?.probabilidadObjetivos || []).some(line => line && line.trim()) ? (
-                      activeQualitativeData?.probabilidadObjetivos?.map((item, i) => {
-                        if (!item || !item.trim()) return null;
-                        return <li key={i}>{item.replace(/^•\s*/, '').trim()}</li>;
-                      })
-                    ) : (
-                      <li className="text-zinc-400 italic list-none -ml-5">No information available</li>
-                    )}
+                    {renderReadOnlyQualitativeList(activeQualitativeData?.probabilidadObjetivos)}
                   </ul>
                 </div>
               </div>
