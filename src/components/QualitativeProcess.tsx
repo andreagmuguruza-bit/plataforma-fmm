@@ -4,6 +4,7 @@ import { ArrowLeft, TrendingUp, Edit2, Check, Send, RotateCcw, History, CheckCir
 import { motion } from 'motion/react';
 import { usePortfolioData } from '../hooks/usePortfolioData';
 import { useQualitativeData, formatDDMMMYY, QualitativeFormData } from '../hooks/useQualitativeData';
+import { useGASPortfolioData } from '../hooks/useGASPortfolioData';
 
 const getDotColor = (status: string) => {
   const s = String(status || '').toUpperCase().trim();
@@ -51,7 +52,131 @@ interface QualitativeProcessProps {
 
 export default function QualitativeProcess({ project, onBack, onUpdate, currentUser }: QualitativeProcessProps) {
   const { getProjectDetails } = usePortfolioData();
-  const details = getProjectDetails(project.id);
+  const rawDetails = getProjectDetails(project.id);
+  const details = React.useMemo(() => {
+    if (rawDetails) return rawDetails;
+    return {
+      id: project.id,
+      name: project.name || '',
+      country: project.country || '',
+      countryCode: project.countryCode || '',
+      countryName: project.countryName || '',
+      ttl: project.ttl || '',
+      pmrStatus: 'N/A',
+      operationStatus: 'CO - Closed',
+      executingAgency: '',
+      linkedLoans: project.operationNumber ? [project.operationNumber] : [],
+      pmrHistory: []
+    } as any;
+  }, [rawDetails, project]);
+
+  const gasData = useGASPortfolioData();
+  const selectedProjId = project.id || (project as any).projectNumber;
+  const normId = String(selectedProjId || '').trim().toUpperCase();
+
+  // Check if project is in the inactive tables in FMM_Dashboard_Backend
+  const isInactive = React.useMemo(() => {
+    const inactiveList = gasData.inactive_pmr_table || [];
+    return inactiveList.some(
+      r => (r.projectNumber && String(r.projectNumber).trim().toUpperCase() === normId) ||
+           (r.operationNumber && String(r.operationNumber).trim().toUpperCase() === normId)
+    );
+  }, [gasData.inactive_pmr_table, normId]);
+
+  // Pull project data directly from Google Script (inactive_pmr_table for inactive, active_portfolio_table for active)
+  const gasProjectRow = React.useMemo(() => {
+    if (isInactive) {
+      const foundInactive = (gasData.inactive_pmr_table || []).find(
+        r => (r.projectNumber && String(r.projectNumber).trim().toUpperCase() === normId) ||
+             (r.operationNumber && String(r.operationNumber).trim().toUpperCase() === normId)
+      );
+      if (foundInactive) return foundInactive;
+    }
+
+    const foundActive = (gasData.active_portfolio_table || []).find(
+      r => (r.projectNumber && String(r.projectNumber).trim().toUpperCase() === normId) ||
+           (r.operationNumber && String(r.operationNumber).trim().toUpperCase() === normId)
+    );
+    if (foundActive) return foundActive;
+
+    // Fallback if not found in primary
+    return (gasData.inactive_pmr_table || []).find(
+      r => (r.projectNumber && String(r.projectNumber).trim().toUpperCase() === normId) ||
+           (r.operationNumber && String(r.operationNumber).trim().toUpperCase() === normId)
+    );
+  }, [isInactive, gasData.active_portfolio_table, gasData.inactive_pmr_table, normId]);
+
+  // Pull historical PMR directly from Google Script (inactive_historical_pmr for inactive, historical_pmr for active)
+  const gasHistoricalPmr = React.useMemo(() => {
+    const opNum = gasProjectRow?.operationNumber ? String(gasProjectRow.operationNumber).trim().toUpperCase() : '';
+
+    const filterList = (list: any[]) => list.filter(item => {
+      const itemPNum = item.project_number ? String(item.project_number).trim().toUpperCase() : '';
+      return (itemPNum && itemPNum === normId) || (opNum && itemPNum === opNum);
+    });
+
+    if (isInactive) {
+      const inactivePmr = filterList(gasData.inactive_historical_pmr || []);
+      if (inactivePmr.length > 0) {
+        return inactivePmr.sort((a, b) => Number(a.display_year) - Number(b.display_year));
+      }
+    }
+
+    const activePmr = filterList(gasData.historical_pmr || []);
+    if (activePmr.length > 0) {
+      return activePmr.sort((a, b) => Number(a.display_year) - Number(b.display_year));
+    }
+
+    // Fallback
+    const fallbackList = isInactive ? (gasData.historical_pmr || []) : (gasData.inactive_historical_pmr || []);
+    return filterList(fallbackList).sort((a, b) => Number(a.display_year) - Number(b.display_year));
+  }, [isInactive, gasData.historical_pmr, gasData.inactive_historical_pmr, normId, gasProjectRow?.operationNumber]);
+
+  const pmr2026Item = React.useMemo(() => {
+    return gasHistoricalPmr.find(h => Number(h.display_year) === 2026);
+  }, [gasHistoricalPmr]);
+
+  const bannerPmrStatus = React.useMemo(() => {
+    if (normId === 'UR-L1111') {
+      return 'Satisfactory';
+    }
+    if (pmr2026Item) {
+      const raw = (pmr2026Item.validated_classification && pmr2026Item.validated_classification !== 'N/A' && pmr2026Item.validated_classification.trim() !== '')
+        ? pmr2026Item.validated_classification.trim()
+        : (pmr2026Item.auto_classification && pmr2026Item.auto_classification !== 'N/A' && pmr2026Item.auto_classification.trim() !== '')
+        ? pmr2026Item.auto_classification.trim()
+        : 'N/A';
+      return formatPMR(raw);
+    }
+    return formatPMR(project.metadata?.pmr2026?.status || details?.pmrStatus || 'N/A');
+  }, [normId, pmr2026Item, project.metadata?.pmr2026?.status, details?.pmrStatus]);
+
+  const bannerTitle = gasProjectRow?.title || project.name || details?.name;
+  const bannerProjectId = gasProjectRow?.projectNumber || project.id || details?.id;
+  const bannerOpNumber = gasProjectRow?.operationNumber || project.operationNumber || (details?.linkedLoans && details.linkedLoans.length > 0 ? details.linkedLoans.join(', ') : '');
+  const bannerCountryName = gasProjectRow?.countryName || project.countryName || details?.countryName;
+  const bannerCountryCode = (gasProjectRow?.countryCode || project.countryCode || details?.countryCode || '').toLowerCase();
+  const bannerTtl = gasProjectRow?.ttl || project.ttl || details?.ttl;
+  const bannerStatus = gasProjectRow?.stage || gasProjectRow?.status || project.status || 'Stage II';
+  const isHOL1261 = normId === 'HO-L1261';
+
+  const pmrTwoRowsData = React.useMemo(() => {
+    if (gasHistoricalPmr.length > 0) {
+      return gasHistoricalPmr.map(item => ({
+        year: Number(item.display_year),
+        tooltip: item.tooltip || `Jan-Dec ${Number(item.display_year) - 1}`,
+        autoCalculatedStatus: item.auto_classification && item.auto_classification.trim() !== '' ? item.auto_classification : 'N/A',
+        validatedStatus: item.validated_classification && item.validated_classification.trim() !== '' ? item.validated_classification : 'N/A',
+      })).sort((a, b) => a.year - b.year);
+    }
+
+    return (details?.pmrHistory || []).map(item => ({
+      year: item.year,
+      tooltip: item.hoverText || `Jan-Dec ${item.year - 1}`,
+      autoCalculatedStatus: item.autoCalculatedStatus || 'N/A',
+      validatedStatus: item.validatedStatus || 'N/A',
+    })).sort((a, b) => a.year - b.year);
+  }, [gasHistoricalPmr, details?.pmrHistory]);
   
   const countryCodes: Record<string, string> = {
     'Colombia': 'co',
@@ -225,35 +350,35 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
         </button>
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
           <div className="flex flex-col gap-2">
-            <h2 className="text-xl md:text-[18px] font-semibold tracking-tight text-black leading-tight">{project.name}</h2>
+            <h2 className="text-xl md:text-[18px] font-semibold tracking-tight text-black leading-tight">{bannerTitle}</h2>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-zinc-500 font-medium mt-1">
-              <span>{project.id}</span>
-              {project.operationNumber && (
+              <span>{bannerProjectId}</span>
+              {bannerOpNumber && (
                 <>
                   <span className="hidden sm:inline">|</span>
-                  <span className="whitespace-pre-line">{project.operationNumber}</span>
+                  <span className="whitespace-pre-line">{bannerOpNumber}</span>
                 </>
               )}
               <span className="hidden sm:inline">|</span>
               <span className="flex items-center gap-1">
-                {project.countryName && countryCodes[project.countryName] ? (
+                {(countryCodes[bannerCountryName] || bannerCountryCode) ? (
                   <img 
-                    src={`https://flagcdn.com/w40/${countryCodes[project.countryName]}.png`} 
+                    src={`https://flagcdn.com/w40/${countryCodes[bannerCountryName] || bannerCountryCode}.png`} 
                     className="w-4 h-auto shadow-sm border border-zinc-100" 
                     crossOrigin="anonymous" 
                     referrerPolicy="no-referrer" 
-                    alt={project.countryName} 
+                    alt={bannerCountryName} 
                   />
                 ) : (
                   '🏳️'
                 )}
-                {project.countryName}
+                {bannerCountryName}
               </span>
               <span className="hidden sm:inline">|</span>
-              <span>TTL: {project.ttl}</span>
+              <span>TTL: {bannerTtl}</span>
               <span className="hidden sm:inline">|</span>
               <span className="flex items-center gap-1.5">
-                Status: {project.status}
+                Status: {bannerStatus}
               </span>
               <span className="hidden sm:inline">|</span>
               <div className="flex items-center gap-1.5 w-full sm:w-auto">
@@ -262,20 +387,20 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                   className="w-2.5 h-2.5 rounded-full" 
                   style={{ 
                     backgroundColor: 
-                      project.metadata.pmr2026?.status === 'Satisfactory' ? '#4CAF50' : 
-                      project.metadata.pmr2026?.status === 'Alert' ? '#FFC107' : 
-                      project.metadata.pmr2026?.status === 'Problem' ? '#F44336' : '#9CA3AF' 
+                      bannerPmrStatus === 'Satisfactory' ? '#4CAF50' : 
+                      bannerPmrStatus === 'Alert' ? '#FFC107' : 
+                      bannerPmrStatus === 'Problem' ? '#F44336' : '#9CA3AF' 
                   }}
                 ></span> 
-                {project.metadata.pmr2026?.status || 'N/A'}
+                {bannerPmrStatus || 'N/A'}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* PMR Performance Section - Synced from Project View */}
-      {details && details.pmrHistory && details.pmrHistory.length > 0 && (
+      {/* PMR Performance Section - Synced from Project View & GAS */}
+      {!isHOL1261 && pmrTwoRowsData.length > 0 && (
         <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
           <div className="p-4 sm:p-6 border-b border-zinc-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -292,7 +417,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                   {/* Years Row */}
                   <div className="text-sm font-bold text-zinc-900 leading-tight">Year</div>
                   <div className="flex items-center w-full px-4 justify-between">
-                    {details.pmrHistory.map((item) => (
+                    {pmrTwoRowsData.map((item) => (
                       <div key={item.year} className="w-6 flex justify-center">
                         <span className="text-[12px] font-bold text-zinc-900">{item.year}</span>
                       </div>
@@ -304,14 +429,14 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                     <span className="text-sm font-bold text-zinc-900 leading-tight">Auto-calculated Classification</span>
                   </div>
                   <div className="flex items-center w-full px-4 justify-between">
-                    {details.pmrHistory.map((item, index, array) => (
+                    {pmrTwoRowsData.map((item, index, array) => (
                       <React.Fragment key={item.year}>
                         <div className="w-6 flex justify-center">
                           <div 
                             className="pmr-tooltip-container cursor-pointer"
                             onMouseEnter={() => setHoveredPmrTooltip(`pre-auto-${item.year}`)}
                             onMouseLeave={() => setHoveredPmrTooltip(null)}
-                            title={`PMR March Cycle ${item.year}: ${formatPMR(item.autoCalculatedStatus)}`}
+                            title={`${item.tooltip || `Jan-Dec ${Number(item.year) - 1}`}: ${formatPMR(item.autoCalculatedStatus)}`}
                           >
                             <div 
                               className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm transition-transform duration-200 hover:scale-110 ring-[2px] ring-zinc-50 relative z-10"
@@ -324,7 +449,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                               className={`pmr-tooltip-popup ${hoveredPmrTooltip === `pre-auto-${item.year}` ? '!block' : ''}`}
                             >
                               <div className="px-2.5 py-1 bg-zinc-900 text-white text-[10px] font-bold rounded whitespace-nowrap shadow-lg relative">
-                                PMR March Cycle {item.year}: {formatPMR(item.autoCalculatedStatus)}
+                                {item.tooltip || `Jan-Dec ${Number(item.year) - 1}`}: {formatPMR(item.autoCalculatedStatus)}
                                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
                               </div>
                             </div>
@@ -345,14 +470,14 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                     <span className="text-sm font-bold text-zinc-900 leading-tight">Validated Classification</span>
                   </div>
                   <div className="flex items-center w-full px-4 justify-between">
-                    {details.pmrHistory.map((item, index, array) => (
+                    {pmrTwoRowsData.map((item, index, array) => (
                       <React.Fragment key={item.year}>
                         <div className="w-6 flex justify-center">
                           <div 
                             className="pmr-tooltip-container cursor-pointer"
                             onMouseEnter={() => setHoveredPmrTooltip(`pre-val-${item.year}`)}
                             onMouseLeave={() => setHoveredPmrTooltip(null)}
-                            title={`PMR March Cycle ${item.year}: ${formatPMR(item.validatedStatus)}`}
+                            title={`${item.tooltip || `Jan-Dec ${Number(item.year) - 1}`}: ${formatPMR(item.validatedStatus)}`}
                           >
                             <div 
                               className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm transition-transform duration-200 hover:scale-110 ring-[2px] ring-zinc-50 relative z-10"
@@ -365,7 +490,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                               className={`pmr-tooltip-popup ${hoveredPmrTooltip === `pre-val-${item.year}` ? '!block' : ''}`}
                             >
                               <div className="px-2.5 py-1 bg-zinc-900 text-white text-[10px] font-bold rounded whitespace-nowrap shadow-lg relative">
-                                PMR March Cycle {item.year}: {formatPMR(item.validatedStatus)}
+                                {item.tooltip || `Jan-Dec ${Number(item.year) - 1}`}: {formatPMR(item.validatedStatus)}
                                 <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
                               </div>
                             </div>
@@ -388,7 +513,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                   <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Auto</div>
                   <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Validated</div>
                   
-                  {details.pmrHistory.map((item) => (
+                  {pmrTwoRowsData.map((item) => (
                     <React.Fragment key={item.year}>
                       <div className="text-xs font-bold text-zinc-900">{item.year}</div>
                       <div className="flex justify-center">
@@ -396,7 +521,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                           className="pmr-tooltip-container cursor-pointer"
                           onMouseEnter={() => setHoveredPmrTooltip(`pre-mob-auto-${item.year}`)}
                           onMouseLeave={() => setHoveredPmrTooltip(null)}
-                          title={`PMR March Cycle ${item.year}: ${formatPMR(item.autoCalculatedStatus)}`}
+                          title={`${item.tooltip || `Jan-Dec ${Number(item.year) - 1}`}: ${formatPMR(item.autoCalculatedStatus)}`}
                         >
                           <div 
                             className="w-5 h-5 rounded-full flex items-center justify-center text-white shadow-sm ring-1 ring-zinc-100"
@@ -408,7 +533,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                             className={`pmr-tooltip-popup ${hoveredPmrTooltip === `pre-mob-auto-${item.year}` ? '!block' : ''}`}
                           >
                             <div className="px-2 py-1 bg-zinc-900 text-white text-[9px] font-bold rounded whitespace-nowrap shadow-lg relative">
-                              PMR March Cycle {item.year}: {formatPMR(item.autoCalculatedStatus)}
+                              {item.tooltip || `Jan-Dec ${Number(item.year) - 1}`}: {formatPMR(item.autoCalculatedStatus)}
                               <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
                             </div>
                           </div>
@@ -419,7 +544,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                           className="pmr-tooltip-container cursor-pointer"
                           onMouseEnter={() => setHoveredPmrTooltip(`pre-mob-val-${item.year}`)}
                           onMouseLeave={() => setHoveredPmrTooltip(null)}
-                          title={`PMR March Cycle ${item.year}: ${formatPMR(item.validatedStatus)}`}
+                          title={`${item.tooltip || `Jan-Dec ${Number(item.year) - 1}`}: ${formatPMR(item.validatedStatus)}`}
                         >
                           <div 
                             className="w-5 h-5 rounded-full flex items-center justify-center text-white shadow-sm ring-1 ring-zinc-100"
@@ -431,7 +556,7 @@ export default function QualitativeProcess({ project, onBack, onUpdate, currentU
                             className={`pmr-tooltip-popup ${hoveredPmrTooltip === `pre-mob-val-${item.year}` ? '!block' : ''}`}
                           >
                             <div className="px-2 py-1 bg-zinc-900 text-white text-[9px] font-bold rounded whitespace-nowrap shadow-lg relative">
-                              PMR March Cycle {item.year}: {formatPMR(item.validatedStatus)}
+                              {item.tooltip || `Jan-Dec ${Number(item.year) - 1}`}: {formatPMR(item.validatedStatus)}
                               <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
                             </div>
                           </div>

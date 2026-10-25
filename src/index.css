@@ -60,3 +60,78 @@
 .pmr-tooltip-container:hover .pmr-tooltip-popup {
   display: block !important;
 }
+
+/* ========================================================================= */
+/* BID INSTITUTIONAL PRINT STYLES                                            */
+/* ========================================================================= */
+@media screen {
+  .bid-print-report-container {
+    position: absolute !important;
+    left: -9999px !important;
+    top: 0 !important;
+    width: 794px !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+    z-index: -10 !important;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm 8mm 10mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #18181b !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 11px !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Oculta la barra lateral, los menús, header y botones al imprimir */
+  header,
+  nav,
+  aside,
+  button,
+  .bid-screen-content,
+  .print-hidden,
+  [data-print-hidden="true"] {
+    display: none !important;
+  }
+
+  /* Muestra únicamente el contenedor del reporte institucional */
+  .bid-print-report-container {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+  }
+
+  .bid-print-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    background-color: #FAFAFA !important;
+    border: 1.5px solid #000000 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .bid-print-page-break {
+    break-before: page !important;
+    page-break-before: always !important;
+  }
+
+  .bid-no-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+

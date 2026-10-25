@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Project } from '../types';
-import { ArrowLeft, AlertTriangle, AlertCircle, Search, MapPin, User, ChevronDown, X, ChevronsUpDown, Filter } from 'lucide-react';
+import { ArrowLeft, Search, X, ChevronsUpDown, Filter, Check } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useGASPortfolioData, GASPortfolioState, DEFAULT_ALERTS_SUMMARY } from '../hooks/useGASPortfolioData';
+import { card1ProjectMetadata, getStatusColor } from '../utils/alertUtils';
 
 interface AlertsProps {
   projects: Project[];
@@ -74,219 +76,524 @@ const countryCodes: Record<string, string> = {
   'Nicaragua': 'ni',
 };
 
-const getCardDetails = (cardNumber: number, list: Project[]) => {
+export interface CardProjectItem extends Omit<Project, 'metadata'> {
+  metadata?: any;
+  status_of_indicator: string;
+  status_of_indicatorColor: string;
+  effectivenessStatus?: string;
+  effectivenessColor?: string;
+  eligibilityStatus?: string;
+  eligibilityColor?: string;
+  disbursementStatus?: string;
+  disbursementColor?: string;
+  noDisbStatus?: string;
+  noDisbColor?: string;
+  lifeDisbPercent?: string;
+  lifeDisbColor?: string;
+  pmrPerfStatus?: string;
+  pmrPerfColor?: string;
+  cancellationStatus?: string;
+  expiredDeadlineStatus?: string;
+  expiredDeadlineColor?: string;
+}
+
+const getCardDetails = (cardNumber: number, gasData: GASPortfolioState, list: Project[]): { description: string; columns: { key: string; label: string }[]; projects: CardProjectItem[] } => {
   switch (cardNumber) {
-    case 1:
+    case 1: {
+      const rawRows = (gasData.alert_1_pending_legal && gasData.alert_1_pending_legal.length > 0)
+        ? gasData.alert_1_pending_legal
+        : Object.keys(card1ProjectMetadata).map((id, idx) => ({
+            N: idx + 1,
+            projectNumber: id,
+            project_name: card1ProjectMetadata[id].name,
+            country: card1ProjectMetadata[id].country,
+            ttl: card1ProjectMetadata[id].ttl,
+            current_approved_amount: card1ProjectMetadata[id].investmentAmount,
+            status_of_indicator: card1ProjectMetadata[id].effectivenessStatus
+          }));
+
       return {
         description: "The indicator includes projects approved by the Bank's Board of Directors whose loan contract(s) are pending signature or ratification. The warning is activated when the regulatory deadline for signing is exceeded. The regulatory term is 12 months when prior legislative approval is required, or 3 months when it is not required.",
         columns: [
-          { key: 'effectivenessStatus', label: 'Plazo Transcurrido' }
+          { key: 'status_of_indicator', label: 'Plazo Transcurrido' }
         ],
-        projects: [
-          ...['ME-L1309', 'UR-L1205'].map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-            ...p,
-            effectivenessStatus: '+3 meses de extensión',
-            effectivenessColor: 'bg-amber-100 text-amber-800'
-          })),
-          ...['BR-L1656', 'BR-L1658', 'BR-L1629', 'AR-L1416'].map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-            ...p,
-            effectivenessStatus: 'Dentro del plazo (OA-420/423)',
-            effectivenessColor: 'bg-emerald-100 text-emerald-800'
-          }))
-        ]
+        projects: rawRows.map((row, idx) => {
+          const id = row.projectNumber;
+          const meta = card1ProjectMetadata[id];
+          const status = row.status_of_indicator || meta?.effectivenessStatus || 'Within the deadline (OA-420/423)';
+          const col = getStatusColor(1, status, id);
+          const color = col === 'red' ? 'bg-red-100 text-red-800 border-red-200' : col === 'yellow' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+          const existing = list.find(p => p.id === id);
+
+          return {
+            index: row.N || idx + 1,
+            id,
+            operationNumber: existing?.operationNumber || '',
+            name: row.project_name || meta?.name || existing?.name || id,
+            country: row.country || meta?.country || existing?.country || '',
+            countryCode: ((row.country || meta?.country || existing?.country || '').substring(0, 2)).toLowerCase(),
+            countryName: row.country || meta?.country || existing?.country || '',
+            ttl: row.ttl || meta?.ttl || existing?.ttl || '',
+            status: 'Stage I',
+            isPrefilledByTeam: true,
+            validatedByTTLDate: null,
+            metadata: {
+              investmentAmount: typeof row.current_approved_amount === 'number'
+                ? `$${row.current_approved_amount.toFixed(1)}M`
+                : (row.current_approved_amount || meta?.investmentAmount || 'N/A'),
+              disbursementPercent: 0,
+              elapsedYears: 0,
+              siScore: 0,
+              pmr2026: { status: 'Satisfactory', score: 0 }
+            },
+            status_of_indicator: status,
+            status_of_indicatorColor: color,
+            effectivenessStatus: status,
+            effectivenessColor: color
+          };
+        })
       };
-    case 2:
+    }
+
+    case 2: {
+      const rawRows = gasData.alert_2_pending_eligibility || [];
       return {
         description: "Projects with signed loan contracts and pending full eligibility are included; 100% of the clauses must be fulfilled and the approval of the Country Office Representative is required for completion.",
         columns: [
-          { key: 'eligibilityStatus', label: 'Estatus de Extensión' }
+          { key: 'status_of_indicator', label: 'Estatus de Extensión' }
         ],
-        projects: [list.find(p => p.id === 'PE-L1288') || list[6]].filter(Boolean).map((p) => ({
-          ...p,
-          eligibilityStatus: '+6 meses de extensión',
-          eligibilityColor: 'bg-red-100 text-red-800 border-red-200'
-        }))
+        projects: rawRows.map((row, idx) => {
+          const id = row.projectNumber;
+          const status = row.status_of_indicator || 'Extension of +6 months';
+          const col = getStatusColor(2, status, id);
+          const colorClass = col === 'red' ? 'bg-red-100 text-red-800 border-red-200' : col === 'yellow' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+          const existing = list.find(p => p.id === id);
+
+          return {
+            index: row.N || idx + 1,
+            id,
+            operationNumber: existing?.operationNumber || '',
+            name: row.project_name || existing?.name || id,
+            country: row.country || existing?.country || '',
+            countryCode: (row.country || existing?.country || '').substring(0, 2).toLowerCase(),
+            countryName: row.country || existing?.country || '',
+            ttl: row.ttl || existing?.ttl || '',
+            status: existing?.status || 'Stage II',
+            isPrefilledByTeam: true,
+            validatedByTTLDate: null,
+            metadata: {
+              investmentAmount: typeof row.current_approved_amount === 'number'
+                ? `$${row.current_approved_amount.toFixed(1)}M`
+                : (row.current_approved_amount || existing?.metadata?.investmentAmount || 'N/A'),
+              disbursementPercent: existing?.metadata?.disbursementPercent || 0,
+              elapsedYears: 0,
+              siScore: 0,
+              pmr2026: { status: 'Satisfactory', score: 0 }
+            },
+            status_of_indicator: status,
+            status_of_indicatorColor: colorClass,
+            eligibilityStatus: status,
+            eligibilityColor: colorClass
+          };
+        })
       };
-    case 3:
+    }
+
+    case 3: {
+      const rawRows = gasData.alert_3_pending_first_disb || [];
       return {
-        description: "The indicator includes eligible projects from the active portfolio that have not yet made their first disbursement.The warning is activated if the project does not make its first disbursement within a month of being declared eligible.",
+        description: "The indicator includes eligible projects from the active portfolio that have not yet made their first disbursement. The warning is activated if the project does not make its first disbursement within a month of being declared eligible.",
         columns: [
-          { key: 'disbursementStatus', label: 'Retraso de Desembolso' }
+          { key: 'status_of_indicator', label: 'Retraso de Desembolso' }
         ],
-        projects: [list.find(p => p.id === 'PE-L1278') || list[7]].filter(Boolean).map((p) => ({
-          ...p,
-          disbursementStatus: '1-6 meses de retraso',
-          disbursementColor: 'bg-amber-100 text-amber-800 border-amber-200'
-        }))
+        projects: rawRows.map((row, idx) => {
+          const id = row.projectNumber;
+          const status = row.status_of_indicator || '';
+          const col = getStatusColor(3, status, id);
+          const colorClass = col === 'red' ? 'bg-red-100 text-red-800 border-red-200' : col === 'yellow' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+          const existing = list.find(p => p.id === id);
+
+          return {
+            index: row.N || idx + 1,
+            id,
+            operationNumber: existing?.operationNumber || '',
+            name: row.project_name || existing?.name || id,
+            country: row.country || existing?.country || '',
+            countryCode: (row.country || existing?.country || '').substring(0, 2).toLowerCase(),
+            countryName: row.country || existing?.country || '',
+            ttl: row.ttl || existing?.ttl || '',
+            status: existing?.status || 'Stage II',
+            isPrefilledByTeam: true,
+            validatedByTTLDate: null,
+            metadata: {
+              investmentAmount: typeof row.current_approved_amount === 'number'
+                ? `$${row.current_approved_amount.toFixed(1)}M`
+                : (row.current_approved_amount || 'N/A'),
+              disbursementPercent: 0,
+              elapsedYears: 0,
+              siScore: 0,
+              pmr2026: { status: 'Satisfactory', score: 0 }
+            },
+            status_of_indicator: status,
+            status_of_indicatorColor: colorClass,
+            disbursementStatus: status,
+            disbursementColor: colorClass
+          };
+        })
       };
+    }
+
     case 4: {
-      const redIds = ['PN-L1172', 'PN-L1161', 'BL-L1031'];
-      const yellowIds = ['AR-L1248', 'AR-L1285', 'SU-L1060', 'BR-L1525', 'BL-L1038'];
-      const greenIds = ['BR-L1517', 'PR-L1150', 'PR-L1192', 'BR-L1527'];
-
-      const redProjects = redIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        noDisbStatus: '+12 meses transcurridos',
-        noDisbColor: 'bg-red-100 text-red-800 border-red-200'
-      }));
-
-      const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        noDisbStatus: '7-12 meses transcurridos',
-        noDisbColor: 'bg-amber-100 text-amber-800 border-amber-200'
-      }));
-
-      const greenProjects = greenIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        noDisbStatus: '6 meses transcurridos',
-        noDisbColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
-      }));
-
+      const rawRows = gasData.alert_4_without_disb || [];
       return {
         description: "The indicator includes eligible projects that have not disbursed for more than 6 months since their eligibility. Projects that have already disbursed 100% of their resources are not included.",
         columns: [
-          { key: 'noDisbStatus', label: 'Tiempo sin desembolsos' }
+          { key: 'status_of_indicator', label: 'Tiempo sin desembolsos' }
         ],
-        projects: [...redProjects, ...yellowProjects, ...greenProjects]
+        projects: rawRows.map((row, idx) => {
+          const id = row.projectNumber;
+          const status = row.status_of_indicator;
+          const col = getStatusColor(4, status, id);
+          const colorClass = col === 'red' ? 'bg-red-100 text-red-800 border-red-200' : col === 'yellow' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+          const existing = list.find(p => p.id === id);
+
+          return {
+            index: row.N || idx + 1,
+            id,
+            operationNumber: existing?.operationNumber || '',
+            name: row.project_name || existing?.name || id,
+            country: row.country || existing?.country || '',
+            countryCode: (row.country || existing?.country || '').substring(0, 2).toLowerCase(),
+            countryName: row.country || existing?.country || '',
+            ttl: row.ttl || existing?.ttl || '',
+            status: existing?.status || 'Stage II',
+            isPrefilledByTeam: true,
+            validatedByTTLDate: null,
+            metadata: {
+              investmentAmount: typeof row.current_approved_amount === 'number'
+                ? `$${row.current_approved_amount.toFixed(1)}M`
+                : (row.current_approved_amount || existing?.metadata?.investmentAmount || 'N/A'),
+              disbursementPercent: existing?.metadata?.disbursementPercent || 0,
+              elapsedYears: 0,
+              siScore: 0,
+              pmr2026: { status: 'Satisfactory', score: 0 }
+            },
+            status_of_indicator: status,
+            status_of_indicatorColor: colorClass,
+            noDisbStatus: status,
+            noDisbColor: colorClass
+          };
+        })
       };
     }
+
     case 5: {
-      const yellowIds = ['PE-L1266', 'EC-L1253', 'PN-L1172', 'UR-L1164', 'SU-L1060'];
-      const greenIds = [
-        'UR-L1111', 'BR-L1377', 'BR-L1511', 'BR-L1534', 'EC-L1251',
-        'EC-L1230', 'BL-L1031', 'PE-L1231', 'BR-L1501', 'BR-L1516',
-        'PE-L1239', 'BR-L1527', 'AR-L1248', 'BR-L1535', 'BR-L1550',
-        'BR-L1533', 'BR-L1517', 'PR-L1150', 'BL-L1038', 'CO-L1164',
-        'CO-L1245', 'PN-L1161', 'AR-L1285', 'BR-L1539'
-      ];
-
-      const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        lifeDisbPercent: '10%-25% Desembolsado',
-        lifeDisbColor: 'bg-amber-100 text-amber-800 border-amber-200'
-      }));
-
-      const greenProjects = greenIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        lifeDisbPercent: '>25% Desembolsado',
-        lifeDisbColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
-      }));
-
+      const rawRows = gasData.alert_5_disbursed_life || [];
       return {
-        description: "The indicator includes eligible projects with more than 36 months in execution. It classifies these projects according to their disbursed life amount as a percentage of their current approved amount.",
+        description: "The indicator includes projects with more than 36 months in execution (since effectiveness). It classifies these projects according to their disbursed life amount as a percentage of their current approved amount.",
         columns: [
-          { key: 'lifeDisbPercent', label: 'Porcentaje Desembolsado / Estatus' }
+          { key: 'status_of_indicator', label: 'Porcentaje Desembolsado / Estatus' }
         ],
-        projects: [...yellowProjects, ...greenProjects]
+        projects: rawRows.map((row, idx) => {
+          const id = row.projectNumber;
+          const status = row.status_of_indicator;
+          const col = getStatusColor(5, status, id);
+          const colorClass = col === 'red' ? 'bg-red-100 text-red-800 border-red-200' : col === 'yellow' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+          const existing = list.find(p => p.id === id);
+
+          return {
+            index: row.N || idx + 1,
+            id,
+            operationNumber: existing?.operationNumber || '',
+            name: row.project_name || existing?.name || id,
+            country: row.country || existing?.country || '',
+            countryCode: (row.country || existing?.country || '').substring(0, 2).toLowerCase(),
+            countryName: row.country || existing?.country || '',
+            ttl: row.ttl || existing?.ttl || '',
+            status: existing?.status || 'Stage II',
+            isPrefilledByTeam: true,
+            validatedByTTLDate: null,
+            metadata: {
+              investmentAmount: typeof row.current_approved_amount === 'number'
+                ? `$${row.current_approved_amount.toFixed(1)}M`
+                : (row.current_approved_amount || existing?.metadata?.investmentAmount || 'N/A'),
+              disbursementPercent: existing?.metadata?.disbursementPercent || 0,
+              elapsedYears: 0,
+              siScore: 0,
+              pmr2026: { status: 'Satisfactory', score: 0 }
+            },
+            status_of_indicator: status,
+            status_of_indicatorColor: colorClass,
+            lifeDisbPercent: status,
+            lifeDisbColor: colorClass
+          };
+        })
       };
     }
+
     case 6: {
-      const yellowIds = [
-        'EC-L1230', 'AR-L1285', 'CO-L1164', 'CO-L1245', 'PN-L1161',
-        'PE-L1266', 'BL-L1038', 'PN-L1172', 'EC-L1253', 'UR-L1164',
-        'CH-L1178', 'BR-L1592', 'BR-L1614', 'PE-L1278'
-      ];
-      const greenIds = [
-        'AR-L1416', 'BR-L1629', 'BR-L1656', 'BR-L1658', 'ME-L1309',
-        'PE-L1288', 'UR-L1205', 'AR-L1248', 'UR-L1111', 'BR-L1377',
-        'PE-L1231', 'PE-L1239', 'BR-L1501', 'BR-L1511', 'BR-L1516',
-        'BL-L1031', 'EC-L1251', 'BR-L1527', 'PR-L1150', 'BR-L1534',
-        'BR-L1535', 'BR-L1517', 'BR-L1533', 'BR-L1550', 'SU-L1060',
-        'BR-L1539', 'BR-L1540', 'UR-L1193', 'BR-L1599', 'BR-L1513',
-        'BR-L1525', 'AR-L1405', 'PR-L1192', 'BR-L1643'
-      ];
-
-      const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        pmrPerfStatus: 'Con alerta o problema: 1-2',
-        pmrPerfColor: 'bg-amber-100 text-amber-800 border-amber-200'
-      }));
-
-      const greenProjects = greenIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        pmrPerfStatus: 'Sin alerta o problema',
-        pmrPerfColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
-      }));
-
+      const rawRows = gasData.alert_6_pmr_performance || [];
       return {
-        description: "Projects in the active portfolio (since COO approval) that have received at least one performance rating in the past three years are included. The warning is activated if the project is classified as alert or problem in at least one of the last three PMR cycles.",
+        description: "Projects in the active portfolio that have received at least one performance rating in the past three years are included. The warning is activated if the project is classified as alert or problem in at least one of the last three PMR cycles.",
         columns: [
-          { key: 'pmrPerfStatus', label: 'Estatus PMR (Señales de Alerta)' }
+          { key: 'status_of_indicator', label: 'Estatus PMR (Señales de Alerta)' }
         ],
-        projects: [...yellowProjects, ...greenProjects]
+        projects: rawRows.map((row, idx) => {
+          const id = row.projectNumber;
+          const status = row.status_of_indicator;
+          const col = getStatusColor(6, status, id);
+          const colorClass = col === 'red' ? 'bg-red-100 text-red-800 border-red-200' : col === 'yellow' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+          const existing = list.find(p => p.id === id);
+
+          return {
+            index: row.N || idx + 1,
+            id,
+            operationNumber: existing?.operationNumber || '',
+            name: row.project_name || existing?.name || id,
+            country: row.country || existing?.country || '',
+            countryCode: (row.country || existing?.country || '').substring(0, 2).toLowerCase(),
+            countryName: row.country || existing?.country || '',
+            ttl: row.ttl || existing?.ttl || '',
+            status: existing?.status || 'Stage II',
+            isPrefilledByTeam: true,
+            validatedByTTLDate: null,
+            metadata: {
+              investmentAmount: typeof row.current_approved_amount === 'number'
+                ? `$${row.current_approved_amount.toFixed(1)}M`
+                : (row.current_approved_amount || existing?.metadata?.investmentAmount || 'N/A'),
+              disbursementPercent: existing?.metadata?.disbursementPercent || 0,
+              elapsedYears: 0,
+              siScore: 0,
+              pmr2026: { status: 'Satisfactory', score: 0 }
+            },
+            status_of_indicator: status,
+            status_of_indicatorColor: colorClass,
+            pmrPerfStatus: status,
+            pmrPerfColor: colorClass
+          };
+        })
       };
     }
+
     case 7: {
-      const yellowIds = ['BR-L1377', 'UR-L1111'];
-      const redIds = ['EC-L1230', 'PE-L1231'];
-      const greenIds = [
-        'AR-L1416', 'BR-L1629', 'BR-L1656', 'BR-L1658', 'ME-L1309',
-        'PE-L1288', 'UR-L1205', 'AR-L1248', 'PE-L1239', 'BR-L1501',
-        'BR-L1511', 'AR-L1285', 'CO-L1164', 'BR-L1516', 'BL-L1031',
-        'BR-L1527', 'CO-L1245', 'PR-L1150', 'BR-L1534', 'PN-L1161',
-        'PE-L1266', 'BR-L1535', 'BR-L1517', 'BR-L1533', 'BL-L1038',
-        'PN-L1172', 'BR-L1550', 'EC-L1253', 'SU-L1060', 'BR-L1539',
-        'BR-L1540', 'UR-L1164', 'UR-L1193', 'BR-L1599', 'BR-L1513',
-        'BR-L1525', 'CH-L1178', 'BR-L1592', 'AR-L1405', 'PR-L1192',
-        'BR-L1643', 'BR-L1614', 'PE-L1278', 'EC-L1251'
-      ];
-
-      const redProjects = redIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        cancellationStatus: 'Cancelación > 15%',
-        cancellationColor: 'bg-red-100 text-red-800 border-red-200'
-      }));
-
-      const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        cancellationStatus: 'Cancelación Hasta 15%',
-        cancellationColor: 'bg-amber-100 text-amber-800 border-amber-200'
-      }));
-
-      const greenProjects = greenIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        cancellationStatus: 'Sin cancelación parcial',
-        cancellationColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
-      }));
-
+      const rawRows = gasData.alert_7_partial_cancellations || [];
       return {
         description: "The indicator includes projects in active portfolio that have cancelled a portion of their original approved amount. Projects that have canceled all of their resources are not included. The warning is activated when a project has a partial cancellation, regardless of the amount or the moment in which it was cancelled.",
         columns: [
-          { key: 'cancellationStatus', label: 'Estatus de Cancelación' }
+          { key: 'status_of_indicator', label: 'Estatus de Cancelación' }
         ],
-        projects: [...redProjects, ...yellowProjects, ...greenProjects]
+        projects: rawRows.map((row, idx) => {
+          const id = row.projectNumber;
+          const status = row.status_of_indicator;
+          const col = getStatusColor(7, status, id);
+          const colorClass = col === 'red' ? 'bg-red-100 text-red-800 border-red-200' : col === 'yellow' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+          const existing = list.find(p => p.id === id);
+
+          return {
+            index: row.N || idx + 1,
+            id,
+            operationNumber: existing?.operationNumber || '',
+            name: row.project_name || existing?.name || id,
+            country: row.country || existing?.country || '',
+            countryCode: (row.country || existing?.country || '').substring(0, 2).toLowerCase(),
+            countryName: row.country || existing?.country || '',
+            ttl: row.ttl || existing?.ttl || '',
+            status: existing?.status || 'Stage II',
+            isPrefilledByTeam: true,
+            validatedByTTLDate: null,
+            metadata: {
+              investmentAmount: typeof row.current_approved_amount === 'number'
+                ? `$${row.current_approved_amount.toFixed(1)}M`
+                : (row.current_approved_amount || existing?.metadata?.investmentAmount || 'N/A'),
+              disbursementPercent: existing?.metadata?.disbursementPercent || 0,
+              elapsedYears: 0,
+              siScore: 0,
+              pmr2026: { status: 'Satisfactory', score: 0 }
+            },
+            status_of_indicator: status,
+            status_of_indicatorColor: colorClass,
+            cancellationStatus: status,
+            cancellationColor: colorClass
+          };
+        })
       };
     }
+
     case 8: {
-      const yellowIds = ['BR-L1534', 'BR-L1511', 'BR-L1377', 'EC-L1230', 'UR-L1111'];
-      const greenIds = ['AR-L1248'];
-
-      const yellowProjects = yellowIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        expiredDeadlineStatus: '5-12 meses atrasado',
-        expiredDeadlineColor: 'bg-amber-100 text-amber-800 border-amber-200'
-      }));
-
-      const greenProjects = greenIds.map(id => list.find(p => p.id === id)).filter(Boolean).map(p => ({
-        ...p,
-        expiredDeadlineStatus: '0-4 meses atrasado',
-        expiredDeadlineColor: 'bg-emerald-100 text-emerald-800 border-emerald-200'
-      }));
-
+      const rawRows = gasData.alert_8_expired_deadline || [];
       return {
         description: "The indicator includes projects that have exceeded the term for the current last disbursement date, but have not justified 100% of the resources and its operational closure is pending. The warning is activated if 120 days after the date of the last current disbursement, the project has not achieved its operational closure (COO).",
         columns: [
-          { key: 'expiredDeadlineStatus', label: 'Retraso de Plazo' }
+          { key: 'status_of_indicator', label: 'Retraso de Plazo' }
         ],
-        projects: [...yellowProjects, ...greenProjects]
+        projects: rawRows.map((row, idx) => {
+          const id = row.projectNumber;
+          const status = row.status_of_indicator;
+          const col = getStatusColor(8, status, id);
+          const colorClass = col === 'red' ? 'bg-red-100 text-red-800 border-red-200' : col === 'yellow' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200';
+          const existing = list.find(p => p.id === id);
+
+          return {
+            index: row.N || idx + 1,
+            id,
+            operationNumber: existing?.operationNumber || '',
+            name: row.project_name || existing?.name || id,
+            country: row.country || existing?.country || '',
+            countryCode: (row.country || existing?.country || '').substring(0, 2).toLowerCase(),
+            countryName: row.country || existing?.country || '',
+            ttl: row.ttl || existing?.ttl || '',
+            status: existing?.status || 'Stage II',
+            isPrefilledByTeam: true,
+            validatedByTTLDate: null,
+            metadata: {
+              investmentAmount: typeof row.current_approved_amount === 'number'
+                ? `$${row.current_approved_amount.toFixed(1)}M`
+                : (row.current_approved_amount || existing?.metadata?.investmentAmount || 'N/A'),
+              disbursementPercent: existing?.metadata?.disbursementPercent || 0,
+              elapsedYears: 0,
+              siScore: 0,
+              pmr2026: { status: 'Satisfactory', score: 0 }
+            },
+            status_of_indicator: status,
+            status_of_indicatorColor: colorClass,
+            expiredDeadlineStatus: status,
+            expiredDeadlineColor: colorClass
+          };
+        })
       };
     }
+
     default:
       return { description: '', columns: [], projects: [] };
   }
 };
 
+interface IndicatorSlice {
+  key: string;
+  label: string;
+  color: string;
+  count: number;
+  match: (status: string, projectId?: string) => boolean;
+}
+
+const getCardSlices = (cardNumber: number, gasData: GASPortfolioState, _cardProjects?: CardProjectItem[]): IndicatorSlice[] => {
+  const alertKey = `Alert ${cardNumber}`.toLowerCase();
+  const summaryRows = (gasData.alerts_summary && gasData.alerts_summary.length > 0)
+    ? gasData.alerts_summary.filter(r => r.alert.toLowerCase() === alertKey)
+    : DEFAULT_ALERTS_SUMMARY.filter(r => r.alert.toLowerCase() === alertKey);
+
+  // Fallback default labels for cards 1 to 8
+  const defaultLabels = [
+    ['Within the deadline (OA-420/423)', 'Extended months', '+1 year extension'],
+    ['Within the deadline (OA-420/423)', 'Extension of 6 months', 'Extension of +6 months'],
+    ['Less than 1 month', '1-6 months', '+6 months'],
+    ['6 months', '7-12 months', '+12 months'],
+    ['>25% disbursed', '10%-25%', '0%-10%'],
+    ['No alert or problem', 'With alert or problem: 1-2', 'With alert or problem: 3'],
+    ['No partial cancellations', 'Less than 15%', '+15%'],
+    ['0-4 months', '5-12 months', '+12 months'],
+  ][cardNumber - 1] || ['Within deadline', 'Warning', 'Critical'];
+
+  const greenLabel = summaryRows[0]?.status_of_indicator || defaultLabels[0];
+  const greenCount = summaryRows[0] !== undefined ? Number(summaryRows[0].count) || 0 : 0;
+
+  const yellowLabel = summaryRows[1]?.status_of_indicator || defaultLabels[1];
+  const yellowCount = summaryRows[1] !== undefined ? Number(summaryRows[1].count) || 0 : 0;
+
+  const redLabel = summaryRows[2]?.status_of_indicator || defaultLabels[2];
+  const redCount = summaryRows[2] !== undefined ? Number(summaryRows[2].count) || 0 : 0;
+
+  let greenMatch: (s: string, id?: string) => boolean;
+  let yellowMatch: (s: string, id?: string) => boolean;
+  let redMatch: (s: string, id?: string) => boolean;
+
+  switch (cardNumber) {
+    case 1: {
+      redMatch = (s: string) => s.includes('+1 año') || s.includes('+1 year') || s.includes('>12');
+      yellowMatch = (s: string, id?: string) =>
+        s.toLowerCase().includes('extend') ||
+        s.toLowerCase().includes('prórroga') ||
+        (!!id && !!card1ProjectMetadata[id]?.effectivenessStatus.toLowerCase().includes('extend'));
+      greenMatch = (s: string, id?: string) => !yellowMatch(s, id) && !redMatch(s);
+      break;
+    }
+    case 2: {
+      redMatch = (s: string) => s.includes('+6') || s.includes('>6') || s.includes('extension of +6');
+      yellowMatch = (s: string) => (s.includes('6 mes') || s.includes('6 month')) && !s.includes('+6') && !s.includes('>6');
+      greenMatch = (s: string) => s.toLowerCase().includes('plazo') || s.toLowerCase().includes('deadline') || s.toLowerCase().includes('within');
+      break;
+    }
+    case 3: {
+      redMatch = (s: string) => s.includes('+6') || s.includes('>6');
+      yellowMatch = (s: string) => s.includes('1-6') || s.toLowerCase().includes('retraso') || s.toLowerCase().includes('delay');
+      greenMatch = (s: string) => s.toLowerCase().includes('menos') || s.toLowerCase().includes('less') || s.includes('<');
+      break;
+    }
+    case 4: {
+      redMatch = (s: string) => s.includes('+12') || s.includes('>12');
+      yellowMatch = (s: string) => s.includes('7-12');
+      greenMatch = (s: string) => (s.includes('6 mes') || s.includes('6 month')) && !s.includes('7-12') && !s.includes('+12');
+      break;
+    }
+    case 5: {
+      redMatch = (s: string) => s.includes('0%-10%') || s.includes('0-10%');
+      yellowMatch = (s: string) => s.includes('10%-25%') || s.includes('10-25%');
+      greenMatch = (s: string) => s.includes('>25%') || s.includes('> 25%');
+      break;
+    }
+    case 6: {
+      redMatch = (s: string) => s.includes(': 3') || s.includes('problema: 3');
+      yellowMatch = (s: string) => s.includes('1-2') || s.toLowerCase().includes('with alert') || s.toLowerCase().includes('con alerta');
+      greenMatch = (s: string) => s.toLowerCase().includes('no alert') || s.toLowerCase().includes('sin alerta');
+      break;
+    }
+    case 7: {
+      redMatch = (s: string) => s.includes('+15%') || s.includes('>15%') || s.includes('> 15%');
+      yellowMatch = (s: string) => s.toLowerCase().includes('less than 15%') || s.toLowerCase().includes('hasta 15%') || s.includes('<= 15%');
+      greenMatch = (s: string) => s.toLowerCase().includes('no partial') || s.toLowerCase().includes('sin cancelación');
+      break;
+    }
+    case 8: {
+      redMatch = (s: string) => s.includes('+12') || s.includes('>12');
+      yellowMatch = (s: string) => s.includes('5-12');
+      greenMatch = (s: string) => s.includes('0-4');
+      break;
+    }
+    default: {
+      redMatch = (s: string) => s.toLowerCase().includes('red');
+      yellowMatch = (s: string) => s.toLowerCase().includes('yellow');
+      greenMatch = (s: string) => s.toLowerCase().includes('green');
+      break;
+    }
+  }
+
+  return [
+    {
+      key: greenLabel,
+      label: greenLabel,
+      color: '#00b04f',
+      count: greenCount,
+      match: (s: string, id?: string) => s.trim().toLowerCase() === greenLabel.trim().toLowerCase() || greenMatch(s, id)
+    },
+    {
+      key: yellowLabel,
+      label: yellowLabel,
+      color: '#ffb300',
+      count: yellowCount,
+      match: (s: string, id?: string) => s.trim().toLowerCase() === yellowLabel.trim().toLowerCase() || yellowMatch(s, id)
+    },
+    {
+      key: redLabel,
+      label: redLabel,
+      color: '#e60000',
+      count: redCount,
+      match: (s: string, id?: string) => s.trim().toLowerCase() === redLabel.trim().toLowerCase() || redMatch(s, id)
+    }
+  ];
+};
+
 export default function Alerts({ projects, onBack, onSelectProject, initialState, onStateChange, backLabel }: AlertsProps) {
+  const gasData = useGASPortfolioData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedAlertLevel, setSelectedAlertLevel] = useState<string>('ALL');
 
@@ -437,128 +744,40 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
     );
   };
 
-  // Filter projects that are either "Alert" or "Problem" in PMR 2026
-  const alertProjects = useMemo(() => {
-    return projects.filter(project => {
-      const pmrStatus = project.metadata?.pmr2026?.status;
-      return pmrStatus === 'Alert' || pmrStatus === 'Problem';
-    });
-  }, [projects]);
-
-  // Apply search and alert level filter
-  const filteredAlerts = useMemo(() => {
-    return alertProjects.filter(project => {
-      const pmrStatus = project.metadata?.pmr2026?.status || 'N/A';
-      const matchesSearch = 
-        project.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        project.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        project.country.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        project.ttl.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesLevel = selectedAlertLevel === 'ALL' || pmrStatus === selectedAlertLevel;
-
-      return matchesSearch && matchesLevel;
-    });
-  }, [alertProjects, searchTerm, selectedAlertLevel]);
-
-  // Metrics
-  const alertCount = alertProjects.filter(p => p.metadata?.pmr2026?.status === 'Alert').length;
-  const problemCount = alertProjects.filter(p => p.metadata?.pmr2026?.status === 'Problem').length;
-
-  // Precomputed coordinates for Donut segments (20% larger: center at 86, radius at 58)
-  // Card 1 Donut: Yellow (0 to 120 deg), Green (120 to 360 deg)
-  const card1YellowArc = describeArc(86, 86, 58, 0, 120);
-  const card1GreenArc = describeArc(86, 86, 58, 120, 360);
-  const card1YellowLabel = polarToCartesian(86, 86, 58, 60);
-  const card1GreenLabel = polarToCartesian(86, 86, 58, 240);
-
-  // Card 2 Donut: Full Red (-0.1 to 359.9 deg)
-  const card2RedArc = describeArc(86, 86, 58, 0, 359.9);
-  const card2RedLabel = polarToCartesian(86, 86, 58, 180);
-
-  // Card 3 Donut: Full Yellow (-0.1 to 359.9 deg)
-  const card3YellowArc = describeArc(86, 86, 58, 0, 359.9);
-  const card3YellowLabel = polarToCartesian(86, 86, 58, 180);
-
-  // Card 4 Donut: Red (0 to 90 deg), Yellow (90 to 240 deg), Green (240 to 360 deg)
-  const card4RedArc = describeArc(86, 86, 58, 0, 90);
-  const card4YellowArc = describeArc(86, 86, 58, 90, 240);
-  const card4GreenArc = describeArc(86, 86, 58, 240, 360);
-  const card4RedLabel = polarToCartesian(86, 86, 58, 45);
-  const card4YellowLabel = polarToCartesian(86, 86, 58, 165);
-  const card4GreenLabel = polarToCartesian(86, 86, 58, 300);
-
-  // Card 5 Donut: Yellow (0 to 62 deg), Green (62 to 360 deg)
-  const card5YellowArc = describeArc(86, 86, 58, 0, 62);
-  const card5GreenArc = describeArc(86, 86, 58, 62, 360);
-  const card5YellowLabel = polarToCartesian(86, 86, 58, 31);
-  const card5GreenLabel = polarToCartesian(86, 86, 58, 211);
-
-  // Card 6 Donut: Yellow (0 to 105 deg), Green (105 to 360 deg)
-  const card6YellowArc = describeArc(86, 86, 58, 0, 105);
-  const card6GreenArc = describeArc(86, 86, 58, 105, 360);
-  const card6YellowLabel = polarToCartesian(86, 86, 58, 52.5);
-  const card6GreenLabel = polarToCartesian(86, 86, 58, 232.5);
-
-  // Card 7 Donut: Red (0 to 15 deg), Yellow (15 to 31 deg), Green (31 to 360 deg)
-  const card7RedArc = describeArc(86, 86, 58, 0, 15);
-  const card7YellowArc = describeArc(86, 86, 58, 15, 31);
-  const card7GreenArc = describeArc(86, 86, 58, 31, 360);
-  const card7RedLabel = polarToCartesian(86, 86, 58, 7.5);
-  const card7YellowLabel = polarToCartesian(86, 86, 58, 23);
-  const card7GreenLabel = polarToCartesian(86, 86, 58, 195.5);
-
-  // Card 8 Donut: Yellow (0 to 300 deg), Green (300 to 360 deg)
-  const card8YellowArc = describeArc(86, 86, 58, 0, 300);
-  const card8GreenArc = describeArc(86, 86, 58, 300, 360);
-  const card8YellowLabel = polarToCartesian(86, 86, 58, 150);
-  const card8GreenLabel = polarToCartesian(86, 86, 58, 330);
-
+  // Render Indicator Donut dynamically based on real Google Sheets data (alerts_summary)
   const renderIndicatorDonut = (cardNumber: number, isInsideTab: boolean = false) => {
-    let subtitle: React.ReactNode = null;
-    let projectsCount = 0;
-    let donutChart: React.ReactNode = null;
-    let legends: React.ReactNode = null;
+    const details = getCardDetails(cardNumber, gasData, projects);
+    const slices = getCardSlices(cardNumber, gasData, details.projects);
+    const projectsCount = slices.reduce((sum, s) => sum + s.count, 0);
 
-    switch (cardNumber) {
-      case 1:
-        projectsCount = 6;
-        donutChart = (
+    let donutChart: React.ReactNode = null;
+
+    if (projectsCount === 0) {
+      donutChart = (
+        <div className="relative w-[172px] h-[172px] flex items-center justify-center">
           <svg width="172" height="172" className="transform -rotate-90">
-            <path 
-              d={card1GreenArc} 
+            <circle 
+              cx="86" 
+              cy="86" 
+              r="58" 
               fill="none" 
-              stroke="#00b04f" 
-              strokeWidth={isSelected('Dentro del plazo (OA-420/423)') ? 35 : 29} 
-              opacity={getOpacity('Dentro del plazo (OA-420/423)', isInsideTab)}
-              onClick={() => handleSliceClick('Dentro del plazo (OA-420/423)', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
+              stroke="#e4e4e7" 
+              strokeWidth={29} 
             />
-            <path 
-              d={card1YellowArc} 
-              fill="none" 
-              stroke="#ffb300" 
-              strokeWidth={isSelected('+3 meses de extensión') ? 35 : 29} 
-              opacity={getOpacity('+3 meses de extensión', isInsideTab)}
-              onClick={() => handleSliceClick('+3 meses de extensión', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <text x={card1YellowLabel.x} y={card1YellowLabel.y} transform={`rotate(90, ${card1YellowLabel.x}, ${card1YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>2</text>
-            <text x={card1GreenLabel.x} y={card1GreenLabel.y} transform={`rotate(90, ${card1GreenLabel.x}, ${card1GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>4</text>
           </svg>
-        );
-        legends = (
-          <div className="space-y-1 w-full">
-            {renderLegendItem('#e60000', '+1 año de extensión', '+1 año de extensión', isInsideTab)}
-            {renderLegendItem('#ffb300', '+3 meses de extensión', '+3 meses de extensión', isInsideTab)}
-            {renderLegendItem('#00b04f', 'Dentro del plazo (OA-420/423)', 'Dentro del plazo (OA-420/423)', isInsideTab)}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-8 h-8 rounded-full bg-[#4EA72E] flex items-center justify-center shadow-sm">
+              <Check className="w-5 h-5 text-white stroke-[3.5]" />
+            </div>
           </div>
-        );
-        break;
-      case 2:
-        projectsCount = 1;
+        </div>
+      );
+    } else {
+      const activeSlices = slices.filter(s => s.count > 0);
+
+      if (activeSlices.length === 1) {
+        const slice = activeSlices[0];
+        const labelPos = polarToCartesian(86, 86, 58, 90);
         donutChart = (
           <svg width="172" height="172" className="transform -rotate-90">
             <circle 
@@ -566,261 +785,90 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
               cy="86" 
               r="58" 
               fill="none" 
-              stroke="#e60000" 
-              strokeWidth={isSelected('+6 meses de extensión') ? 35 : 29} 
-              opacity={getOpacity('+6 meses de extensión', isInsideTab)}
-              onClick={() => handleSliceClick('+6 meses de extensión', isInsideTab)}
+              stroke={slice.color} 
+              strokeWidth={isSelected(slice.key) ? 35 : 29} 
+              opacity={getOpacity(slice.key, isInsideTab)}
+              onClick={() => handleSliceClick(slice.key, isInsideTab)}
               className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
             />
-            <text x={card2RedLabel.x} y={card2RedLabel.y} transform={`rotate(90, ${card2RedLabel.x}, ${card2RedLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>1</text>
+            <text 
+              x={labelPos.x} 
+              y={labelPos.y} 
+              transform={`rotate(90, ${labelPos.x}, ${labelPos.y})`} 
+              fill="#ffffff" 
+              fontSize="14" 
+              fontWeight="bold" 
+              textAnchor="middle" 
+              dominantBaseline="central" 
+              style={{ pointerEvents: 'none' }}
+            >
+              {slice.count}
+            </text>
           </svg>
         );
-        legends = (
-          <div className="space-y-1 w-full">
-            {renderLegendItem('#e60000', '+6 meses de extensión', '+6 meses de extensión', isInsideTab)}
-            {renderLegendItem('#ffb300', '6 meses de extensión', '6 meses de extensión', isInsideTab)}
-            {renderLegendItem('#00b04f', 'Dentro del plazo (OA-420/423)', 'Dentro del plazo (OA-420/423)', isInsideTab)}
-          </div>
-        );
-        break;
-      case 3:
-        projectsCount = 1;
+      } else {
+        let currentAngle = 0;
         donutChart = (
           <svg width="172" height="172" className="transform -rotate-90">
-            <circle 
-              cx="86" 
-              cy="86" 
-              r="58" 
-              fill="none" 
-              stroke="#ffb300" 
-              strokeWidth={isSelected('1-6 meses de retraso') ? 35 : 29} 
-              opacity={getOpacity('1-6 meses de retraso', isInsideTab)}
-              onClick={() => handleSliceClick('1-6 meses de retraso', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-            />
-            <text x={card3YellowLabel.x} y={card3YellowLabel.y} transform={`rotate(90, ${card3YellowLabel.x}, ${card3YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>1</text>
+            {activeSlices.map((slice) => {
+              const sliceAngle = (slice.count / projectsCount) * 360;
+              const startAngle = currentAngle;
+              const endAngle = currentAngle + sliceAngle;
+              const midAngle = startAngle + (sliceAngle / 2);
+              currentAngle = endAngle;
+
+              const arcPath = describeArc(86, 86, 58, startAngle, Math.min(359.99, endAngle - 0.05));
+              const labelPos = polarToCartesian(86, 86, 58, midAngle);
+
+              return (
+                <g key={slice.key}>
+                  <path 
+                    d={arcPath} 
+                    fill="none" 
+                    stroke={slice.color} 
+                    strokeWidth={isSelected(slice.key) ? 35 : 29} 
+                    opacity={getOpacity(slice.key, isInsideTab)}
+                    onClick={() => handleSliceClick(slice.key, isInsideTab)}
+                    className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
+                    strokeLinecap="butt" 
+                  />
+                  {slice.count > 0 && (
+                    <text 
+                      x={labelPos.x} 
+                      y={labelPos.y} 
+                      transform={`rotate(90, ${labelPos.x}, ${labelPos.y})`} 
+                      fill="#ffffff" 
+                      fontSize="14" 
+                      fontWeight="bold" 
+                      textAnchor="middle" 
+                      dominantBaseline="central" 
+                      style={{ pointerEvents: 'none' }}
+                    >
+                      {slice.count}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
           </svg>
         );
-        legends = (
-          <div className="space-y-1 w-full">
-            {renderLegendItem('#e60000', '+6 meses', '+6 meses', isInsideTab)}
-            {renderLegendItem('#ffb300', '1-6 meses', '1-6 meses de retraso', isInsideTab)}
-            {renderLegendItem('#00b04f', 'Menos de 1 mes', 'Menos de 1 mes', isInsideTab)}
-          </div>
-        );
-        break;
-      case 4:
-        projectsCount = 12;
-        donutChart = (
-          <svg width="172" height="172" className="transform -rotate-90">
-            <path 
-              d={card4GreenArc} 
-              fill="none" 
-              stroke="#00b04f" 
-              strokeWidth={isSelected('6 meses transcurridos') ? 35 : 29} 
-              opacity={getOpacity('6 meses transcurridos', isInsideTab)}
-              onClick={() => handleSliceClick('6 meses transcurridos', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <path 
-              d={card4YellowArc} 
-              fill="none" 
-              stroke="#ffb300" 
-              strokeWidth={isSelected('7-12 meses transcurridos') ? 35 : 29} 
-              opacity={getOpacity('7-12 meses transcurridos', isInsideTab)}
-              onClick={() => handleSliceClick('7-12 meses transcurridos', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <path 
-              d={card4RedArc} 
-              fill="none" 
-              stroke="#e60000" 
-              strokeWidth={isSelected('+12 meses transcurridos') ? 35 : 29} 
-              opacity={getOpacity('+12 meses transcurridos', isInsideTab)}
-              onClick={() => handleSliceClick('+12 meses transcurridos', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <text x={card4RedLabel.x} y={card4RedLabel.y} transform={`rotate(90, ${card4RedLabel.x}, ${card4RedLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>3</text>
-            <text x={card4YellowLabel.x} y={card4YellowLabel.y} transform={`rotate(90, ${card4YellowLabel.x}, ${card4YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>5</text>
-            <text x={card4GreenLabel.x} y={card4GreenLabel.y} transform={`rotate(90, ${card4GreenLabel.x}, ${card4GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>4</text>
-          </svg>
-        );
-        legends = (
-          <div className="space-y-1 w-full">
-            {renderLegendItem('#e60000', '+12 meses', '+12 meses transcurridos', isInsideTab)}
-            {renderLegendItem('#ffb300', '7-12 meses', '7-12 meses transcurridos', isInsideTab)}
-            {renderLegendItem('#00b04f', '6 meses', '6 meses transcurridos', isInsideTab)}
-          </div>
-        );
-        break;
-      case 5:
-        subtitle = null;
-        projectsCount = 29;
-        donutChart = (
-          <svg width="172" height="172" className="transform -rotate-90">
-            <path 
-              d={card5GreenArc} 
-              fill="none" 
-              stroke="#00b04f" 
-              strokeWidth={isSelected('>25% Desembolsado') ? 35 : 29} 
-              opacity={getOpacity('>25% Desembolsado', isInsideTab)}
-              onClick={() => handleSliceClick('>25% Desembolsado', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <path 
-              d={card5YellowArc} 
-              fill="none" 
-              stroke="#ffb300" 
-              strokeWidth={isSelected('10%-25% Desembolsado') ? 35 : 29} 
-              opacity={getOpacity('10%-25% Desembolsado', isInsideTab)}
-              onClick={() => handleSliceClick('10%-25% Desembolsado', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <text x={card5YellowLabel.x} y={card5YellowLabel.y} transform={`rotate(90, ${card5YellowLabel.x}, ${card5YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>5</text>
-            <text x={card5GreenLabel.x} y={card5GreenLabel.y} transform={`rotate(90, ${card5GreenLabel.x}, ${card5GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>24</text>
-          </svg>
-        );
-        legends = (
-          <div className="space-y-1 w-full">
-            {renderLegendItem('#e60000', '0%-10%', '0%-10%', isInsideTab)}
-            {renderLegendItem('#ffb300', '10%-25%', '10%-25% Desembolsado', isInsideTab)}
-            {renderLegendItem('#00b04f', '>25%', '>25% Desembolsado', isInsideTab)}
-          </div>
-        );
-        break;
-      case 6:
-        subtitle = null;
-        projectsCount = 48;
-        donutChart = (
-          <svg width="172" height="172" className="transform -rotate-90">
-            <path 
-              d={card6GreenArc} 
-              fill="none" 
-              stroke="#00b04f" 
-              strokeWidth={isSelected('Sin alerta o problema') ? 35 : 29} 
-              opacity={getOpacity('Sin alerta o problema', isInsideTab)}
-              onClick={() => handleSliceClick('Sin alerta o problema', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <path 
-              d={card6YellowArc} 
-              fill="none" 
-              stroke="#ffb300" 
-              strokeWidth={isSelected('Con alerta o problema: 1-2') ? 35 : 29} 
-              opacity={getOpacity('Con alerta o problema: 1-2', isInsideTab)}
-              onClick={() => handleSliceClick('Con alerta o problema: 1-2', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <text x={card6YellowLabel.x} y={card6YellowLabel.y} transform={`rotate(90, ${card6YellowLabel.x}, ${card6YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>14</text>
-            <text x={card6GreenLabel.x} y={card6GreenLabel.y} transform={`rotate(90, ${card6GreenLabel.x}, ${card6GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>34</text>
-          </svg>
-        );
-        legends = (
-          <div className="space-y-1 w-full">
-            {renderLegendItem('#e60000', 'Con alerta o problema: 3', 'Con alerta o problema: 3', isInsideTab)}
-            {renderLegendItem('#ffb300', 'Con alerta o problema: 1-2', 'Con alerta o problema: 1-2', isInsideTab)}
-            {renderLegendItem('#00b04f', 'Sin alerta o problema', 'Sin alerta o problema', isInsideTab)}
-          </div>
-        );
-        break;
-      case 7:
-        projectsCount = 48;
-        donutChart = (
-          <svg width="172" height="172" className="transform -rotate-90">
-            <path 
-              d={card7GreenArc} 
-              fill="none" 
-              stroke="#00b04f" 
-              strokeWidth={isSelected('Sin cancelación parcial') ? 35 : 29} 
-              opacity={getOpacity('Sin cancelación parcial', isInsideTab)}
-              onClick={() => handleSliceClick('Sin cancelación parcial', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <path 
-              d={card7YellowArc} 
-              fill="none" 
-              stroke="#ffb300" 
-              strokeWidth={isSelected('Cancelación Hasta 15%') ? 35 : 29} 
-              opacity={getOpacity('Cancelación Hasta 15%', isInsideTab)}
-              onClick={() => handleSliceClick('Cancelación Hasta 15%', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <path 
-              d={card7RedArc} 
-              fill="none" 
-              stroke="#e60000" 
-              strokeWidth={isSelected('Cancelación > 15%') ? 35 : 29} 
-              opacity={getOpacity('Cancelación > 15%', isInsideTab)}
-              onClick={() => handleSliceClick('Cancelación > 15%', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <text x={card7RedLabel.x} y={card7RedLabel.y} transform={`rotate(90, ${card7RedLabel.x}, ${card7RedLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>2</text>
-            <text x={card7YellowLabel.x} y={card7YellowLabel.y} transform={`rotate(90, ${card7YellowLabel.x}, ${card7YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>2</text>
-            <text x={card7GreenLabel.x} y={card7GreenLabel.y} transform={`rotate(90, ${card7GreenLabel.x}, ${card7GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>44</text>
-          </svg>
-        );
-        legends = (
-          <div className="space-y-1 w-full">
-            {renderLegendItem('#e60000', '+15%', 'Cancelación > 15%', isInsideTab)}
-            {renderLegendItem('#ffb300', 'Hasta 15%', 'Cancelación Hasta 15%', isInsideTab)}
-            {renderLegendItem('#00b04f', 'Sin cancelación parcial', 'Sin cancelación parcial', isInsideTab)}
-          </div>
-        );
-        break;
-      case 8:
-        projectsCount = 6;
-        donutChart = (
-          <svg width="172" height="172" className="transform -rotate-90">
-            <path 
-              d={card8GreenArc} 
-              fill="none" 
-              stroke="#00b04f" 
-              strokeWidth={isSelected('0-4 meses atrasado') ? 35 : 29} 
-              opacity={getOpacity('0-4 meses atrasado', isInsideTab)}
-              onClick={() => handleSliceClick('0-4 meses atrasado', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <path 
-              d={card8YellowArc} 
-              fill="none" 
-              stroke="#ffb300" 
-              strokeWidth={isSelected('5-12 meses atrasado') ? 35 : 29} 
-              opacity={getOpacity('5-12 meses atrasado', isInsideTab)}
-              onClick={() => handleSliceClick('5-12 meses atrasado', isInsideTab)}
-              className={isInsideTab ? "cursor-pointer transition-all duration-200 hover:scale-[1.02] origin-center" : ""}
-              strokeLinecap="butt" 
-            />
-            <text x={card8YellowLabel.x} y={card8YellowLabel.y} transform={`rotate(90, ${card8YellowLabel.x}, ${card8YellowLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>5</text>
-            <text x={card8GreenLabel.x} y={card8GreenLabel.y} transform={`rotate(90, ${card8GreenLabel.x}, ${card8GreenLabel.y})`} fill="#ffffff" fontSize="14" fontWeight="bold" textAnchor="middle" dominantBaseline="central" style={{ pointerEvents: 'none' }}>1</text>
-          </svg>
-        );
-        legends = (
-          <div className="space-y-1 w-full">
-            {renderLegendItem('#e60000', '+12 meses', '+12 meses', isInsideTab)}
-            {renderLegendItem('#ffb300', '5-12 meses', '5-12 meses atrasado', isInsideTab)}
-            {renderLegendItem('#00b04f', '0-4 meses', '0-4 meses atrasado', isInsideTab)}
-          </div>
-        );
-        break;
-      default:
-        return null;
+      }
     }
+
+    // Always render legends for all 3 official color tags (Verde, Amarillo, Rojo) even if count is 0
+    const legends = (
+      <div className="space-y-1 w-full">
+        {slices.map(slice => (
+          <React.Fragment key={slice.key}>
+            {renderLegendItem(slice.color, slice.label, slice.key, isInsideTab)}
+          </React.Fragment>
+        ))}
+      </div>
+    );
 
     if (isInsideTab) {
       return (
         <div className="w-full flex flex-col items-center">
-          {subtitle}
           <p className="text-zinc-800 font-bold text-sm md:text-base mt-2 mb-4 text-center font-sans">
             Total Projects in indicator: {projectsCount}
           </p>
@@ -837,7 +885,6 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
 
     return (
       <>
-        {subtitle}
         <p className="text-zinc-800 font-bold text-sm md:text-base mt-2 mb-4 text-center">
           Total Projects in indicator: {projectsCount}
         </p>
@@ -884,8 +931,8 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
   const activeTabDetails = useMemo(() => {
     if (activeTabId === 'overview') return null;
     const num = parseInt(activeTabId.replace('card-', ''), 10);
-    return getCardDetails(num, projects);
-  }, [activeTabId, projects]);
+    return getCardDetails(num, gasData, projects);
+  }, [activeTabId, gasData, projects]);
 
   const uniqueTabIds = useMemo(() => {
     if (!activeTabDetails) return [];
@@ -909,9 +956,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
 
   const uniqueTabStatusChoices = useMemo(() => {
     if (!activeTabDetails) return [];
-    const colKey = activeTabDetails.columns[0]?.key;
-    if (!colKey) return [];
-    return Array.from(new Set(activeTabDetails.projects.map(p => (p as any)[colKey] as string))).filter(Boolean).sort();
+    return Array.from(new Set(activeTabDetails.projects.map(p => p.status_of_indicator))).filter(Boolean).sort();
   }, [activeTabDetails]);
 
   const handleTabSort = (key: string) => {
@@ -937,6 +982,9 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
 
   const filteredTabProjects = useMemo(() => {
     if (!activeTabDetails) return [];
+    const cardNum = parseInt(activeTabId.replace('card-', ''), 10);
+    const slices = getCardSlices(cardNum, gasData, activeTabDetails.projects);
+
     return activeTabDetails.projects.filter(p => {
       const matchesSearch = 
         p.id.toLowerCase().includes(tabSearchTerm.toLowerCase()) ||
@@ -948,9 +996,11 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
 
       // Slice click donut filter
       if (selectedSlice) {
-        const colKey = activeTabDetails.columns[0]?.key;
-        if (colKey) {
-          if ((p as any)[colKey] !== selectedSlice) return false;
+        const slice = slices.find(s => s.key === selectedSlice || s.label === selectedSlice);
+        if (slice) {
+          if (!slice.match(p.status_of_indicator, p.id)) return false;
+        } else {
+          if (p.status_of_indicator !== selectedSlice) return false;
         }
       }
 
@@ -960,8 +1010,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
       const matchesCountryField = tabFilters.country.length === 0 || tabFilters.country.includes(p.country);
       const matchesTtlField = tabFilters.ttl.length === 0 || tabFilters.ttl.includes(p.ttl);
 
-      const colKey = activeTabDetails.columns[0]?.key;
-      const indicatorValue = colKey ? (p as any)[colKey] : '';
+      const indicatorValue = p.status_of_indicator || '';
       const matchesStatusField = tabFilters.status.length === 0 || tabFilters.status.includes(indicatorValue);
 
       return matchesIdField && matchesNameField && matchesCountryField && matchesTtlField && matchesStatusField;
@@ -991,9 +1040,8 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
         aVal = parseValue(a.metadata?.investmentAmount || '');
         bVal = parseValue(b.metadata?.investmentAmount || '');
       } else if (tabSortConfig.key === 'status') {
-        const colKey = activeTabDetails.columns[0]?.key;
-        aVal = colKey ? (a as any)[colKey] : '';
-        bVal = colKey ? (b as any)[colKey] : '';
+        aVal = a.status_of_indicator || '';
+        bVal = b.status_of_indicator || '';
       }
 
       const order = tabSortConfig.direction === 'asc' ? 1 : -1;
@@ -1001,7 +1049,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
       if (aVal > bVal) return 1 * order;
       return 0;
     });
-  }, [activeTabDetails, tabSearchTerm, selectedSlice, tabFilters, tabSortConfig]);
+  }, [activeTabDetails, activeTabId, tabSearchTerm, selectedSlice, tabFilters, tabSortConfig, gasData]);
 
   const renderTabColumnHeader = (columnKey: string, label: string | React.ReactNode, options: string[], sortable: boolean = true, minWidth?: string) => {
     const isFiltered = tabFilters[columnKey]?.length > 0;
@@ -1095,23 +1143,28 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
         </button>
 
         {/* Header with strictly black font color */}
-        <div className="mb-4">
-          <h1 
-            className="text-3xl md:text-4xl font-extrabold tracking-tight" 
-            style={{ color: 'black' }}
-            id="alerts-indicators-title"
-          >
-            Alerts
-          </h1>
-          <br />
-          <p className="text-zinc-600">
-            This section shows key warning indicators before and during the execution phase.
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 mb-4">
+          <div>
+            <h1 
+              className="text-3xl md:text-4xl font-extrabold tracking-tight text-zinc-900" 
+              style={{ color: 'black' }}
+            >
+              Alerts
+            </h1>
+            <p className="text-zinc-500 font-medium text-sm mt-1">
+              This section shows key warning indicators before and during the execution phase.
+            </p>
+          </div>
+          {gasData.data_as_of_long && (
+            <span className="text-[11px] sm:text-[12px] font-bold text-zinc-500 uppercase tracking-wider">
+              {gasData.data_as_of_long.toUpperCase()}
+            </span>
+          )}
         </div>
       </motion.div>
 
-      {/* Content section with slide-up entrance animation */}
-      <motion.div 
+      {/* Main Tabs Container */}
+      <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
@@ -1168,179 +1221,160 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
         {activeTabId === 'overview' ? (
           <>
             {/* Subtitle 1: Alerts before the execution */}
-        <div className="mt-4 mb-10">
-          <h2 className="text-lg md:text-xl font-extrabold text-zinc-900 tracking-tight" style={{ color: 'black' }}>
-            Alerts before the execution
-          </h2>
-        </div>
-
-      {/* Metrics Cards: Dynamic & High Fidelity Footnote Indicators (Grid 1) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 mt-4 font-sans">
-        
-        {/* Card 1: Pending legal effectiveness */}
-        <div 
-          onClick={() => openAlertTab(1, "Pending legal effectiveness")}
-          className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
-        >
-          {/* Float Header Pill */}
-          <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 shadow-md border border-[#003d57]">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
-              1
+            <div className="mt-4 mb-10">
+              <h2 className="text-lg md:text-xl font-extrabold text-zinc-900 tracking-tight" style={{ color: 'black' }}>
+                Alerts before the execution
+              </h2>
             </div>
-            <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Pending legal effectiveness</span>
-          </div>
-          {renderIndicatorDonut(1)}
-        </div>
 
-        {/* Card 2: Pending eligibility */}
-        <div 
-          onClick={() => openAlertTab(2, "Pending eligibility")}
-          className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
-        >
-          {/* Float Header Pill */}
-          <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md border border-[#003d57]">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
-              2
+            {/* Metrics Cards: Dynamic & High Fidelity Footnote Indicators (Grid 1) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 mt-4 font-sans">
+              
+              {/* Card 1: Pending legal effectiveness */}
+              <div 
+                onClick={() => openAlertTab(1, "Pending legal effectiveness")}
+                className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
+              >
+                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 shadow-md border border-[#003d57]">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
+                    1
+                  </div>
+                  <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Pending legal effectiveness</span>
+                </div>
+                {renderIndicatorDonut(1)}
+              </div>
+
+              {/* Card 2: Pending eligibility */}
+              <div 
+                onClick={() => openAlertTab(2, "Pending eligibility")}
+                className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
+              >
+                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md border border-[#003d57]">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
+                    2
+                  </div>
+                  <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Pending eligibility</span>
+                </div>
+                {renderIndicatorDonut(2)}
+              </div>
+
+              {/* Card 3: Pending first disbursement */}
+              <div 
+                onClick={() => openAlertTab(3, "Pending first disbursement")}
+                className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
+              >
+                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md border border-[#003d57]">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
+                    3
+                  </div>
+                  <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Pending first disbursement</span>
+                </div>
+                {renderIndicatorDonut(3)}
+              </div>
+
             </div>
-            <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Pending eligibility</span>
-          </div>
-          {renderIndicatorDonut(2)}
-        </div>
 
-        {/* Card 3: Pending first disbursement */}
-        <div 
-          onClick={() => openAlertTab(3, "Pending first disbursement")}
-          className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
-        >
-          {/* Float Header Pill */}
-          <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md border border-[#003d57]">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
-              3
+            {/* Subtitle 2: Alerts during execution */}
+            <div className="mt-6 mb-10">
+              <h2 className="text-lg md:text-xl font-extrabold text-zinc-900 tracking-tight" style={{ color: 'black' }}>
+                Alerts during execution
+              </h2>
             </div>
-            <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Pending first disbursement</span>
-          </div>
-          {renderIndicatorDonut(3)}
-        </div>
 
-      </div>
+            {/* Metrics Cards: Dynamic & High Fidelity Footnote Indicators (Grid 2) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 mt-4 font-sans">
 
-      {/* Subtitle 2: Alerts during execution */}
-      <div className="mt-6 mb-10">
-        <h2 className="text-lg md:text-xl font-extrabold text-zinc-900 tracking-tight" style={{ color: 'black' }}>
-          Alerts during execution
-        </h2>
-      </div>
+              {/* Card 4: Projects without disbursements */}
+              <div 
+                onClick={() => openAlertTab(4, "Projects without disbursements")}
+                className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
+              >
+                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 shadow-md border border-[#003d57]">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
+                    4
+                  </div>
+                  <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Projects without disbursements</span>
+                </div>
+                {renderIndicatorDonut(4)}
+              </div>
 
-      {/* Metrics Cards: Dynamic & High Fidelity Footnote Indicators (Grid 2) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12 mt-4 font-sans">
+              {/* Card 5: Disbursed life amount */}
+              <div 
+                onClick={() => openAlertTab(5, "Disbursed life amount")}
+                className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
+              >
+                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 shadow-md border border-[#003d57]">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
+                    5
+                  </div>
+                  <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Disbursed life amount</span>
+                </div>
+                {renderIndicatorDonut(5)}
+              </div>
 
-        {/* Card 4: Projects without disbursements */}
-        <div 
-          onClick={() => openAlertTab(4, "Projects without disbursements")}
-          className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
-        >
-          {/* Float Header Pill */}
-          <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 shadow-md border border-[#003d57]">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
-              4
+              {/* Card 6: PMR performance (last 3 cycles) */}
+              <div 
+                onClick={() => openAlertTab(6, "PMR performance (last 3 cycles)")}
+                className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
+              >
+                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 shadow-md border border-[#003d57]">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
+                    6
+                  </div>
+                  <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">PMR performance (last 3 cycles)</span>
+                </div>
+                {renderIndicatorDonut(6)}
+              </div>
+
+              {/* Card 7: Partial cancellations */}
+              <div 
+                onClick={() => openAlertTab(7, "Partial cancellations")}
+                className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
+              >
+                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 shadow-md border border-[#003d57]">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
+                    7
+                  </div>
+                  <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Partial cancellations</span>
+                </div>
+                {renderIndicatorDonut(7)}
+              </div>
+
+              {/* Card 8: Expired disbursement deadline */}
+              <div 
+                onClick={() => openAlertTab(8, "Expired disbursement deadline")}
+                className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
+              >
+                <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 shadow-md border border-[#003d57]">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
+                    8
+                  </div>
+                  <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Expired disbursement deadline</span>
+                </div>
+                {renderIndicatorDonut(8)}
+              </div>
+
             </div>
-            <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Projects without disbursements</span>
-          </div>
-          {renderIndicatorDonut(4)}
-        </div>
-
-        {/* Card 5: Disbursed life amount */}
-        <div 
-          onClick={() => openAlertTab(5, "Disbursed life amount")}
-          className="relative bg-[#fafafa] pt-[38px] pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
-        >
-          {/* Float Header Pill */}
-          <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-3 shadow-md border border-[#003d57]">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
-              5
-            </div>
-            <span className="font-extrabold text-white text-xs md:text-sm tracking-tight text-center">Disbursed life amount</span>
-          </div>
-          {renderIndicatorDonut(5)}
-        </div>
-
-        {/* Card 6: PMR performance */}
-        <div 
-          onClick={() => openAlertTab(6, "PMR performance (last 3 cycles)")}
-          className="relative bg-[#fafafa] pt-[38px] pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group w-full"
-        >
-          {/* Float Header Pill */}
-          <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[95%] bg-[#005173] text-white py-2.5 px-2 md:px-3 rounded-xl flex items-center justify-center gap-2 shadow-md border border-[#003d57] whitespace-nowrap overflow-hidden">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
-              6
-            </div>
-            <span className="font-extrabold text-white text-[10.5px] sm:text-xs md:text-sm tracking-tight text-center truncate">PMR performance (last 3 cycles)</span>
-          </div>
-          {renderIndicatorDonut(6)}
-        </div>
-
-      </div>
-
-      {/* Subtitle 3: Other alerts */}
-      <div className="mt-6 mb-10">
-        <h2 className="text-lg md:text-xl font-extrabold text-zinc-900 tracking-tight" style={{ color: 'black' }}>
-          Other alerts
-        </h2>
-      </div>
-
-      {/* Metrics Cards: Dynamic & High Fidelity Footnote Indicators (Other alerts, centered flex) */}
-      <div className="flex flex-col md:flex-row justify-center gap-8 mb-12 mt-4 max-w-5xl mx-auto">
-        
-        {/* Card 7: Partial cancellations */}
-        <div 
-          onClick={() => openAlertTab(7, "Partial cancellations")}
-          className="relative bg-[#fafafa] pt-12 pb-6 px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center w-full md:w-[320px] shrink-0 cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group"
-        >
-          {/* Float Header Pill */}
-          <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-2.5 shadow-md border border-[#003d57]">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
-              7
-            </div>
-            <span className="font-extrabold text-xs md:text-sm tracking-tight text-center">Partial cancellations</span>
-          </div>
-          {renderIndicatorDonut(7)}
-        </div>
-
-        {/* Card 8: Expired disbursement deadline */}
-        <div 
-          onClick={() => openAlertTab(8, "Expired disbursement deadline")}
-          className="relative bg-[#fafafa] pt-[30px] pb-[25px] px-5 rounded-2xl border border-zinc-200/90 shadow-sm flex flex-col items-center w-full md:w-[320px] shrink-0 cursor-pointer hover:shadow-md hover:border-zinc-300 hover:bg-white transition-all transform hover:-translate-y-0.5 group"
-        >
-          {/* Float Header Pill */}
-          <div className="absolute top-0 -translate-y-1/2 left-1/2 -translate-x-1/2 w-[90%] bg-[#005173] text-white py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 shadow-md border border-[#003d57]">
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
-              8
-            </div>
-            <span className="font-extrabold text-[#ffffff] text-xs md:text-sm tracking-tight text-center">Expired disbursement deadline</span>
-          </div>
-          {renderIndicatorDonut(8)}
-        </div>
-
-      </div>
           </>
         ) : activeTabDetails ? (
-          <div className="space-y-6 font-sans">
-            {/* Header: Left aligned blue box matching exact style of the cards */}
-            <div className="bg-[#005173] text-white py-2.5 px-6 rounded-xl flex items-center gap-3 shadow-md border border-[#003d57] max-w-max self-start">
-              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-black text-xs shrink-0 shadow-sm">
-                {parseInt(activeTabId.replace('card-', ''), 10)}
+          /* Detail Tab Content */
+          <div className="space-y-6 animate-fadeIn">
+            {/* Active Indicator Header Box */}
+            <div className="flex items-center justify-start pt-1">
+              <div className="inline-flex items-center gap-3 bg-[#005173] text-white py-2 px-4 rounded-lg shadow-sm border border-[#003d57]">
+                <div className="flex items-center justify-center w-6 h-6 rounded-full bg-white text-[#005173] font-bold text-xs shrink-0 shadow-xs">
+                  {parseInt(activeTabId.replace('card-', ''), 10)}
+                </div>
+                <span className="font-bold text-sm tracking-tight">
+                  {openTabs.find(t => t.id === activeTabId)?.title || `Alert ${activeTabId.replace('card-', '')}`}
+                </span>
               </div>
-              <span className="font-extrabold text-white text-xs md:text-sm tracking-tight text-center">
-                {openTabs.find(t => t.id === activeTabId)?.title}
-              </span>
             </div>
 
-            {/* Indicator Definition: Full Width */}
-            <div className="bg-[#fafafa] p-6 rounded-2xl border border-zinc-200/90 shadow-sm w-full">
-              <h4 className="text-[#005173] font-extrabold text-xs uppercase tracking-widest mb-2 font-sans">INDICATOR DEFINITION:</h4>
-              <p className="text-zinc-700 text-sm font-normal leading-relaxed font-sans">
-                {activeTabDetails.description}
-              </p>
+            {/* Indicator Definition Card */}
+            <div className="p-4 bg-zinc-50/70 border border-zinc-200/80 rounded-xl text-zinc-700 text-xs md:text-sm leading-relaxed">
+              <span className="font-bold text-[#005173] block mb-1 uppercase tracking-wider text-[11px]">INDICATOR DEFINITION:</span>
+              <p className="text-zinc-700 text-xs md:text-sm leading-relaxed">{activeTabDetails.description}</p>
             </div>
 
             {/* Split Grid: Donut Filter on Left, Project Dashboard on Right */}
@@ -1353,6 +1387,20 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
 
               {/* Right Column: Project Dashboard */}
               <div className="lg:col-span-8 space-y-4">
+                {/* Project Search Bar */}
+                <div className="flex flex-col gap-1 w-full max-w-sm">
+                  <label className="text-[#002148] font-bold text-[13px] tracking-tight">PROJECT</label>
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+                    <input 
+                      type="text" 
+                      placeholder="Search project name or ID..." 
+                      value={tabSearchTerm}
+                      onChange={(e) => setTabSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 bg-white border border-zinc-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#005173] font-normal placeholder:text-zinc-400 shadow-sm"
+                    />
+                  </div>
+                </div>
                 
                 {/* High-Fidelity Table */}
                 <div className="bg-white rounded-none sm:rounded-xl shadow-sm border-y sm:border border-zinc-200 overflow-hidden">
@@ -1372,21 +1420,12 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
                       <tbody className="divide-y divide-zinc-50 text-sm">
                         {filteredTabProjects.length > 0 ? (
                           filteredTabProjects.map((project, index) => {
-                            const customCol = activeTabDetails.columns[0];
-                            const customValue = customCol ? (project as any)[customCol.key] : '';
-                            const colorKey = customCol 
-                              ? (customCol.key.endsWith('Status') 
-                                ? customCol.key.replace('Status', 'Color') 
-                                : customCol.key.endsWith('Percent') 
-                                  ? customCol.key.replace('Percent', 'Color') 
-                                  : customCol.key + 'Color') 
-                              : '';
-                            const customColorClass = colorKey ? ((project as any)[colorKey] || 'bg-zinc-100/80 text-zinc-800') : 'bg-zinc-100/80 text-zinc-800';
-                            const textColorClass = customColorClass.split(' ').find(cls => cls.startsWith('text-')) || 'text-zinc-800';
+                            const customValue = project.status_of_indicator || '';
+                            const customColorClass = project.status_of_indicatorColor || 'bg-zinc-100/80 text-zinc-800';
 
                             return (
                               <tr 
-                                key={project.id}
+                                key={`${project.id}-${index}`}
                                 className="hover:bg-zinc-50 transition-colors cursor-pointer group font-sans text-sm"
                                 onClick={() => onSelectProject?.(project.id)}
                               >
@@ -1446,7 +1485,7 @@ export default function Alerts({ projects, onBack, onSelectProject, initialState
                         ) : (
                           <tr>
                             <td colSpan={7} className="px-6 py-12 text-center text-zinc-500 font-medium">
-                              No projects matched the search criteria or selected filter category.
+                              {activeTabId === 'card-3' || activeTabDetails.projects.length === 0 ? 'No projects with this alert.' : 'No projects matched the search criteria or selected filter category.'}
                             </td>
                           </tr>
                         )}

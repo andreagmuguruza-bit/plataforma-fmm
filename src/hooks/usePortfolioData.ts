@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Papa from 'papaparse';
-import { GOOGLE_APPS_SCRIPT_URL } from './useQualitativeData';
+import { GOOGLE_APPS_SCRIPT_URL, fetchLiveQualitativeData } from './useQualitativeData';
 
 export interface DashboardMetrics {
   totalProjects: number;
@@ -402,44 +402,49 @@ export const tempMockProject2 = {
   undisbursed_amount: '100000000'
 };
 
-export function usePortfolioData() {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [tableData, setTableData] = useState<TableRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  
-  const [activeRecords, setActiveRecords] = useState<any[]>([]);
-  const [disbursementRecords, setDisbursementRecords] = useState<any[]>([]);
-  const [consolidatedRecords, setConsolidatedRecords] = useState<any[]>([]);
-  const [workflowRecords, setWorkflowRecords] = useState<any[]>([]);
-  const [performanceRecords, setPerformanceRecords] = useState<any[]>([]);
-  const [histProjRecords, setHistProjRecords] = useState<any[]>([]);
+interface GlobalPortfolioCache {
+  metrics: DashboardMetrics | null;
+  tableData: TableRow[];
+  loading: boolean;
+  error: Error | null;
+  activeRecords: any[];
+  disbursementRecords: any[];
+  consolidatedRecords: any[];
+  workflowRecords: any[];
+  performanceRecords: any[];
+  histProjRecords: any[];
+}
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [activeRes, disbRes, consolidatedRes, workflowRes, performanceRes, histProjRes, gSheetRes] = await Promise.all([
-          fetch(`/active_portfolio.csv?t=${Date.now()}`),
-          fetch(`/disbursements_actuals_and_projections.csv?t=${Date.now()}`),
-          fetch(`/vw_spd_proj_cnsldtd.csv?t=${Date.now()}`),
-          fetch(`/oper_ods_workflow_cmnt.csv?t=${Date.now()}`),
-          fetch(`/oper_ods_performance.csv?t=${Date.now()}`),
-          fetch(`/sl_hist_disbursement_projections_all.csv?t=${Date.now()}`),
-          fetch(`${GOOGLE_APPS_SCRIPT_URL}?t=${Date.now()}`).catch(err => {
-            console.warn('Google Apps Script fetch warning in usePortfolioData:', err);
-            return null;
-          })
-        ]);
+let globalPortfolioState: GlobalPortfolioCache | null = null;
+let globalPortfolioFetchPromise: Promise<GlobalPortfolioCache> | null = null;
+const portfolioListeners = new Set<(state: GlobalPortfolioCache) => void>();
 
-        let gSheetData: Record<string, any> = {};
-        if (gSheetRes && gSheetRes.ok) {
-          try {
-            gSheetData = await gSheetRes.json();
-          } catch (e) {
-            console.warn('Error parsing Google Apps Script data:', e);
-          }
-        }
+const notifyPortfolioListeners = (state: GlobalPortfolioCache) => {
+  portfolioListeners.forEach(cb => cb(state));
+};
+
+export const fetchPortfolioData = async (): Promise<GlobalPortfolioCache> => {
+  if (globalPortfolioState && globalPortfolioState.tableData.length > 0 && !globalPortfolioState.loading) {
+    return globalPortfolioState;
+  }
+  if (globalPortfolioFetchPromise) {
+    return globalPortfolioFetchPromise;
+  }
+
+  globalPortfolioFetchPromise = (async () => {
+    try {
+      const [activeRes, disbRes, consolidatedRes, workflowRes, performanceRes, histProjRes, gSheetData] = await Promise.all([
+        fetch(`/active_portfolio.csv?t=${Date.now()}`),
+        fetch(`/disbursements_actuals_and_projections.csv?t=${Date.now()}`),
+        fetch(`/vw_spd_proj_cnsldtd.csv?t=${Date.now()}`),
+        fetch(`/oper_ods_workflow_cmnt.csv?t=${Date.now()}`),
+        fetch(`/oper_ods_performance.csv?t=${Date.now()}`),
+        fetch(`/sl_hist_disbursement_projections_all.csv?t=${Date.now()}`),
+        fetchLiveQualitativeData(false).catch(err => {
+          console.warn('Google Apps Script fetch warning in usePortfolioData:', err);
+          return {} as Record<string, any>;
+        })
+      ]);
 
         const activeText = await activeRes.text();
         const disbText = await disbRes.text();
@@ -654,12 +659,7 @@ export function usePortfolioData() {
         const performanceData = performanceParsed.data as any[];
         const histProjData = histProjParsed.data as any[];
 
-        setActiveRecords(activeData);
-        setDisbursementRecords(disbRecords);
-        setConsolidatedRecords(consolidatedData);
-        setWorkflowRecords(workflowData);
-        setPerformanceRecords(performanceData);
-        setHistProjRecords(histProjData);
+
 
         // GLOBAL CONTEXT 1
         const filteredActive = activeData.filter(row => {
@@ -1076,18 +1076,77 @@ export function usePortfolioData() {
           });
         }
 
-        setMetrics(metrics);
-        setTableData(tableRows);
+        const resultState: GlobalPortfolioCache = {
+          metrics,
+          tableData: tableRows,
+          loading: false,
+          error: null,
+          activeRecords: activeData,
+          disbursementRecords: disbRecords,
+          consolidatedRecords: consolidatedData,
+          workflowRecords: workflowData,
+          performanceRecords: performanceData,
+          histProjRecords: histProjData
+        };
+        globalPortfolioState = resultState;
+        notifyPortfolioListeners(resultState);
+        return resultState;
       } catch (err: any) {
         console.error('Error loading portfolio data:', err);
-        setError(err);
+        const errState: GlobalPortfolioCache = {
+          metrics: globalPortfolioState?.metrics || null,
+          tableData: globalPortfolioState?.tableData || [],
+          loading: false,
+          error: err,
+          activeRecords: globalPortfolioState?.activeRecords || [],
+          disbursementRecords: globalPortfolioState?.disbursementRecords || [],
+          consolidatedRecords: globalPortfolioState?.consolidatedRecords || [],
+          workflowRecords: globalPortfolioState?.workflowRecords || [],
+          performanceRecords: globalPortfolioState?.performanceRecords || [],
+          histProjRecords: globalPortfolioState?.histProjRecords || []
+        };
+        globalPortfolioState = errState;
+        notifyPortfolioListeners(errState);
+        return errState;
       } finally {
-        setLoading(false);
+        globalPortfolioFetchPromise = null;
       }
-    };
+  })();
 
-    fetchData();
+  return globalPortfolioFetchPromise;
+};
+
+// Immediate pre-warm
+fetchPortfolioData();
+
+export function usePortfolioData() {
+  const [state, setState] = useState<GlobalPortfolioCache>(() => {
+    if (globalPortfolioState) return globalPortfolioState;
+    return {
+      metrics: null,
+      tableData: [],
+      loading: !globalPortfolioState,
+      error: null,
+      activeRecords: [],
+      disbursementRecords: [],
+      consolidatedRecords: [],
+      workflowRecords: [],
+      performanceRecords: [],
+      histProjRecords: []
+    };
+  });
+
+  useEffect(() => {
+    portfolioListeners.add(setState);
+    if (!globalPortfolioState || globalPortfolioState.tableData.length === 0) {
+      fetchPortfolioData();
+    }
+    return () => {
+      portfolioListeners.delete(setState);
+    };
   }, []);
+
+  const { metrics, tableData, loading, error, activeRecords, disbursementRecords, consolidatedRecords, workflowRecords, performanceRecords, histProjRecords } = state;
 
   const getProjectDetails = (projectId: string): ProjectDetails | null => {
     if (projectId === 'HO-L1261') {

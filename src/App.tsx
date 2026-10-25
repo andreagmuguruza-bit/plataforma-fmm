@@ -16,13 +16,42 @@ import { usePortfolioData } from './hooks/usePortfolioData';
 import { QUALITATIVE_METADATA_MAP } from './data/qualitativeMetadata';
 import Login from './components/Login';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { useGASPortfolioData } from './hooks/useGASPortfolioData';
 
 type MainTab = 'PORTFOLIO' | 'DESIGN' | 'EXECUTION' | 'CLOSURE';
+
+const MAIN_TAB_CONFIG: Record<MainTab, {
+  label: string;
+  activeClass: string;
+  inactiveClass: string;
+}> = {
+  PORTFOLIO: {
+    label: 'PORTFOLIO',
+    activeClass: 'bg-[#f1f3f5] text-zinc-900 font-medium shadow-none',
+    inactiveClass: 'text-[#556987] hover:text-zinc-900 font-medium bg-transparent',
+  },
+  DESIGN: {
+    label: 'DESIGN',
+    activeClass: 'bg-[#f1f3f5] text-zinc-900 font-medium shadow-none',
+    inactiveClass: 'text-[#556987] hover:text-zinc-900 font-medium bg-transparent',
+  },
+  EXECUTION: {
+    label: 'EXECUTION',
+    activeClass: 'bg-[#f1f3f5] text-zinc-900 font-medium shadow-none',
+    inactiveClass: 'text-[#556987] hover:text-zinc-900 font-medium bg-transparent',
+  },
+  CLOSURE: {
+    label: 'CLOSURE',
+    activeClass: 'bg-[#f1f3f5] text-zinc-900 font-medium shadow-none',
+    inactiveClass: 'text-[#556987] hover:text-zinc-900 font-medium bg-transparent',
+  },
+};
 type ExecutionView = 'landing' | 'portfolio' | 'project-selector' | 'project-view' | 'qualitative-process' | 'alerts' | 'mid-term-evaluations' | 'critical-procurement';
 
 function MainApp() {
   const { user, activeRole, setActiveRole, isLoggedIn, logout } = useAuth();
   const { tableData, metrics } = usePortfolioData();
+  const gasData = useGASPortfolioData();
   const [mainTab, setMainTab] = useState<MainTab>('PORTFOLIO');
   const [projects, setProjects] = useState<Project[]>(initialProjects);
   const [executionView, setExecutionView] = useState<ExecutionView>('landing');
@@ -52,7 +81,7 @@ function MainApp() {
     };
   }, [user, activeRole]);
 
-  // Initialize projects from tableData if not already initialized with more than mock data
+  // Initialize projects from tableData or gasData if not already initialized with more than mock data
   useEffect(() => {
     if (tableData.length > 0 && projects.length <= 1) {
       const mappedProjects: Project[] = tableData.map(row => ({
@@ -94,6 +123,46 @@ function MainApp() {
           }
         }
       }));
+      setProjects(mappedProjects);
+    } else if (projects.length <= 1 && gasData.active_portfolio_table && gasData.active_portfolio_table.length > 0) {
+      const mappedProjects: Project[] = gasData.active_portfolio_table.map((row, idx) => {
+        const approved = Number(row.currentApprovedAmount) || 0;
+        const disbursed = Number(row.disbursedLifeAmount) || 0;
+        const percent = Number(row.disbursedLifePercent) || (approved > 0 ? (disbursed / approved) * 100 : 0);
+        return {
+          index: row.N_Index || (idx + 1),
+          id: row.projectNumber,
+          operationNumber: row.operationNumber || '',
+          name: row.title || '',
+          country: row.countryName || '',
+          countryCode: row.countryCode || '',
+          countryName: row.countryName || '',
+          ttl: row.ttl || '',
+          status: row.stage || row.status || 'Stage II',
+          isPrefilledByTeam: ((row.projectNumber === 'BR-L1642' || row.projectNumber === 'HO-L1261') ? false : true),
+          validatedByTTLDate: null,
+          qualitativeData: {
+            estadoImplementacion: QUALITATIVE_METADATA_MAP[row.projectNumber]?.estadoImplementacion || [],
+            productosDestacados: QUALITATIVE_METADATA_MAP[row.projectNumber]?.productosDestacados || [],
+            probabilidadObjetivos: QUALITATIVE_METADATA_MAP[row.projectNumber]?.probabilidadObjetivos || [],
+            accionesSugeridas: QUALITATIVE_METADATA_MAP[row.projectNumber]?.accionesSugeridas || [],
+            fechaEvaluacionIntermedia: QUALITATIVE_METADATA_MAP[row.projectNumber]?.fechaEvaluacionIntermedia || '',
+            fechaTalleresArranque: QUALITATIVE_METADATA_MAP[row.projectNumber]?.fechaTalleresArranque || '',
+            temasCriticosSimulador: QUALITATIVE_METADATA_MAP[row.projectNumber]?.temasCriticosSimulador || '',
+            verificadorContenidos: QUALITATIVE_METADATA_MAP[row.projectNumber]?.verificadorContenidos || '',
+          },
+          metadata: {
+            investmentAmount: `$${approved.toFixed(1)}M`,
+            disbursementPercent: percent,
+            elapsedYears: Number(row.yearsInExecution || 0),
+            siScore: 0,
+            pmr2026: {
+              status: 'Satisfactory',
+              score: 0
+            }
+          }
+        };
+      });
       setProjects(mappedProjects);
     } else if (tableData.length > 0 && projects.length > 1) {
       // Check if BR-L1642 is missing in projects
@@ -235,6 +304,59 @@ function MainApp() {
     }
   }, [tableData]);
 
+  // Sync inactive projects from GAS to projects state
+  useEffect(() => {
+    if (gasData.inactive_pmr_table && gasData.inactive_pmr_table.length > 0) {
+      setProjects(prev => {
+        let changed = false;
+        const next = [...prev];
+        gasData.inactive_pmr_table.forEach(inactive => {
+          const exists = next.some(p => p.id === inactive.projectNumber);
+          if (!exists) {
+            changed = true;
+            const approved = Number(inactive.currentApprovedAmount) || 0;
+            const disbursed = Number(inactive.disbursedLifeAmount) || 0;
+            const percent = Number(inactive.disbursedLifePercent) || (approved > 0 ? (disbursed / approved) * 100 : 0);
+            next.push({
+              index: inactive.N_Index || next.length + 1,
+              id: inactive.projectNumber,
+              operationNumber: inactive.operationNumber || '',
+              name: inactive.title || '',
+              country: inactive.countryName || '',
+              countryCode: inactive.countryCode || '',
+              countryName: inactive.countryName || '',
+              ttl: inactive.ttl || '',
+              status: inactive.stage || inactive.status || 'Stage III',
+              isPrefilledByTeam: false,
+              validatedByTTLDate: null,
+              qualitativeData: {
+                estadoImplementacion: [],
+                productosDestacados: [],
+                probabilidadObjetivos: [],
+                accionesSugeridas: [],
+                fechaEvaluacionIntermedia: '',
+                fechaTalleresArranque: '',
+                temasCriticosSimulador: '',
+                verificadorContenidos: '',
+              },
+              metadata: {
+                investmentAmount: `$${approved.toFixed(1)}M`,
+                disbursementPercent: percent,
+                elapsedYears: Number(inactive.yearsInExecution || 0),
+                siScore: 0,
+                pmr2026: {
+                  status: 'N/A',
+                  score: 0
+                }
+              }
+            });
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+  }, [gasData.inactive_pmr_table]);
+
   // Scroll to top on view change
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -251,7 +373,186 @@ function MainApp() {
     setProjects(projects.map(p => p.id === finalProject.id ? finalProject : p));
   };
 
-  const selectedProject = projects.find(p => p.id === selectedProjectId) || null;
+  const selectedProject = useMemo(() => {
+    if (!selectedProjectId) return null;
+    const target = String(selectedProjectId).trim().toUpperCase();
+
+    // 1. Look up in projects state (by id or operationNumber)
+    const found = projects.find(
+      p => (p.id && String(p.id).trim().toUpperCase() === target) ||
+           (p.operationNumber && String(p.operationNumber).trim().toUpperCase() === target)
+    );
+    if (found) return found;
+
+    // 2. Look up in tableData
+    const tableRow = (tableData || []).find(
+      r => (r.projectNumber && String(r.projectNumber).trim().toUpperCase() === target) ||
+           (r.operationNumber && String(r.operationNumber).trim().toUpperCase() === target)
+    );
+    if (tableRow) {
+      return {
+        index: tableRow.index,
+        id: tableRow.projectNumber,
+        operationNumber: tableRow.operationNumber,
+        name: tableRow.title,
+        country: tableRow.countryName,
+        countryCode: tableRow.countryCode,
+        countryName: tableRow.countryName,
+        ttl: tableRow.ttl,
+        status: tableRow.status,
+        isPrefilledByTeam: (tableRow as any).isPrefilledByTeam !== undefined
+          ? (tableRow as any).isPrefilledByTeam
+          : ((tableRow.projectNumber === 'BR-L1642' || tableRow.projectNumber === 'HO-L1261') ? false : true),
+        validatedByTTLDate: (tableRow as any).validatedByTTLDate || null,
+        qualitativeData: {
+          estadoImplementacion: (tableRow as any).qualitativeData?.estadoImplementacion || QUALITATIVE_METADATA_MAP[tableRow.projectNumber]?.estadoImplementacion || [],
+          productosDestacados: (tableRow as any).qualitativeData?.productosDestacados || QUALITATIVE_METADATA_MAP[tableRow.projectNumber]?.productosDestacados || [],
+          probabilidadObjetivos: (tableRow as any).qualitativeData?.probabilidadObjetivos || QUALITATIVE_METADATA_MAP[tableRow.projectNumber]?.probabilidadObjetivos || [],
+          accionesSugeridas: (tableRow as any).qualitativeData?.accionesSugeridas || QUALITATIVE_METADATA_MAP[tableRow.projectNumber]?.accionesSugeridas || [],
+          fechaEvaluacionIntermedia: QUALITATIVE_METADATA_MAP[tableRow.projectNumber]?.fechaEvaluacionIntermedia || '',
+          fechaTalleresArranque: QUALITATIVE_METADATA_MAP[tableRow.projectNumber]?.fechaTalleresArranque || '',
+          temasCriticosSimulador: QUALITATIVE_METADATA_MAP[tableRow.projectNumber]?.temasCriticosSimulador || '',
+          verificadorContenidos: QUALITATIVE_METADATA_MAP[tableRow.projectNumber]?.verificadorContenidos || '',
+        },
+        metadata: {
+          investmentAmount: `$${tableRow.currentApprovedAmount.toFixed(1)}M`,
+          disbursementPercent: tableRow.disbursedLifePercent,
+          elapsedYears: 0,
+          siScore: 0,
+          pmr2026: {
+            status: 'Satisfactory',
+            score: 0
+          }
+        }
+      } as Project;
+    }
+
+    // 3. Look up in gasData.active_portfolio_table
+    const activeGas = (gasData.active_portfolio_table || []).find(
+      r => (r.projectNumber && String(r.projectNumber).trim().toUpperCase() === target) ||
+           (r.operationNumber && String(r.operationNumber).trim().toUpperCase() === target)
+    );
+    if (activeGas) {
+      const approved = Number(activeGas.currentApprovedAmount) || 0;
+      const disbursed = Number(activeGas.disbursedLifeAmount) || 0;
+      const percent = Number(activeGas.disbursedLifePercent) || (approved > 0 ? (disbursed / approved) * 100 : 0);
+      const isPrefilled = (activeGas.projectNumber === 'BR-L1642' || activeGas.projectNumber === 'HO-L1261') ? false : true;
+      return {
+        index: activeGas.N_Index || 0,
+        id: activeGas.projectNumber,
+        operationNumber: activeGas.operationNumber || '',
+        name: activeGas.title || '',
+        country: activeGas.countryName || '',
+        countryCode: activeGas.countryCode || '',
+        countryName: activeGas.countryName || '',
+        ttl: activeGas.ttl || '',
+        status: activeGas.stage || activeGas.status || 'Stage II',
+        isPrefilledByTeam: isPrefilled,
+        validatedByTTLDate: null,
+        qualitativeData: {
+          estadoImplementacion: QUALITATIVE_METADATA_MAP[activeGas.projectNumber]?.estadoImplementacion || [],
+          productosDestacados: QUALITATIVE_METADATA_MAP[activeGas.projectNumber]?.productosDestacados || [],
+          probabilidadObjetivos: QUALITATIVE_METADATA_MAP[activeGas.projectNumber]?.probabilidadObjetivos || [],
+          accionesSugeridas: QUALITATIVE_METADATA_MAP[activeGas.projectNumber]?.accionesSugeridas || [],
+          fechaEvaluacionIntermedia: QUALITATIVE_METADATA_MAP[activeGas.projectNumber]?.fechaEvaluacionIntermedia || '',
+          fechaTalleresArranque: QUALITATIVE_METADATA_MAP[activeGas.projectNumber]?.fechaTalleresArranque || '',
+          temasCriticosSimulador: QUALITATIVE_METADATA_MAP[activeGas.projectNumber]?.temasCriticosSimulador || '',
+          verificadorContenidos: QUALITATIVE_METADATA_MAP[activeGas.projectNumber]?.verificadorContenidos || '',
+        },
+        metadata: {
+          investmentAmount: `$${approved.toFixed(1)}M`,
+          disbursementPercent: percent,
+          elapsedYears: Number(activeGas.yearsInExecution || 0),
+          siScore: 0,
+          pmr2026: {
+            status: 'Satisfactory',
+            score: 0
+          }
+        }
+      } as Project;
+    }
+
+    // 4. Look up directly in inactive_pmr_table
+    const inactive = (gasData.inactive_pmr_table || []).find(
+      r => (r.projectNumber && String(r.projectNumber).trim().toUpperCase() === target) ||
+           (r.operationNumber && String(r.operationNumber).trim().toUpperCase() === target)
+    );
+    if (inactive) {
+      const approved = Number(inactive.currentApprovedAmount) || 0;
+      const disbursed = Number(inactive.disbursedLifeAmount) || 0;
+      const percent = Number(inactive.disbursedLifePercent) || (approved > 0 ? (disbursed / approved) * 100 : 0);
+      return {
+        index: inactive.N_Index || 0,
+        id: inactive.projectNumber,
+        operationNumber: inactive.operationNumber || '',
+        name: inactive.title || '',
+        country: inactive.countryName || '',
+        countryCode: inactive.countryCode || '',
+        countryName: inactive.countryName || '',
+        ttl: inactive.ttl || '',
+        status: inactive.stage || inactive.status || 'Stage III',
+        isPrefilledByTeam: false,
+        validatedByTTLDate: null,
+        qualitativeData: {
+          estadoImplementacion: QUALITATIVE_METADATA_MAP[inactive.projectNumber]?.estadoImplementacion || [],
+          productosDestacados: QUALITATIVE_METADATA_MAP[inactive.projectNumber]?.productosDestacados || [],
+          probabilidadObjetivos: QUALITATIVE_METADATA_MAP[inactive.projectNumber]?.probabilidadObjetivos || [],
+          accionesSugeridas: QUALITATIVE_METADATA_MAP[inactive.projectNumber]?.accionesSugeridas || [],
+          fechaEvaluacionIntermedia: QUALITATIVE_METADATA_MAP[inactive.projectNumber]?.fechaEvaluacionIntermedia || '',
+          fechaTalleresArranque: QUALITATIVE_METADATA_MAP[inactive.projectNumber]?.fechaTalleresArranque || '',
+          temasCriticosSimulador: QUALITATIVE_METADATA_MAP[inactive.projectNumber]?.temasCriticosSimulador || '',
+          verificadorContenidos: QUALITATIVE_METADATA_MAP[inactive.projectNumber]?.verificadorContenidos || '',
+        },
+        metadata: {
+          investmentAmount: `$${approved.toFixed(1)}M`,
+          disbursementPercent: percent,
+          elapsedYears: Number(inactive.yearsInExecution || 0),
+          siScore: 0,
+          pmr2026: {
+            status: 'N/A',
+            score: 0
+          }
+        }
+      } as Project;
+    }
+
+    // 5. Ultimate fallback from QUALITATIVE_METADATA_MAP or ID directly
+    const meta = QUALITATIVE_METADATA_MAP[selectedProjectId] || QUALITATIVE_METADATA_MAP[target];
+    const countryPrefix = selectedProjectId.substring(0, 2).toLowerCase();
+    return {
+      index: 0,
+      id: selectedProjectId,
+      operationNumber: selectedProjectId,
+      name: selectedProjectId,
+      country: '',
+      countryCode: countryPrefix,
+      countryName: '',
+      ttl: '',
+      status: 'Stage II',
+      isPrefilledByTeam: (selectedProjectId === 'BR-L1642' || selectedProjectId === 'HO-L1261') ? false : true,
+      validatedByTTLDate: null,
+      qualitativeData: {
+        estadoImplementacion: meta?.estadoImplementacion || [],
+        productosDestacados: meta?.productosDestacados || [],
+        probabilidadObjetivos: meta?.probabilidadObjetivos || [],
+        accionesSugeridas: meta?.accionesSugeridas || [],
+        fechaEvaluacionIntermedia: meta?.fechaEvaluacionIntermedia || '',
+        fechaTalleresArranque: meta?.fechaTalleresArranque || '',
+        temasCriticosSimulador: meta?.temasCriticosSimulador || '',
+        verificadorContenidos: meta?.verificadorContenidos || '',
+      },
+      metadata: {
+        investmentAmount: '$0.0M',
+        disbursementPercent: 0,
+        elapsedYears: 0,
+        siScore: 0,
+        pmr2026: {
+          status: 'Satisfactory',
+          score: 0
+        }
+      }
+    } as Project;
+  }, [projects, selectedProjectId, tableData, gasData.active_portfolio_table, gasData.inactive_pmr_table]);
 
   const getFirstName = (fullName: string) => {
     if (!fullName) return '';
@@ -332,25 +633,29 @@ function MainApp() {
               FMM Effectiveness Platform
             </h1>
           </div>
-          <nav className="hidden lg:flex items-center gap-1 ml-4 lg:ml-8">
-            {(['PORTFOLIO', 'DESIGN', 'EXECUTION', 'CLOSURE'] as MainTab[]).map(tab => (
-              <button
-                key={tab}
-                onClick={() => {
-                  setMainTab(tab);
-                  if (tab === 'EXECUTION') {
-                    setExecutionView('landing');
-                  }
-                }}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  mainTab === tab 
-                    ? 'bg-zinc-100 text-zinc-900' 
-                    : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-50'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
+          <nav className="hidden lg:flex items-center gap-6 ml-6 lg:ml-8">
+            {(['PORTFOLIO', 'DESIGN', 'EXECUTION', 'CLOSURE'] as MainTab[]).map(tab => {
+              const cfg = MAIN_TAB_CONFIG[tab];
+              const isActive = mainTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    setMainTab(tab);
+                    if (tab === 'EXECUTION') {
+                      setExecutionView('landing');
+                    }
+                  }}
+                  className={`px-3.5 py-1.5 text-xs md:text-[13px] font-medium tracking-normal uppercase rounded-md transition-colors duration-150 cursor-pointer ${
+                    isActive 
+                      ? cfg.activeClass 
+                      : cfg.inactiveClass
+                  }`}
+                >
+                  {tab}
+                </button>
+              );
+            })}
           </nav>
         </div>
 
@@ -370,30 +675,18 @@ function MainApp() {
             </div>
           )}
 
-          {/* User 'fmm': Complete removal of role section and profile dropdown; clean simple logout button */}
-          {isFmmUser ? (
-            <button 
-              onClick={logout}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-600 hover:text-red-600 hover:bg-zinc-100 rounded-lg transition-colors border border-zinc-200"
-              title="Cerrar sesión"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="hidden sm:inline">Logout</span>
-            </button>
-          ) : (
-            <button 
-              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-              className="flex items-center gap-1 md:gap-2 hover:bg-zinc-100 p-1 md:p-1.5 rounded-lg transition-colors"
-            >
-              <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-700">
-                <UserIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
-              </div>
-              <span className="text-zinc-700 font-medium text-[10px] md:text-sm hidden xs:inline">Hello, {displayName}</span>
-            </button>
-          )}
+          <button 
+            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            className="flex items-center gap-1 md:gap-2 hover:bg-zinc-100 p-1 md:p-1.5 rounded-lg transition-colors"
+          >
+            <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-zinc-200 flex items-center justify-center text-zinc-700">
+              <UserIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            </div>
+            <span className="text-zinc-700 font-medium text-[10px] md:text-sm hidden xs:inline">Hello, {displayName}</span>
+          </button>
 
           <AnimatePresence>
-            {!isFmmUser && isUserMenuOpen && (
+            {isUserMenuOpen && (
               <>
                 {/* Backdrop to close menu */}
                 <motion.div 
@@ -450,7 +743,7 @@ function MainApp() {
                       >
                         <ClipboardCheck className="w-5 h-5 text-zinc-400 group-hover:text-[#005173] transition-colors" />
                         <span className="font-semibold">
-                          {activeRole === 'EFFECTIVENESS_TEAM' ? 'PMR prefilling' : 'PMR validation'}
+                          Qualitative information
                         </span>
                       </button>
                     )}
@@ -502,26 +795,29 @@ function MainApp() {
                     </button>
                   </div>
 
-                  <div className="flex-1 py-4 overflow-y-auto">
-                    {(['PORTFOLIO', 'DESIGN', 'EXECUTION', 'CLOSURE'] as MainTab[]).map(tab => (
-                      <button
-                        key={tab}
-                        onClick={() => {
-                          setMainTab(tab);
-                          if (tab === 'EXECUTION') {
-                            setExecutionView('landing');
-                          }
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center px-6 py-4 text-sm font-semibold transition-colors ${
-                          mainTab === tab 
-                            ? 'bg-zinc-100 text-[#005173]' 
-                            : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50'
-                        }`}
-                      >
-                        {tab}
-                      </button>
-                    ))}
+                  <div className="flex-1 py-4 px-4 space-y-2 overflow-y-auto">
+                    {(['PORTFOLIO', 'DESIGN', 'EXECUTION', 'CLOSURE'] as MainTab[]).map(tab => {
+                      const cfg = MAIN_TAB_CONFIG[tab];
+                      const isActive = mainTab === tab;
+                      return (
+                        <button
+                          key={tab}
+                          onClick={() => {
+                            setMainTab(tab);
+                            if (tab === 'EXECUTION') {
+                              setExecutionView('landing');
+                            }
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-xs md:text-sm uppercase tracking-normal font-medium transition-colors ${
+                            isActive ? cfg.activeClass : cfg.inactiveClass
+                          }`}
+                        >
+                          <span>{tab}</span>
+                          {isActive && <span className="w-2 h-2 rounded-full bg-current opacity-70" />}
+                        </button>
+                      );
+                    })}
                   </div>
 
                   <div className="p-4 border-t border-zinc-100">

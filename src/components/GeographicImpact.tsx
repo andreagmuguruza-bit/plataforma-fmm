@@ -1,27 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { motion, useScroll, useTransform } from 'motion/react';
 import { ComposableMap, Geographies, Geography, ZoomableGroup } from 'react-simple-maps';
 import { scaleLinear } from 'd3-scale';
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LabelList, Legend } from 'recharts';
+import { useDashboardMetrics, DEFAULT_METRICS, GeoImpactItem } from '../hooks/useDashboardMetrics';
 
 const geoUrl = "https://unpkg.com/world-atlas@2.0.2/countries-110m.json";
 
-const geoImpactData = [
-  { country: 'BR', name: 'Brazil', region: 'CSC', amount: 1802, projects: 21, disbursed: 58, undisbursed: 42, disbursedVol: 1042, undisbursedVol: 760, flag: '🇧🇷', flagCode: 'br' },
-  { country: 'AR', name: 'Argentina', region: 'CSC', amount: 430, projects: 4, disbursed: 31, undisbursed: 69, disbursedVol: 134, undisbursedVol: 296, flag: '🇦🇷', flagCode: 'ar' },
-  { country: 'UR', name: 'Uruguay', region: 'CSC', amount: 204, projects: 4, disbursed: 46, undisbursed: 54, disbursedVol: 93, undisbursedVol: 111, flag: '🇺🇾', flagCode: 'uy' },
-  { country: 'PR', name: 'Paraguay', region: 'CSC', amount: 55, projects: 2, disbursed: 29, undisbursed: 71, disbursedVol: 16, undisbursedVol: 39, flag: '🇵🇾', flagCode: 'py' },
-  { country: 'CH', name: 'Chile', region: 'CSC', amount: 20, projects: 1, disbursed: 34, undisbursed: 66, disbursedVol: 7, undisbursedVol: 13, flag: '🇨🇱', flagCode: 'cl' },
-  { country: 'CO', name: 'Colombia', region: 'CAN', amount: 300, projects: 2, disbursed: 33, undisbursed: 67, disbursedVol: 99, undisbursedVol: 201, flag: '🇨🇴', flagCode: 'co' },
-  { country: 'PE', name: 'Peru', region: 'CAN', amount: 204, projects: 4, disbursed: 47, undisbursed: 53, disbursedVol: 96, undisbursedVol: 108, flag: '🇵🇪', flagCode: 'pe' },
-  { country: 'EC', name: 'Ecuador', region: 'CAN', amount: 114, projects: 3, disbursed: 37, undisbursed: 63, disbursedVol: 42, undisbursedVol: 72, flag: '🇪🇨', flagCode: 'ec' },
-  { country: 'SU', name: 'Suriname', region: 'CCB', amount: 50, projects: 1, disbursed: 13, undisbursed: 87, disbursedVol: 6, undisbursedVol: 44, flag: '🇸🇷', flagCode: 'sr' },
-  { country: 'ME', name: 'Mexico', region: 'CID', amount: 500, projects: 1, disbursed: 0, undisbursed: 100, disbursedVol: 0, undisbursedVol: 500, flag: '🇲🇽', flagCode: 'mx' },
-  { country: 'PN', name: 'Panama', region: 'CID', amount: 60, projects: 2, disbursed: 22, undisbursed: 78, disbursedVol: 13, undisbursedVol: 47, flag: '🇵🇦', flagCode: 'pa' },
-  { country: 'BL', name: 'Belize', region: 'CCB', amount: 22, projects: 2, disbursed: 75, undisbursed: 25, disbursedVol: 17, undisbursedVol: 5, flag: '🇧🇿', flagCode: 'bz' },
-];
-
-const colorScale = scaleLinear<string>().domain([0, 1802]).range(["#e0f2fe", "#005274"]);
+let activeGeoImpactData: GeoImpactItem[] = DEFAULT_METRICS.df_geo_impact;
+let activeSortedForHorizontal: GeoImpactItem[] = [...DEFAULT_METRICS.df_geo_impact].sort((a, b) => a.disbursed - b.disbursed);
 
 // --- Componentes Customizados Gráfico 1 ---
 const CustomStackedLabel = (props: any) => {
@@ -49,7 +36,7 @@ const CustomStackedLabel = (props: any) => {
 
 const CustomBarLabel = (props: any) => {
   const { x, y, width, index } = props;
-  const data = geoImpactData[index];
+  const data = activeGeoImpactData[index];
   if (!data) return null;
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
   return (
@@ -61,7 +48,7 @@ const CustomBarLabel = (props: any) => {
 
 const CustomAxisTick = (props: any) => {
   const { x, y, payload } = props;
-  const country = geoImpactData.find(d => d.country === payload.value);
+  const country = activeGeoImpactData.find(d => d.country === payload.value);
   const showRegion = ['UR', 'PE', 'SU', 'PN'].includes(payload.value);
   const showSeparator = ['CH', 'EC', 'SU'].includes(payload.value);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
@@ -93,13 +80,9 @@ const CustomAxisTick = (props: any) => {
   );
 };
 
-// --- Componentes Customizados Gráfico 2 ---
-// Orden ascendente para el layout vertical (los menores primero, BL queda último en el array y Recharts lo renderiza arriba)
-const sortedForHorizontal = [...geoImpactData].sort((a, b) => a.disbursed - b.disbursed);
-
 const CustomYAxisTickHorizontal = (props: any) => {
   const { x, y, payload } = props;
-  const data = sortedForHorizontal.find(d => d.country === payload.value);
+  const data = activeSortedForHorizontal.find(d => d.country === payload.value);
   return (
     <g transform={`translate(${x},${y})`}>
       <image 
@@ -115,6 +98,27 @@ const CustomYAxisTickHorizontal = (props: any) => {
 };
 
 export default function GeographicImpact() {
+  const { data: dashboardMetrics, loading } = useDashboardMetrics();
+  const geoImpactData = dashboardMetrics?.df_geo_impact?.length ? dashboardMetrics.df_geo_impact : DEFAULT_METRICS.df_geo_impact;
+  const sortedForHorizontal = useMemo(() => [...geoImpactData].sort((a, b) => a.disbursed - b.disbursed), [geoImpactData]);
+
+  activeGeoImpactData = geoImpactData;
+  activeSortedForHorizontal = sortedForHorizontal;
+
+  const maxAmount = useMemo(() => Math.max(...geoImpactData.map(d => d.amount), 1802), [geoImpactData]);
+  const colorScale = useMemo(() => scaleLinear<string>().domain([0, maxAmount]).range(["#e0f2fe", "#005274"]), [maxAmount]);
+
+  const heroTotalCountries = Math.round(dashboardMetrics?.hero_total_countries ?? 12);
+  const geoTopCountryName = dashboardMetrics?.geo_top_country_name ?? 'Brazil';
+  const geoTopCountryAmt = Math.round(dashboardMetrics?.geo_top_country_amt ?? 1802);
+  const geoTopCountryProj = Math.round(dashboardMetrics?.geo_top_country_proj ?? 21);
+  const geoRunnerup1Name = dashboardMetrics?.geo_runnerup_1_name ?? 'Belize';
+  const geoRunnerup1Pct = Number(dashboardMetrics?.geo_runnerup_1_pct ?? 75.4).toFixed(1);
+  const geoRunnerup2Name = dashboardMetrics?.geo_runnerup_2_name ?? 'Brazil';
+  const geoRunnerup2Pct = Number(dashboardMetrics?.geo_runnerup_2_pct ?? 57.8).toFixed(1);
+  const geoRunnerup3Name = dashboardMetrics?.geo_runnerup_3_name ?? 'Peru';
+  const geoRunnerup3Pct = Number(dashboardMetrics?.geo_runnerup_3_pct ?? 47.2).toFixed(1);
+
   const [activeHoverCountry, setActiveHoverCountry] = useState<string | null>(null);
   const [tooltipContent, setTooltipContent] = useState<any>(null);
 
@@ -139,7 +143,7 @@ export default function GeographicImpact() {
         <div className="w-full mb-6 px-4 md:px-6 lg:px-12 max-w-[1440px] mx-auto">
           <h2 className="text-2xl md:text-4xl font-bold text-zinc-900 tracking-tight text-center lg:text-left">Geographic Reach</h2>
           <p className="text-base md:text-xl text-zinc-700 leading-relaxed mt-4 text-center lg:text-left">
-            FMM operations span 12 countries. Brazil holds the largest share of FMM's portfolio with $1,802M allocated across 21 projects. In terms of execution, Belize has the highest disbursement rate at 75%, followed by Brazil (58%) and Peru (47%).
+            FMM operations span {heroTotalCountries} countries. {geoTopCountryName} holds the largest share of FMM's portfolio with ${geoTopCountryAmt.toLocaleString()}M allocated across {geoTopCountryProj} projects. In terms of execution, {geoRunnerup1Name} has the highest disbursement rate at {`${geoRunnerup1Pct}%`}, followed by {geoRunnerup2Name} ({`${geoRunnerup2Pct}%`}) and {geoRunnerup3Name} ({`${geoRunnerup3Pct}%`}).
           </p>
         </div>
         
@@ -191,7 +195,7 @@ export default function GeographicImpact() {
               <div className="absolute bottom-8 right-2 bg-white/80 backdrop-blur-sm p-2 rounded-lg shadow-sm border border-zinc-200 text-[10px] z-10 pointer-events-none w-36 sm:w-44">
                 <p className="text-center mb-1"><span className="font-bold text-zinc-900">Investment Amount</span> <span className="text-zinc-500">($M)</span></p>
                 <div className="w-full h-2 bg-gradient-to-r from-[#e0f2fe] to-[#005274] mb-1"></div>
-                <div className="flex justify-between text-zinc-500 font-medium text-[10px]"><span>$0</span><span>$901</span><span>$1802</span></div>
+                <div className="flex justify-between text-zinc-500 font-medium text-[10px]"><span>$0</span><span>${Math.round(geoTopCountryAmt / 2).toLocaleString()}</span><span>${geoTopCountryAmt.toLocaleString()}</span></div>
               </div>
             </div>
           </div>

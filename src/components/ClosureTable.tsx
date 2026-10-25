@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronsUpDown, Filter } from 'lucide-react';
+import { ChevronsUpDown, Filter, Search } from 'lucide-react';
 
 interface RowData {
   proyecto: string;
@@ -81,6 +81,7 @@ export default function ClosureTable() {
   const [projectFilters, setProjectFilters] = useState<string[]>([]);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Close filter dropdown on click outside
   useEffect(() => {
@@ -127,6 +128,12 @@ export default function ClosureTable() {
   const sortedAndFilteredData = useMemo(() => {
     let result = [...data];
 
+    // Search query filter
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter(row => row.proyecto.toLowerCase().includes(q) || row.observaciones.toLowerCase().includes(q));
+    }
+
     // Filter
     if (projectFilters.length > 0) {
       result = result.filter(row => projectFilters.includes(row.proyecto));
@@ -144,7 +151,7 @@ export default function ClosureTable() {
     }
 
     return result;
-  }, [projectFilters, sortDirection]);
+  }, [data, projectFilters, sortDirection, searchQuery]);
 
   // Styles matches user alerts (Yellow is bg-amber-100 text-black border-transparent)
   // Let's pair color styles to be polished:
@@ -181,6 +188,21 @@ export default function ClosureTable() {
 
   return (
     <div className="w-full mt-6 flex flex-col gap-6">
+      {/* Project Search Bar matching PMR qualitative prefilling */}
+      <div className="flex flex-col gap-1 w-full max-w-sm">
+        <label className="text-[#002148] font-bold text-[13px] tracking-tight">PROJECT</label>
+        <div className="relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+          <input 
+            type="text" 
+            placeholder="Search project name or ID..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-3 py-2 bg-white border border-zinc-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#005173] font-normal placeholder:text-zinc-400 shadow-sm"
+          />
+        </div>
+      </div>
+
       {/* Table Container styled strictly matching Dashboard tables */}
       <div className="bg-white rounded-none sm:rounded-xl shadow-sm border-y sm:border border-zinc-200 overflow-hidden">
         <div className="overflow-x-auto">

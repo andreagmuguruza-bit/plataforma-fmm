@@ -13,6 +13,45 @@ export const formatDDMMMYY = (d: Date = new Date()): string => {
   return `${day}-${month}-${year}`;
 };
 
+// Global qualitative cache to ensure live data is always synchronized and instantly available
+let globalLiveQualMapCache: Record<string, any> = {};
+let globalLiveQualMapPromise: Promise<Record<string, any>> | null = null;
+
+export async function fetchLiveQualitativeData(forceRefresh = false): Promise<Record<string, any>> {
+  if (!forceRefresh && Object.keys(globalLiveQualMapCache).length > 0) {
+    return globalLiveQualMapCache;
+  }
+  if (!forceRefresh && globalLiveQualMapPromise) {
+    return globalLiveQualMapPromise;
+  }
+
+  globalLiveQualMapPromise = (async () => {
+    try {
+      const url = `${GOOGLE_APPS_SCRIPT_URL}${GOOGLE_APPS_SCRIPT_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      if (res.ok) {
+        const json = await res.json();
+        if (json && typeof json === 'object') {
+          globalLiveQualMapCache = { ...globalLiveQualMapCache, ...json };
+          return globalLiveQualMapCache;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to fetch live qualitative data:', e);
+    } finally {
+      globalLiveQualMapPromise = null;
+    }
+    return globalLiveQualMapCache;
+  })();
+
+  return globalLiveQualMapPromise;
+}
+
+// Background pre-warm
+if (typeof window !== 'undefined') {
+  fetchLiveQualitativeData(false).catch(() => {});
+}
+
 export interface QualitativeFormData {
   estadoImplementacion: string[];
   productosDestacados: string[];
@@ -299,6 +338,12 @@ export function useQualitativeData(
         formData: formData,
         action: 'saveQualitativeData'
       };
+
+      // Keep in-memory cache synchronized immediately
+      globalLiveQualMapCache[currentProj.id] = formData;
+      if (currentProj.operationNumber) {
+        globalLiveQualMapCache[currentProj.operationNumber] = formData;
+      }
 
       await fetch(GOOGLE_APPS_SCRIPT_URL, {
         method: 'POST',

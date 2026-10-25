@@ -4,6 +4,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, 
   Tooltip as RechartsTooltip, ReferenceLine, LabelList, Cell
 } from 'recharts';
+import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 
 const ageData = [
   { name: 'CIS', age: 5.2 },
@@ -95,10 +96,29 @@ const CustomSectorLabel = (props: any) => {
 };
 
 export default function PortfolioAgeAndSectors() {
+  const { data: dashboardMetrics, loading } = useDashboardMetrics();
   const sectionRef = useRef(null);
   const isInView = useInView(sectionRef, { once: true, margin: "-20%" });
   const [activeHoverItem, setActiveHoverItem] = useState<string | null>(null);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+
+  const metrics = {
+    age_fmm_avg: Number(dashboardMetrics?.age_fmm_avg ?? 4.8),
+    age_comparison_vs_idb: dashboardMetrics?.age_comparison_vs_idb ?? (Number(dashboardMetrics?.age_fmm_avg ?? 4.8) >= Number(dashboardMetrics?.age_idb_avg ?? 4.6) ? 'above' : 'below'),
+    age_comparison_sentence: dashboardMetrics?.age_comparison_sentence || `${dashboardMetrics?.age_comparison_vs_idb ?? (Number(dashboardMetrics?.age_fmm_avg ?? 4.8) >= Number(dashboardMetrics?.age_idb_avg ?? 4.6) ? 'above' : 'below')} the IDB (${Number(dashboardMetrics?.age_idb_avg ?? 4.6).toFixed(1)}) and the IFD department (${Number(dashboardMetrics?.age_ifd_avg ?? 4.1).toFixed(1)})`,
+    age_idb_avg: Number(dashboardMetrics?.age_idb_avg ?? 4.6),
+    age_ifd_avg: Number(dashboardMetrics?.age_ifd_avg ?? 4.1),
+    age_pct_over_5_yrs: Number(dashboardMetrics?.age_pct_over_5_yrs ?? 38),
+    age_pct_extensions: Number(dashboardMetrics?.age_pct_extensions ?? 35),
+  };
+
+  const ageFmmAvg = metrics.age_fmm_avg;
+  const ageIdbAvg = metrics.age_idb_avg;
+  const ageIfdAvg = metrics.age_ifd_avg;
+  const currentAgeData = dashboardMetrics?.df_age_divisions?.length ? dashboardMetrics.df_age_divisions : ageData;
+
+  const firstDivName = currentAgeData[0]?.name || 'CIS';
+  const lastDivName = currentAgeData[currentAgeData.length - 1]?.name || 'CMF';
 
   return (
     <div className="w-full flex flex-col py-4 lg:py-[5vh]" ref={sectionRef}>
@@ -110,7 +130,7 @@ export default function PortfolioAgeAndSectors() {
       >
         <h2 className="text-2xl md:text-4xl font-bold text-zinc-900 mb-4 md:mb-6 tracking-tight text-center lg:text-left">Portfolio Age</h2>
         <p className="text-base md:text-xl text-zinc-700 leading-relaxed w-full text-center lg:text-left">
-          The FMM active portfolio has an average age of 4.8 years, above the IDB (4.6) and the IFD department (4.1) averages. Currently, <strong className="font-bold text-zinc-900">38%</strong> of the projects have exceeded 5 years in execution, and <strong className="font-bold text-zinc-900">35%</strong> have requested extensions.
+          The FMM active portfolio has an average age of {metrics.age_fmm_avg.toFixed(1)} years, {metrics.age_comparison_sentence} averages. Currently, {metrics.age_pct_over_5_yrs.toFixed(0)}% of the projects have exceeded 5 years in execution, and {metrics.age_pct_extensions.toFixed(0)}% have requested extensions.
         </p>
       </motion.div>
 
@@ -130,14 +150,14 @@ export default function PortfolioAgeAndSectors() {
           <div className="w-full flex flex-col">
             <div className="w-full">
               <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={ageData} margin={{ top: 35, right: 30, left: 20, bottom: 25 }}>
+                <BarChart data={currentAgeData} margin={{ top: 35, right: 30, left: 20, bottom: 25 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e4e4e7" />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#52525b', fontSize: 11, fontWeight: 'bold'}} dy={10} />
                   <YAxis hide domain={[0, 6]} />
                   <RechartsTooltip content={<CustomTooltip />} cursor={{fill: '#f4f4f5'}} />
                   
-                  <ReferenceLine segment={[{ x: 'CIS', y: 4.6 }, { x: 'CMF', y: 4.6 }]} stroke="#FFC000" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: 'IDB (4.6)', fill: '#FFC000', fontSize: 10, fontWeight: 'bold' }} />
-                  <ReferenceLine segment={[{ x: 'CIS', y: 4.1 }, { x: 'CMF', y: 4.1 }]} stroke="#00bcd4" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: 'IFD (4.1)', fill: '#00bcd4', fontSize: 10, fontWeight: 'bold' }} />
+                  <ReferenceLine segment={[{ x: firstDivName, y: ageIdbAvg }, { x: lastDivName, y: ageIdbAvg }]} stroke="#FFC000" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: `IDB (${ageIdbAvg.toFixed(1)})`, fill: '#FFC000', fontSize: 10, fontWeight: 'bold' }} />
+                  <ReferenceLine segment={[{ x: firstDivName, y: ageIfdAvg }, { x: lastDivName, y: ageIfdAvg }]} stroke="#00bcd4" strokeDasharray="5 5" strokeWidth={2} label={{ position: 'top', value: `IFD (${ageIfdAvg.toFixed(1)})`, fill: '#00bcd4', fontSize: 10, fontWeight: 'bold' }} />
                   
                   <Bar 
                     dataKey="age" 
@@ -148,7 +168,7 @@ export default function PortfolioAgeAndSectors() {
                     onMouseLeave={() => setActiveHoverItem(null)}
                   >
                     <LabelList dataKey="age" content={<CustomAgeLabel />} />
-                    {ageData.map((entry, index) => (
+                    {currentAgeData.map((entry, index) => (
                       <Cell key={`cell-age-${index}`} fill={activeHoverItem === entry.name ? '#0284c7' : '#005274'} />
                     ))}
                   </Bar>
@@ -170,7 +190,7 @@ export default function PortfolioAgeAndSectors() {
               </div>
             </div>
             <p className="text-[10px] sm:text-xs text-zinc-500 mt-3 text-left pl-12 sm:pl-16">
-              <sup>1/</sup> It is calculated from approval to date.
+              <sup>1/</sup> Calculated from approval to date.
             </p>
           </div>
         </motion.div>

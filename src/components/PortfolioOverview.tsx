@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion, useScroll, useTransform, useInView } from 'motion/react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip, Legend, Sector, LabelList, ReferenceLine, ComposedChart, Line, Customized } from 'recharts';
 import { usePortfolioData } from '../hooks/usePortfolioData';
+import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 
 const idbData = [
   { name: 'IFD', value: 14609, percentage: 26, fill: '#005173' },
@@ -243,6 +244,7 @@ const CustomActivePortfolioTooltip = ({ active, payload, hoveredSegment }: any) 
 
 export default function PortfolioOverview({ active }: { active: boolean }) {
   const { metrics } = usePortfolioData();
+  const { data: dashboardMetrics, loading } = useDashboardMetrics();
   const containerRef = useRef<HTMLDivElement>(null);
   // Lógica de Animación Coreografiada (Estilo McKinsey)
   const overviewRef = useRef(null);
@@ -257,32 +259,12 @@ export default function PortfolioOverview({ active }: { active: boolean }) {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const totalProjects = 48;
-  const invCount = 47;
-  const pblCount = 1;
-  const invAmount = 3761;
-  const pblAmount = 600;
-  const disbursedLifeAmount = 1565;
-  const currentApprovedAmount = 4361;
-  const disbursedLifePercent = 36;
+  const totalProjects = Math.round(dashboardMetrics?.hero_total_projects ?? 48);
+  const totalAmountM = Math.round(dashboardMetrics?.hero_total_amount_m ?? 4361);
+  const fmmPctOfIfd = Number(dashboardMetrics?.fmm_pct_of_ifd ?? 29.9).toFixed(1);
 
-  // Use barData directly for dynamic updates
-  const updatedBarData = barData;
-
-  // Update FMM in allStagesBarData
-  const updatedAllStagesBarData = allStagesBarData.map(d => {
-    if (d.name === 'FMM') {
-      return {
-        ...d,
-        disbursedAmount: Math.round(disbursedLifeAmount),
-        undisbursedAmount: Math.round(currentApprovedAmount - disbursedLifeAmount),
-        numberOfProjects: totalProjects,
-        disbursedPct: Math.round(disbursedLifePercent),
-        undisbursedPct: Math.round(100 - disbursedLifePercent)
-      };
-    }
-    return d;
-  });
+  const idbChartData = dashboardMetrics?.df_idb_overview?.length ? dashboardMetrics.df_idb_overview : idbData;
+  const ifdChartData = dashboardMetrics?.df_ifd_overview?.length ? dashboardMetrics.df_ifd_overview : ifdData;
 
   useEffect(() => {
     if (isOverviewInView) {
@@ -323,7 +305,7 @@ export default function PortfolioOverview({ active }: { active: boolean }) {
           >
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-zinc-900 mb-3 md:mb-4 tracking-tight">Portfolio Overview</h2>
             <p className="text-lg md:text-xl lg:text-2xl text-zinc-700 leading-relaxed">
-              FMM has <strong className="font-bold text-zinc-900">48</strong> projects for <strong className="font-bold text-zinc-900">$4,361 M</strong>, representing 30% of IFD’s active portfolio.
+              FMM has <strong className="font-bold text-zinc-900">{totalProjects}</strong> projects for <strong className="font-bold text-zinc-900">{`$${totalAmountM.toLocaleString()} M`}</strong>, representing {`${fmmPctOfIfd}%`} of IFD’s active portfolio.
             </p>
           </motion.div>
 
@@ -358,7 +340,7 @@ export default function PortfolioOverview({ active }: { active: boolean }) {
                     <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 300 : 350}>
                       <PieChart>
                         <Pie 
-                          data={idbData} 
+                          data={idbChartData} 
                           cx="50%" 
                           cy="50%" 
                           innerRadius="50%" 
@@ -378,7 +360,7 @@ export default function PortfolioOverview({ active }: { active: boolean }) {
                           onMouseEnter={(_, index) => setActiveIndexA(index)}
                           onMouseLeave={() => setActiveIndexA(-1)}
                         >
-                          {idbData.map((entry, index) => (
+                          {idbChartData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.fill} />
                           ))}
                         </Pie>
@@ -430,11 +412,11 @@ export default function PortfolioOverview({ active }: { active: boolean }) {
                     <ResponsiveContainer width="100%" height={window.innerWidth < 768 ? 300 : 350}>
                       <PieChart>
                         <Pie 
-                          data={ifdData} 
+                          data={ifdChartData} 
                           cx="50%" 
                           cy="50%" 
                           innerRadius="50%" 
-                          outerRadius="74%"
+                          outerRadius="74%" 
                           dataKey="value" 
                           stroke="white"
                           strokeWidth={2}
@@ -450,7 +432,7 @@ export default function PortfolioOverview({ active }: { active: boolean }) {
                           onMouseEnter={(_, index) => setActiveIndexB(index)}
                           onMouseLeave={() => setActiveIndexB(-1)}
                         >
-                          {ifdData.map((entry, index) => (
+                          {ifdChartData.map((entry, index) => (
                             <Cell 
                               key={`cell-${index}`} 
                               /* Si es FMM, evalúa el step: si es 5 se pinta amarillo, si no, entra azul. En móvil se pinta amarillo directo. */
@@ -500,6 +482,7 @@ const CustomStackedLabel = (props: any) => {
 
 export function LendingInstrumentsAndStages() {
   const { metrics } = usePortfolioData();
+  const { data: dashboardMetrics } = useDashboardMetrics();
   const [hoveredSegment, setHoveredSegment] = useState<string | null>(null);
   const lendingChartRef = useRef(null);
   const isLendingInView = useInView(lendingChartRef, { once: true, margin: "-10%" });
@@ -512,18 +495,17 @@ export function LendingInstrumentsAndStages() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const totalProjects = 48;
-  const invCount = 47;
-  const pblCount = 1;
-  const invAmount = 3761;
-  const pblAmount = 600;
-  const stage1InvCount = metrics?.stage1InvCount || 6;
-  const stage2InvCount = metrics?.stage2InvCount || 37;
-  const stage3InvCount = metrics?.stage3InvCount || 4;
-  const stage1InvAmount = metrics?.stage1InvAmount || 981;
-  const stage2InvAmountValue = metrics?.stage2InvAmount || 2415;
-  const stage2InvAmount = stage2InvAmountValue;
-  const stage3InvAmount = metrics?.stage3InvAmount || 330;
+  const totalProjects = Math.round(dashboardMetrics?.hero_total_projects ?? (dashboardMetrics ? dashboardMetrics.pbl_count + dashboardMetrics.inv_count : 48));
+  const invCount = Math.round(dashboardMetrics?.inv_count ?? 47);
+  const pblCount = Math.round(dashboardMetrics?.pbl_count ?? 1);
+  const invAmount = Math.round(dashboardMetrics?.inv_amount_m ?? 3761);
+  const pblAmount = Math.round(dashboardMetrics?.pbl_amount_m ?? 600);
+  const stage1InvCount = Math.round(dashboardMetrics?.inv_stage_1_count ?? 6);
+  const stage2InvCount = Math.round(dashboardMetrics?.inv_stage_2_count ?? 37);
+  const stage3InvCount = Math.round(dashboardMetrics?.inv_stage_3_count ?? 4);
+  const stage1InvAmount = Math.round(dashboardMetrics?.inv_stage_1_amount ?? 981);
+  const stage2InvAmount = Math.round(dashboardMetrics?.inv_stage_2_amount ?? 2415);
+  const stage3InvAmount = Math.round(dashboardMetrics?.inv_stage_3_amount ?? 330);
 
   const activePortfolioData = [
     {
@@ -532,11 +514,11 @@ export function LendingInstrumentsAndStages() {
       visualMiddle: 0,
       visualTop: pblCount,
       bottomLabel: `${invCount} INV`,
-      bottomAmount: Math.round(invAmount),
+      bottomAmount: invAmount,
       middleLabel: '',
       middleAmount: 0,
       topLabel: `${pblCount} PBL`,
-      topAmount: Math.round(pblAmount),
+      topAmount: pblAmount,
     },
     {
       name: `${invCount} INV`,
@@ -544,11 +526,11 @@ export function LendingInstrumentsAndStages() {
       visualMiddle: stage2InvCount, 
       visualTop: stage1InvCount,
       bottomLabel: stage3InvCount > 0 ? `${stage3InvCount} Stage III` : '',
-      bottomAmount: Math.round(stage3InvAmount),
+      bottomAmount: stage3InvAmount,
       middleLabel: `${stage2InvCount} Stage II`,
-      middleAmount: Math.round(stage2InvAmount),
+      middleAmount: stage2InvAmount,
       topLabel: `${stage1InvCount} Stage I`,
-      topAmount: Math.round(stage1InvAmount),
+      topAmount: stage1InvAmount,
     }
   ];
 
@@ -723,6 +705,7 @@ export function LendingInstrumentsAndStages() {
 
 export function CurrentDisbursement() {
   const { metrics } = usePortfolioData();
+  const { data: dashboardMetrics, loading } = useDashboardMetrics();
   const [hoveredDisbursement, setHoveredDisbursement] = useState<string | null>(null);
   const [dotsSettled, setDotsSettled] = useState(false);
   const [hoveredDisbursement2, setHoveredDisbursement2] = useState<string | null>(null);
@@ -736,31 +719,19 @@ export function CurrentDisbursement() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const totalProjects = 48;
-  const stage2Projects = metrics?.stage2InvCount || 34;
-  const disbursedLifePercent = 36;
-  const disbursedLifeAmount = 1565;
-  const stage2DisbursedAmount = 1322; // As requested by user
-  const stage2TotalApproved = 2435; // 1322 + 1113
-  const currentApprovedAmount = 4361;
+  const totalApproved = Math.round(dashboardMetrics?.hero_total_amount_m ?? 4361);
+  const disbAmt = Math.round(dashboardMetrics?.disb_fmm_disbursed_amt ?? 1565);
+  const undisbAmt = Math.round(dashboardMetrics?.disb_fmm_undisb_amt ?? 2796);
+  const disbPct = Number(dashboardMetrics?.disb_fmm_disbursed_pct ?? 35.9).toFixed(1);
+  const stg23Pct = Number(dashboardMetrics?.disb_fmm_stg2_3_pct ?? 56.3).toFixed(1);
 
-  // Use barData directly
-  const updatedBarData = barData;
+  const updatedAllStagesBarData = dashboardMetrics?.df_disb_all_stages?.length
+    ? dashboardMetrics.df_disb_all_stages
+    : allStagesBarData;
 
-  // Update FMM in allStagesBarData
-  const updatedAllStagesBarData = allStagesBarData.map(d => {
-    if (d.name === 'FMM') {
-      return {
-        ...d,
-        disbursedAmount: Math.round(disbursedLifeAmount),
-        undisbursedAmount: Math.round(currentApprovedAmount - disbursedLifeAmount),
-        numberOfProjects: totalProjects,
-        disbursedPct: Math.round(disbursedLifePercent),
-        undisbursedPct: Math.round(100 - disbursedLifePercent)
-      };
-    }
-    return d;
-  });
+  const updatedBarData = dashboardMetrics?.df_disb_stg2_3?.length
+    ? dashboardMetrics.df_disb_stg2_3
+    : barData;
   
   const disbursementRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress: disbursementScrollProgress } = useScroll({
@@ -822,7 +793,7 @@ export function CurrentDisbursement() {
                   >
                     <div className="text-lg md:text-xl text-zinc-700 leading-relaxed space-y-4 md:space-y-6">
                       <p>
-                        From a total approved amount of <strong className="font-bold text-zinc-900">$4,361 M</strong>, the division has disbursed <strong className="font-bold text-zinc-900">$1,565 M</strong> (36%), with a balance of <strong className="font-bold text-zinc-900">$2,796 M</strong> undisbursed.
+                        From a total approved amount of <strong className="font-bold text-zinc-900">{`$${totalApproved.toLocaleString()} M`}</strong>, the division has disbursed <strong className="font-bold text-zinc-900">{`$${disbAmt.toLocaleString()} M`}</strong> ({`${disbPct}%`}), with a balance of <strong className="font-bold text-zinc-900">{`$${undisbAmt.toLocaleString()} M`}</strong> undisbursed.
                       </p>
                     </div>
                   </motion.div>
@@ -843,7 +814,7 @@ export function CurrentDisbursement() {
                   >
                     <div className="text-lg md:text-xl text-zinc-700 leading-relaxed space-y-4 md:space-y-6">
                       <p>
-                        When isolating INV operations in Stage II and III, FMM reaches a disbursement rate of 56%.
+                        When isolating INV operations in Stage II and III, FMM reaches a disbursement rate of {`${stg23Pct}%`}.
                       </p>
                     </div>
                   </motion.div>

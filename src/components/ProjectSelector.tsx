@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Project, User } from '../types';
 import { ClipboardCheck, Search, ChevronDown } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useGASPortfolioData } from '../hooks/useGASPortfolioData';
+import { QUALITATIVE_METADATA_MAP } from '../data/qualitativeMetadata';
 
 interface ProjectSelectorProps {
   projects: Project[];
@@ -58,6 +60,79 @@ export function isTtlMatch(projectTtl?: string, userTtlName?: string, username?:
   return false;
 }
 
+export const PMR_PREFILLING_PROJECT_IDS: string[] = [
+  'AR-L1248',
+  'AR-L1285',
+  'AR-L1405',
+  'AR-L1416',
+  'BL-L1031',
+  'BL-L1038',
+  'BR-L1501',
+  'BR-L1513',
+  'BR-L1516',
+  'BR-L1517',
+  'BR-L1525',
+  'BR-L1527',
+  'BR-L1533',
+  'BR-L1535',
+  'BR-L1539',
+  'BR-L1540',
+  'BR-L1550',
+  'BR-L1592',
+  'BR-L1599',
+  'BR-L1614',
+  'BR-L1629',
+  'BR-L1642',
+  'BR-L1643',
+  'BR-L1656',
+  'BR-L1658',
+  'CH-L1178',
+  'CO-L1164',
+  'CO-L1245',
+  'EC-L1230',
+  'EC-L1253',
+  'HO-L1261',
+  'ME-L1309',
+  'PE-L1231',
+  'PE-L1239',
+  'PE-L1266',
+  'PE-L1278',
+  'PE-L1288',
+  'PN-L1161',
+  'PN-L1172',
+  'PR-L1150',
+  'PR-L1192',
+  'SU-L1060',
+  'UR-L1111',
+  'UR-L1164',
+  'UR-L1193',
+  'UR-L1205'
+];
+
+export function shouldSeeAllProjects(user?: User | null): boolean {
+  if (!user) return false;
+  if (user.role === 'EFFECTIVENESS_TEAM' || user.role === 'GENERAL_FMM' || user.role === 'DIVISION_CHIEF') {
+    return true;
+  }
+  const u = (user.username || user.id || '').toLowerCase().replace(/[^a-z]/g, '');
+  const n = (user.name || '').toLowerCase();
+  
+  // Andrea Guardia, Axel Radics, Anastasiya Yarygina, Maria Elisa De Stefano, Hector Agustin Mendoza, Susana Roman
+  if (u.includes('andrea') || n.includes('andrea')) return true;
+  if (u.includes('axel') || n.includes('axel')) return true;
+  if (u.includes('anastasiya') || n.includes('anastasiya')) return true;
+  if (u.includes('elisa') || n.includes('elisa')) return true;
+  if (u.includes('hector') || n.includes('hector')) return true;
+  if (u.includes('susana') || n.includes('susana')) return true;
+  if (u.includes('marta') || n.includes('marta')) return true;
+  if (u.includes('fmm') || n.includes('fmm')) return true;
+
+  return false;
+}
+
+const PMR_SET = new Set(PMR_PREFILLING_PROJECT_IDS);
+const PMR_ORDER_MAP = new Map(PMR_PREFILLING_PROJECT_IDS.map((id, index) => [id, index]));
+
 export default function ProjectSelector({ projects, onSelectProject, currentUser, selectedTTL, selectedEffectivenessMember }: ProjectSelectorProps) {
   const [filterProject, setFilterProject] = useState('');
   const [filterCountry, setFilterCountry] = useState('');
@@ -85,71 +160,143 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
     'Nicaragua': 'ni',
   };
 
-  const filteredProjects = projects.filter(project => {
-    if (currentUser.role === 'TTL') {
-      return isTtlMatch(
-        project.ttl, 
-        selectedTTL || currentUser.ttlName, 
-        currentUser.username || currentUser.id, 
-        currentUser.name
-      );
-    }
-    
-    // Effectiveness Team filters
-    const filterProjLower = String(filterProject || '').toLowerCase();
-    const matchesProject = filterProject === '' || 
-      String(project.name || '').toLowerCase().includes(filterProjLower) || 
-      String(project.id || '').toLowerCase().includes(filterProjLower);
-    const matchesCountry = filterCountry === '' || project.country === filterCountry;
-    
-    let matchesStatus = true;
-    if (filterStatus !== '') {
-      if (filterStatus === 'Validated by TTL') {
-        matchesStatus = !!project.validatedByTTLDate;
-      } else if (filterStatus === 'Pending TTL validation') {
-        matchesStatus = project.isPrefilledByTeam && !project.validatedByTTLDate;
-      } else if (filterStatus === 'Pending Effectiveness Team prefilling') {
-        matchesStatus = !project.isPrefilledByTeam && !project.validatedByTTLDate;
+  const gasData = useGASPortfolioData();
+  const hasFullAccess = shouldSeeAllProjects(currentUser);
+
+  // Always maintain all 46 designated PMR prefilling projects in the exact requested order
+  const pmrProjects = React.useMemo(() => {
+    const projectMap = new Map<string, Project>();
+    projects.forEach(p => {
+      if (p.id) projectMap.set(p.id.toUpperCase().trim(), p);
+      if (p.operationNumber) projectMap.set(p.operationNumber.toUpperCase().trim(), p);
+    });
+
+    const activeGasMap = new Map<string, any>();
+    (gasData.active_portfolio_table || []).forEach(p => {
+      if (p.projectNumber) activeGasMap.set(p.projectNumber.toUpperCase().trim(), p);
+      if (p.operationNumber) activeGasMap.set(p.operationNumber.toUpperCase().trim(), p);
+    });
+
+    const inactiveGasMap = new Map<string, any>();
+    (gasData.inactive_pmr_table || []).forEach(p => {
+      if (p.projectNumber) inactiveGasMap.set(p.projectNumber.toUpperCase().trim(), p);
+      if (p.operationNumber) inactiveGasMap.set(p.operationNumber.toUpperCase().trim(), p);
+    });
+
+    return PMR_PREFILLING_PROJECT_IDS.map((id) => {
+      const upperId = id.toUpperCase().trim();
+      const existing = projectMap.get(upperId);
+      const gasRow = activeGasMap.get(upperId) || inactiveGasMap.get(upperId);
+      const meta = QUALITATIVE_METADATA_MAP[id] || QUALITATIVE_METADATA_MAP[upperId];
+
+      const projTtl = (upperId === 'HO-L1261')
+        ? (gasRow?.ttl && gasRow.ttl !== 'N/A' && gasRow.ttl !== '' ? gasRow.ttl : 'ALEJOS MARROQUIN, LUIS ALEJANDRO')
+        : (existing?.ttl || gasRow?.ttl || '');
+
+      const projName = (upperId === 'HO-L1261')
+        ? (existing?.name || gasRow?.title || 'Programa de Modernización de la Gestión Fiscal')
+        : (existing?.name || gasRow?.title || id);
+
+      const projCountry = (upperId === 'HO-L1261')
+        ? 'Honduras'
+        : (existing?.countryName || existing?.country || gasRow?.countryName || '');
+
+      if (existing) {
+        return {
+          ...existing,
+          name: projName,
+          country: projCountry,
+          countryName: projCountry,
+          countryCode: existing.countryCode || gasRow?.countryCode || id.substring(0, 2).toLowerCase(),
+          ttl: projTtl,
+          operationNumber: existing.operationNumber || gasRow?.operationNumber || id
+        };
       }
-    }
 
-    return matchesProject && matchesCountry && matchesStatus;
-  });
-
-  const orderedFilteredProjects = React.useMemo(() => {
-    const list = [...filteredProjects];
-    const idx1642 = list.findIndex(p => p.id === 'BR-L1642');
-    const idx1643 = list.findIndex(p => p.id === 'BR-L1643');
-    const idx1629 = list.findIndex(p => p.id === 'BR-L1629');
-
-    if (idx1642 !== -1) {
-      if (idx1643 !== -1) {
-        if (idx1642 !== idx1643 - 1) {
-          const [item1642] = list.splice(idx1642, 1);
-          const newIdx1643 = list.findIndex(p => p.id === 'BR-L1643');
-          list.splice(newIdx1643, 0, item1642);
+      return {
+        id,
+        operationNumber: gasRow?.operationNumber || id,
+        name: projName,
+        country: projCountry,
+        countryCode: gasRow?.countryCode || id.substring(0, 2).toLowerCase(),
+        countryName: projCountry,
+        ttl: projTtl,
+        status: gasRow?.stage || gasRow?.status || 'Stage I',
+        isPrefilledByTeam: (id === 'BR-L1642' || id === 'HO-L1261') ? false : true,
+        validatedByTTLDate: null,
+        qualitativeData: {
+          estadoImplementacion: meta?.estadoImplementacion || [],
+          productosDestacados: meta?.productosDestacados || [],
+          probabilidadObjetivos: meta?.probabilidadObjetivos || [],
+          accionesSugeridas: meta?.accionesSugeridas || [],
+          fechaEvaluacionIntermedia: meta?.fechaEvaluacionIntermedia || '',
+          fechaTalleresArranque: meta?.fechaTalleresArranque || '',
+          temasCriticosSimulador: meta?.temasCriticosSimulador || '',
+          verificadorContenidos: meta?.verificadorContenidos || ''
+        },
+        metadata: {
+          investmentAmount: `$${gasRow?.currentApprovedAmount || 0}M`,
+          disbursementPercent: gasRow?.disbursedLifePercent || 0,
+          elapsedYears: 0,
+          siScore: 0,
+          pmr2026: {
+            status: 'Satisfactory',
+            score: 0
+          }
         }
-      } else if (idx1629 !== -1) {
-        if (idx1642 !== idx1629 + 1) {
-          const [item1642] = list.splice(idx1642, 1);
-          const newIdx1629 = list.findIndex(p => p.id === 'BR-L1629');
-          list.splice(newIdx1629 + 1, 0, item1642);
+      } as Project;
+    });
+  }, [projects, gasData.active_portfolio_table, gasData.inactive_pmr_table]);
+
+  const filteredProjects = React.useMemo(() => {
+    return pmrProjects.filter(project => {
+      // If user does not have full access to all 46 projects, filter strictly to their assigned projects
+      if (!hasFullAccess) {
+        const isUserAlejos = (currentUser.username || currentUser.id || '').toLowerCase().includes('alejos') ||
+                             (currentUser.name || '').toLowerCase().includes('alejos');
+        if (isUserAlejos) {
+          return project.id === 'HO-L1261';
+        }
+
+        const isMatch = isTtlMatch(
+          project.ttl,
+          selectedTTL || currentUser.ttlName,
+          currentUser.username || currentUser.id,
+          currentUser.name
+        );
+        if (!isMatch) return false;
+      }
+
+      // General filters apply
+      const filterProjLower = String(filterProject || '').toLowerCase();
+      const matchesProject = filterProject === '' || 
+        String(project.name || '').toLowerCase().includes(filterProjLower) || 
+        String(project.id || '').toLowerCase().includes(filterProjLower) ||
+        String(project.operationNumber || '').toLowerCase().includes(filterProjLower);
+      const projectCountry = project.countryName || project.country;
+      const matchesCountry = filterCountry === '' || projectCountry === filterCountry;
+      
+      let matchesStatus = true;
+      if (filterStatus !== '') {
+        if (filterStatus === 'Validated by TTL') {
+          matchesStatus = !!project.validatedByTTLDate;
+        } else if (filterStatus === 'Pending TTL validation') {
+          matchesStatus = project.isPrefilledByTeam && !project.validatedByTTLDate;
+        } else if (filterStatus === 'Pending Effectiveness Team prefilling') {
+          matchesStatus = !project.isPrefilledByTeam && !project.validatedByTTLDate;
         }
       }
-    }
 
-    const idxHO = list.findIndex(p => p.id === 'HO-L1261');
-    const idxME = list.findIndex(p => p.id.startsWith('ME-'));
-    if (idxHO !== -1 && idxME !== -1 && idxHO > idxME) {
-      const [itemHO] = list.splice(idxHO, 1);
-      const newIdxME = list.findIndex(p => p.id.startsWith('ME-'));
-      list.splice(newIdxME, 0, itemHO);
-    }
+      return matchesProject && matchesCountry && matchesStatus;
+    });
+  }, [pmrProjects, hasFullAccess, currentUser, selectedTTL, filterProject, filterCountry, filterStatus]);
 
-    return list;
-  }, [filteredProjects]);
+  const orderedFilteredProjects = filteredProjects;
 
-  const uniqueCountries = Array.from(new Set(projects.map(p => p.country))).filter(Boolean).sort();
+  const uniqueCountries = React.useMemo(() => {
+    return Array.from(new Set(pmrProjects.map(p => p.countryName || p.country))).filter(Boolean).sort();
+  }, [pmrProjects]);
+
   const pmrStatuses = [
     'Pending Effectiveness Team prefilling',
     'Pending TTL validation',
@@ -180,11 +327,11 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
     return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
   };
 
-  const displayName = currentUser.role === 'TTL' && selectedTTL 
+  const displayName = !hasFullAccess && selectedTTL 
     ? getFirstName(selectedTTL) 
-    : currentUser.role === 'EFFECTIVENESS_TEAM' && selectedEffectivenessMember
-      ? getFirstName(selectedEffectivenessMember)
-      : currentUser.name;
+    : !hasFullAccess && currentUser.ttlName
+      ? getFirstName(currentUser.ttlName)
+      : currentUser.name ? getFirstName(currentUser.name) : currentUser.username;
 
   const getStatusDisplay = (project: Project) => {
     if (project.validatedByTTLDate) {
@@ -214,17 +361,17 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
     >
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">
-          {currentUser.role === 'EFFECTIVENESS_TEAM' ? 'PMR qualitative prefilling' : 'PMR qualitative input validation'}
+          Qualitative information
         </h2>
         <p className="text-zinc-500 mt-1 whitespace-pre-line">
           {"\n"}
-          Hello, {displayName}. Please, {currentUser.role === 'EFFECTIVENESS_TEAM' ? 'prefill' : 'validate'} the qualitative information about the current status of {currentUser.role === 'EFFECTIVENESS_TEAM' ? 'the' : 'your'} projects for the PMR cycle.{"\n"}
+          Hello, {displayName}. Please, {hasFullAccess ? 'prefill' : 'validate'} the qualitative information about the current status of {hasFullAccess ? 'the' : 'your'} projects for the PMR cycle.{"\n"}
           {"\n"}
-          Click on "{currentUser.role === 'EFFECTIVENESS_TEAM' ? 'Start prefilling' : 'Start validation'}" to begin the process, or click on "{currentUser.role === 'EFFECTIVENESS_TEAM' ? 'See prefilling' : 'See validation'}" to review the information submitted.
+          Click on "{hasFullAccess ? 'Start prefilling' : 'Start validation'}" to begin the process, or click on "{hasFullAccess ? 'See prefilling' : 'See validation'}" to review the information submitted.
         </p>
       </div>
 
-      {currentUser.role === 'EFFECTIVENESS_TEAM' && (
+      {hasFullAccess && (
         <div className="flex flex-col lg:grid lg:grid-cols-12 gap-4 lg:gap-8">
           <div className="flex flex-col gap-1 lg:col-span-5">
             <label className="text-[#002148] font-bold text-[13px] tracking-tight">PROJECT</label>
@@ -281,6 +428,7 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
         <div className="divide-y divide-zinc-200 bg-white">
           {orderedFilteredProjects.map((project, idx) => {
             const status = getStatusDisplay(project);
+            const flagCode = countryCodes[project.countryName] || (project.countryCode ? project.countryCode.toLowerCase() : '');
             return (
               <div key={project.id} className="flex flex-col lg:grid lg:grid-cols-12 gap-3 lg:gap-4 py-4 px-4 lg:px-6 items-start lg:items-center hover:bg-zinc-50 transition-colors">
                 <div className="hidden lg:block lg:col-span-1 text-center text-zinc-400 font-medium text-xs">
@@ -297,9 +445,9 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
                 </div>
                 <div className="lg:col-span-2 flex items-center gap-2 text-xs text-zinc-500 font-medium lg:pl-5">
                   <span className="lg:hidden text-[10px] uppercase font-bold text-zinc-300 mr-1">Country:</span>
-                  {project.countryName && countryCodes[project.countryName] ? (
+                  {flagCode ? (
                     <img 
-                      src={`https://flagcdn.com/w40/${countryCodes[project.countryName]}.png`} 
+                      src={`https://flagcdn.com/w40/${flagCode}.png`} 
                       className="w-4 h-auto shadow-sm border border-zinc-100" 
                       crossOrigin="anonymous" 
                       referrerPolicy="no-referrer" 
@@ -318,19 +466,7 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
                   </div>
                 </div>
                 <div className="lg:col-span-2 flex justify-start w-full pt-1 lg:pt-0">
-                  {currentUser.role === 'TTL' ? (
-                    !project.isPrefilledByTeam && !project.validatedByTTLDate ? (
-                      <span className="text-xs text-zinc-400 font-medium italic">No action needed</span>
-                    ) : (
-                      <button 
-                        onClick={() => onSelectProject(project.id)}
-                        className="w-full lg:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-[#f4f4f5] text-black rounded-lg text-xs font-medium transition-colors hover:bg-[#005173] hover:text-white group whitespace-nowrap"
-                      >
-                        <ClipboardCheck className="w-4 h-4 text-black group-hover:text-white transition-colors" />
-                        {project.validatedByTTLDate ? 'See validation' : 'Start validation'}
-                      </button>
-                    )
-                  ) : (
+                  {hasFullAccess ? (
                     <button 
                       onClick={() => onSelectProject(project.id)}
                       className="w-full lg:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-[#f4f4f5] text-black rounded-lg text-xs font-medium transition-colors hover:bg-[#005173] hover:text-white group whitespace-nowrap"
@@ -341,6 +477,14 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
                         : project.isPrefilledByTeam 
                           ? 'See prefilling' 
                           : 'Start prefilling'}
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => onSelectProject(project.id)}
+                      className="w-full lg:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-[#f4f4f5] text-black rounded-lg text-xs font-medium transition-colors hover:bg-[#005173] hover:text-white group whitespace-nowrap"
+                    >
+                      <ClipboardCheck className="w-4 h-4 text-black group-hover:text-white transition-colors" />
+                      {project.validatedByTTLDate ? 'See validation' : 'Start validation'}
                     </button>
                   )}
                 </div>

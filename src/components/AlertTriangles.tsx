@@ -1,13 +1,15 @@
 import React from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { getAlertsForProject } from '../utils/alertUtils';
+import { useGASPortfolioData } from '../hooks/useGASPortfolioData';
 
 interface AlertTrianglesProps {
   projectId: string;
 }
 
 export function AlertTriangles({ projectId }: AlertTrianglesProps) {
-  const allAlerts = getAlertsForProject(projectId);
+  const gasData = useGASPortfolioData();
+  const allAlerts = getAlertsForProject(projectId, gasData);
   const alerts = allAlerts.filter(alert => alert.color === 'red' || alert.color === 'yellow');
 
   if (alerts.length === 0) {

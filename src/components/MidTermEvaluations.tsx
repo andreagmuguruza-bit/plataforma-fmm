@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ArrowLeft, AlertCircle, ChevronsUpDown, Filter } from 'lucide-react';
+import { ArrowLeft, AlertCircle, ChevronsUpDown, Filter, Search } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Project } from '../types';
 import { usePortfolioData } from '../hooks/usePortfolioData';
@@ -14,66 +14,121 @@ interface MidTermEvaluationsProps {
 
 const countryCodes: Record<string, string> = {
   'Colombia': 'co',
+  'CO - Colombia': 'co',
   'Peru': 'pe',
+  'PE - Peru': 'pe',
   'Brazil': 'br',
+  'BR - Brazil': 'br',
   'Argentina': 'ar',
+  'AR - Argentina': 'ar',
   'Uruguay': 'uy',
+  'UR - Uruguay': 'uy',
   'Paraguay': 'py',
+  'PR - Paraguay': 'py',
   'Chile': 'cl',
+  'CL - Chile': 'cl',
   'Ecuador': 'ec',
+  'EC - Ecuador': 'ec',
   'Suriname': 'sr',
+  'SU - Suriname': 'sr',
   'Mexico': 'mx',
+  'ME - Mexico': 'mx',
   'Panama': 'pa',
+  'PN - Panama': 'pa',
   'Belize': 'bz',
+  'BL - Belize': 'bz',
   'Bolivia': 'bo',
+  'BO - Bolivia': 'bo',
   'Costa Rica': 'cr',
+  'CR - Costa Rica': 'cr',
   'Dominican Republic': 'do',
+  'DO - Dominican Republic': 'do',
   'El Salvador': 'sv',
+  'ES - El Salvador': 'sv',
   'Guatemala': 'gt',
+  'GU - Guatemala': 'gt',
   'Honduras': 'hn',
+  'HO - Honduras': 'hn',
   'Nicaragua': 'ni',
+  'NI - Nicaragua': 'ni',
 };
 
 const operationFallbacks: Record<string, string> = {
-  'PN-L1161': '5126/OC-PN',
+  'BL-L1038': '5353/OC-BL',
+  'BR-L1550': '5411/OC-BR',
+  'BR-L1539': '5393/OC-BR',
+  'UR-L1193': '5783/OC-UR',
   'PN-L1172': '5533/OC-PN',
   'EC-L1253': '5598/OC-EC\n5599/OC-EC',
   'BR-L1540': '5344/OC-BR',
   'CO-L1245': '5148/OC-CO',
+  'SU-L1060': '5727/OC-SU',
+  'BR-L1513': '5752/OC-BR',
+  'BR-L1525': '4930/OC-BR',
+  'UR-L1164': '5668/OC-UR',
+  'BR-L1592': '5684/OC-BR',
+  'PN-L1161': '5126/OC-PN',
   'PR-L1150': '4671/OC-PR',
-  'UR-L1193': '5783/OC-UR',
-  'SU-L1060': '5727/OC-SU'
 };
 
 export default function MidTermEvaluations({ projects, onBack, backLabel, onSelectProject, isCriticalProcurement }: MidTermEvaluationsProps) {
   const targetIds = isCriticalProcurement ? ['PN-L1161', 'PN-L1172'] : [
-    'PN-L1161',
+    'BL-L1038',
+    'BR-L1550',
+    'BR-L1539',
+    'UR-L1193',
     'PN-L1172',
     'EC-L1253',
     'BR-L1540',
     'CO-L1245',
-    'PR-L1150',
-    'UR-L1193',
-    'SU-L1060'
+    'SU-L1060',
+    'BR-L1513',
+    'BR-L1525',
+    'UR-L1164',
+    'BR-L1592'
   ];
 
   const statuses: Record<string, { label: string; dotClass: string }> = {
-    'PN-L1161': { label: 'Finished', dotClass: 'bg-[#4CAF50]' },
-    'PN-L1172': { label: 'Finished', dotClass: 'bg-[#4CAF50]' },
-    'EC-L1253': { label: 'Planned for the next 6 months', dotClass: 'bg-[#FFC107]' },
-    'BR-L1540': { label: 'Planned for the next 6 months', dotClass: 'bg-[#FFC107]' },
-    'CO-L1245': { label: 'Planned for the next 6 months', dotClass: 'bg-[#FFC107]' },
-    'PR-L1150': { label: 'Planned for the next 6 months', dotClass: 'bg-[#FFC107]' },
-    'UR-L1193': { label: 'Planned for the next 6 months', dotClass: 'bg-[#FFC107]' },
-    'SU-L1060': { label: 'Planned for the next 6 months', dotClass: 'bg-[#FFC107]' }
+    'BL-L1038': { label: 'Finished I semester 2026', dotClass: 'bg-[#4CAF50]' },
+    'BR-L1550': { label: 'Finished I semester 2026', dotClass: 'bg-[#4CAF50]' },
+    'BR-L1539': { label: 'Finished I semester 2026', dotClass: 'bg-[#4CAF50]' },
+    'UR-L1193': { label: 'Planed for II semestre 2026', dotClass: 'bg-[#FFC107]' },
+    'PN-L1172': { label: 'Planed for II semestre 2026', dotClass: 'bg-[#FFC107]' },
+    'EC-L1253': { label: 'Planed for II semestre 2026', dotClass: 'bg-[#FFC107]' },
+    'BR-L1540': { label: 'Planed for 2027', dotClass: 'bg-[#FFC107]' },
+    'CO-L1245': { label: 'Planed for 2027', dotClass: 'bg-[#FFC107]' },
+    'SU-L1060': { label: 'Planed for 2027', dotClass: 'bg-[#FFC107]' },
+    'BR-L1513': { label: 'Planed for 2027', dotClass: 'bg-[#FFC107]' },
+    'BR-L1525': { label: 'Planed for 2027', dotClass: 'bg-[#FFC107]' },
+    'UR-L1164': { label: 'Planed for 2027', dotClass: 'bg-[#FFC107]' },
+    'BR-L1592': { label: 'Planed for 2027', dotClass: 'bg-[#FFC107]' },
+    'PN-L1161': { label: 'Finished', dotClass: 'bg-[#4CAF50]' }
   };
 
   const fallbacks: Record<string, { name: string; country: string; ttl: string; amount: string }> = {
-    'PN-L1161': {
-      name: 'Program to Support the Digital Transformation of the Tax Administration in Panama',
-      country: 'Panama',
-      ttl: 'CALIJURI, MONICA',
-      amount: '$40.0M'
+    'BL-L1038': {
+      name: 'Strengthening Public Expenditure Management in Belize',
+      country: 'Belize',
+      ttl: 'CHAMORRO MONTES, JESSICA ANDREA DEL CARME',
+      amount: '$8.0M'
+    },
+    'BR-L1550': {
+      name: 'Fiscal Management Modernization Project for the State of Sergipe – PROFISCO II/SE',
+      country: 'Brazil',
+      ttl: 'MOTTA CAFE, RENATA',
+      amount: '$27.9M'
+    },
+    'BR-L1539': {
+      name: 'Fiscal Management Modernization Project for the State of Mato Grosso - PROFISCO II - MT',
+      country: 'Brazil',
+      ttl: 'YARYGINA UDOVENKO, ANASTASIYA',
+      amount: '$56.3M'
+    },
+    'UR-L1193': {
+      name: 'Fiscal Management Digital Transformation Program',
+      country: 'Uruguay',
+      ttl: 'CIAVOLIH MOTA, SERGIO RICARDO',
+      amount: '$20.0M'
     },
     'PN-L1172': {
       name: 'Fiscal Intelligence Program to Improve Spending Quality in Panama',
@@ -85,7 +140,7 @@ export default function MidTermEvaluations({ projects, onBack, backLabel, onSele
       name: 'Program to Improve Tax and Customs Administration',
       country: 'Ecuador',
       ttl: 'ZALTSMAN, TEODORO ARIEL',
-      amount: '$84.0M'
+      amount: '$49.0M'
     },
     'BR-L1540': {
       name: 'Fiscal Management Modernization Project for the State of Alagoas - PROFISCO II AL',
@@ -99,23 +154,47 @@ export default function MidTermEvaluations({ projects, onBack, backLabel, onSele
       ttl: 'LLEMPEN LOPEZ, ZOILA CRISTINA',
       amount: '$250.0M'
     },
-    'PR-L1150': {
-      name: 'Investments in Public Finances for Sustainable Development',
-      country: 'Paraguay',
-      ttl: 'LORA ROCHA, OSCAR',
-      amount: '$25.0M'
-    },
-    'UR-L1193': {
-      name: 'Fiscal Management Digital Transformation Program',
-      country: 'Uruguay',
-      ttl: 'CIAVOLIH MOTA, SERGIO RICARDO',
-      amount: '$20.0M'
-    },
     'SU-L1060': {
       name: 'Fiscal Support Program to Regain Growth',
       country: 'Suriname',
       ttl: 'REYES-TAGLE, GERARDO',
       amount: '$50.0M'
+    },
+    'BR-L1513': {
+      name: 'Fiscal Management Modernization Project for the State of Santa Catarina – PROFISCO II SC',
+      country: 'Brazil',
+      ttl: 'MARTINEZ FRITSCHER, ANDRE CARLOS',
+      amount: '$50.0M'
+    },
+    'BR-L1525': {
+      name: 'Fiscal Management Modernization Project for the State of Amapá – PROFISCO II – AP',
+      country: 'Brazil',
+      ttl: 'GONCALVES, CARLOS EDUARDO',
+      amount: '$30.0M'
+    },
+    'UR-L1164': {
+      name: 'Program to Develop and Strengthen Fiscal and Subnational Services Management',
+      country: 'Uruguay',
+      ttl: 'CIAVOLIH MOTA, SERGIO RICARDO',
+      amount: '$90.0M'
+    },
+    'BR-L1592': {
+      name: 'Financial Development Program of the Federal District (PRODEFAZ/PROFISCO II)',
+      country: 'Brazil',
+      ttl: 'MARTINEZ FRITSCHER, ANDRE CARLOS',
+      amount: '$72.7M'
+    },
+    'PN-L1161': {
+      name: 'Program to Support the Digital Transformation of the Tax Administration in Panama',
+      country: 'Panama',
+      ttl: 'CALIJURI, MONICA',
+      amount: '$40.0M'
+    },
+    'PR-L1150': {
+      name: 'Investments in Public Finances for Sustainable Development',
+      country: 'Paraguay',
+      ttl: 'LORA ROCHA, OSCAR',
+      amount: '$25.0M'
     }
   };
 
@@ -132,6 +211,7 @@ export default function MidTermEvaluations({ projects, onBack, backLabel, onSele
     amount: [],
     status: [],
   });
+  const [searchQuery, setSearchQuery] = React.useState('');
   const [openFilter, setOpenFilter] = React.useState<string | null>(null);
 
   // Close filter dropdown when clicking outside
@@ -175,7 +255,9 @@ export default function MidTermEvaluations({ projects, onBack, backLabel, onSele
       const fallback = fallbacks[id];
       const statusInfo = statuses[id];
 
-      const rawAmount = match?.metadata?.investmentAmount || fallback.amount;
+      const rawAmount = (portfolioMatch && portfolioMatch.currentApprovedAmount)
+        ? `$${portfolioMatch.currentApprovedAmount.toFixed(1)}M`
+        : (match?.metadata?.investmentAmount || fallback?.amount || '$0M');
       const formattedAmount = String(rawAmount).replace('.0M', 'M');
 
       // Get lending type from active portfolio
@@ -191,17 +273,20 @@ export default function MidTermEvaluations({ projects, onBack, backLabel, onSele
         operationId = '5598/OC-EC\n5599/OC-EC';
       }
 
+      const countryRaw = portfolioMatch?.countryName || match?.country || fallback?.country || '';
+      const countryClean = countryRaw.replace(/^[A-Z]{2}\s*-\s*/, '').trim();
+
       return {
         id,
         operationId,
-        name: match?.name || fallback.name,
-        country: match?.country || fallback.country,
-        ttl: match?.ttl || fallback.ttl,
+        name: portfolioMatch?.title || match?.name || fallback?.name || id,
+        country: countryClean,
+        ttl: portfolioMatch?.ttl || match?.ttl || fallback?.ttl || '',
         amount: formattedAmount,
         status: isCriticalProcurement 
           ? (id === 'PN-L1161' ? "PN-L1161-P00074\nPN-L1161-P00062\nPN-L1161-P00067" : "PN-L1172-P00027")
-          : statusInfo.label,
-        dotClass: statusInfo.dotClass,
+          : (statusInfo?.label || 'N/A'),
+        dotClass: statusInfo?.dotClass || 'bg-zinc-400',
         lendingType
       };
     });
@@ -224,6 +309,12 @@ export default function MidTermEvaluations({ projects, onBack, backLabel, onSele
 
   const filteredProjects = useMemo(() => {
     return rawProjects.filter(p => {
+      if (searchQuery.trim()) {
+        const query = searchQuery.trim().toLowerCase();
+        const matchesId = (p.id && p.id.toLowerCase().includes(query)) || (p.operationId && p.operationId.toLowerCase().includes(query));
+        const matchesName = p.name && p.name.toLowerCase().includes(query);
+        if (!matchesId && !matchesName) return false;
+      }
       if (filters.id.length > 0 && !filters.id.includes(p.id)) return false;
       if (filters.operationId && filters.operationId.length > 0 && !filters.operationId.includes(p.operationId)) return false;
       if (filters.name.length > 0 && !filters.name.includes(p.name)) return false;
@@ -231,10 +322,17 @@ export default function MidTermEvaluations({ projects, onBack, backLabel, onSele
       if (filters.lendingType.length > 0 && !filters.lendingType.includes(p.lendingType)) return false;
       if (filters.ttl.length > 0 && !filters.ttl.includes(p.ttl)) return false;
       if (filters.amount.length > 0 && !filters.amount.includes(p.amount)) return false;
-      if (filters.status.length > 0 && !filters.status.includes(p.status)) return false;
+      if (filters.status.length > 0) {
+        if (isCriticalProcurement) {
+          if (!filters.status.includes(p.status)) return false;
+        } else {
+          const match = filters.status.some(year => p.status.includes(year));
+          if (!match) return false;
+        }
+      }
       return true;
     });
-  }, [rawProjects, filters]);
+  }, [rawProjects, filters, searchQuery, isCriticalProcurement]);
 
   const displayedProjects = useMemo(() => {
     if (!sortConfig) return filteredProjects;
@@ -372,6 +470,21 @@ export default function MidTermEvaluations({ projects, onBack, backLabel, onSele
         transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
         className="space-y-4 mt-6 w-full font-sans"
       >
+        {/* Project Search Bar matching PMR qualitative prefilling */}
+        <div className="flex flex-col gap-1 w-full max-w-sm">
+          <label className="text-[#002148] font-bold text-[13px] tracking-tight">PROJECT</label>
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+            <input 
+              type="text" 
+              placeholder="Search project name or ID..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-3 py-2 bg-white border border-zinc-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#005173] font-normal placeholder:text-zinc-400 shadow-sm"
+            />
+          </div>
+        </div>
+
         {/* Dashboard Table Component */}
         <div className="bg-white rounded-none sm:rounded-xl shadow-sm border-y sm:border border-zinc-200 overflow-hidden">
           <div className="overflow-x-auto">
@@ -388,7 +501,7 @@ export default function MidTermEvaluations({ projects, onBack, backLabel, onSele
                   {renderColumnHeader('lendingType', 'LENDING TYPE', uniqueLendingTypes, true, 'min-w-[100px] max-w-[115px] w-[108px]')}
                   {renderColumnHeader('ttl', 'TTL', uniqueTTLs, true, 'min-w-[144px] max-w-[168px] w-[156px]')}
                   {renderColumnHeader('amount', <span>CURRENT APPROVED<br/>AMOUNT ($M)</span>, uniqueAmounts, true, 'min-w-[128px] max-w-[144px] w-[136px]')}
-                  {renderColumnHeader('status', isCriticalProcurement ? <span>CRITICAL PROCUREMENT<br/>PROCESSES</span> : <span>MID-TERM<br/>EVALUATION STATUS</span>, uniqueStatuses, true, 'min-w-[185px] max-w-[215px] w-[200px]')}
+                  {renderColumnHeader('status', isCriticalProcurement ? <span>CRITICAL PROCUREMENT<br/>PROCESSES</span> : <span>MID-TERM<br/>EVALUATION STATUS</span>, isCriticalProcurement ? uniqueStatuses : ['2026', '2027'], true, 'min-w-[185px] max-w-[215px] w-[200px]')}
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-50 text-sm">

@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, useScroll, useTransform, useInView } from 'motion/react';
-import { useReactToPrint } from 'react-to-print';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
-import { saveAs } from 'file-saver';
 import { 
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ComposedChart, Line, LabelList
@@ -13,7 +9,10 @@ import GeographicImpact from './GeographicImpact';
 import PortfolioOverview, { LendingInstrumentsAndStages, CurrentDisbursement } from './PortfolioOverview';
 import PortfolioAgeAndSectors from './PortfolioAgeAndSectors';
 import PdfReportTemplate from './PdfReportTemplate';
+import html2canvas from 'html2canvas-pro';
+import { jsPDF } from 'jspdf';
 import { usePortfolioData } from '../hooks/usePortfolioData';
+import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 
 // Mock Data
 const idbOverviewData = [
@@ -49,7 +48,7 @@ const historicalData = [
   { year: '2023', projection: 753, disbursed: 1117, projected_disbursed: null, percentage: '+48%' },
   { year: '2024', projection: 1913, disbursed: 2961, projected_disbursed: null, percentage: '+55%' },
   { year: '2025', projection: 2131, disbursed: 2502, projected_disbursed: 2502, percentage: '+17%' },
-  { year: '2026', projection: 960, disbursed: null, projected_disbursed: 629.5, percentage: null },
+  { year: '2026', projection: 960, disbursed: null, projected_disbursed: 1216, percentage: null },
 ];
 
 const ifdDisbursementsData = [
@@ -131,42 +130,33 @@ const CustomPieTooltip = ({ active, payload }: any) => {
   return null;
 };
 
-const CountUp = ({ end, duration = 2, prefix = '', suffix = '' }: { end: number, duration?: number, prefix?: string, suffix?: string }) => {
-  const [count, setCount] = useState(0);
+import CountUp from 'react-countup';
 
-  useEffect(() => {
-    let startTime: number | null = null;
-    let animationFrameId: number;
+const HeroCard = ({ 
+  value, 
+  label, 
+  prefix = '', 
+  suffix = '', 
+  icon: Icon,
+  badgeColor = 'bg-[#009ee3]'
+}: { 
+  value: number, 
+  label: string, 
+  prefix?: string, 
+  suffix?: string, 
+  icon?: any, 
+  loading?: boolean,
+  badgeColor?: string
+}) => {
+  const formattedLabel = label ? label.charAt(0).toUpperCase() + label.slice(1).toLowerCase() : '';
 
-    const animate = (currentTime: number) => {
-      if (!startTime) startTime = currentTime;
-      const progress = Math.min((currentTime - startTime) / (duration * 1000), 1);
-      // easeOutCubic - more direct than Quart
-      const easeProgress = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.round(easeProgress * end));
-      
-      if (progress < 1) {
-        animationFrameId = requestAnimationFrame(animate);
-      } else {
-        setCount(end);
-      }
-    };
-    
-    animationFrameId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [end, duration]);
-
-  return <span>{prefix}{count.toLocaleString()}{suffix}</span>;
-};
-
-const HeroCard = ({ value, label, prefix = '', suffix = '', icon: Icon }: { value: number, label: string, prefix?: string, suffix?: string, icon?: any }) => {
   return (
     <motion.div 
       className="flex items-center justify-center gap-2 md:gap-4 px-4 md:px-12 py-3 md:py-4 group" 
       whileHover={{ scale: 1.05 }}
     >
       {Icon && (
-        <div className="w-10 h-10 md:w-16 md:h-16 text-white opacity-90">
+        <div className="w-10 h-10 md:w-16 md:h-16 text-white opacity-90 flex items-center justify-center shrink-0">
           {React.isValidElement(Icon) ? (
             Icon
           ) : (
@@ -175,11 +165,21 @@ const HeroCard = ({ value, label, prefix = '', suffix = '', icon: Icon }: { valu
         </div>
       )}
       <div className="flex flex-col items-start">
-        <div className="text-[32px] md:text-5xl font-bold text-white tracking-tight">
-          <CountUp end={value} prefix={prefix} suffix={suffix} />
+        <div className="text-[32px] md:text-5xl font-bold text-white tracking-tight min-h-[40px] md:min-h-[48px] flex items-center leading-none">
+          <CountUp 
+            start={0} 
+            end={value} 
+            duration={1.8} 
+            separator="," 
+            prefix={prefix} 
+            suffix={suffix}
+            preserveValue
+          />
         </div>
-        <div className="text-[10px] md:text-sm font-bold uppercase tracking-widest text-white/80 mt-0.5">
-          {label}
+        <div className="mt-1 md:mt-1.5">
+          <span className="text-xs md:text-sm font-bold text-white uppercase tracking-wider">
+            {label}
+          </span>
         </div>
       </div>
     </motion.div>
@@ -197,25 +197,9 @@ const CustomBarLabel = (props: any) => {
 };
 
 const CustomHistBarLabel = (props: any) => {
-  const { x, y, width, height, value, index } = props;
+  const { x, y, width, height, value } = props;
   if (value == null) return null;
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
-  const isYear2026 = historicalData[index]?.year === '2026';
-
-  if (isYear2026) {
-    return (
-      <text 
-        x={x + width / 2} 
-        y={y - 12} 
-        fill="#18181b" 
-        textAnchor="middle" 
-        fontSize={isMobile ? 9 : 11} 
-        fontWeight={500}
-      >
-        ${value.toLocaleString()}
-      </text>
-    );
-  }
 
   return (
     <text 
@@ -242,7 +226,7 @@ const CustomLineLabel = (props: any) => {
   if (isYear2026) {
     return (
       <g>
-        <text x={x} y={y + 18} fill="#18181b" textAnchor="middle" fontSize={isMobile ? 9 : 11} fontWeight={500}>
+        <text x={x} y={y - 12} fill="#18181b" textAnchor="middle" fontSize={isMobile ? 9 : 11} fontWeight={500}>
           ${value.toLocaleString()}
         </text>
       </g>
@@ -264,101 +248,245 @@ const CustomLineLabel = (props: any) => {
 };
 
 export default function PortfolioLanding() {
-  const { metrics, tableData, loading } = usePortfolioData();
+  const { tableData, loading } = usePortfolioData();
+  const { data: metrics, loading: dashboardLoading } = useDashboardMetrics();
+  const dashboardMetrics = metrics;
   const [isMobile, setIsMobile] = useState(false);
-  const componentRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [pdfRenderKey, setPdfRenderKey] = useState(0);
+  const pdfRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const platformWordRef = useRef<HTMLSpanElement>(null);
+  const [dateMidpointY, setDateMidpointY] = useState<number | null>(null);
+  const [dateRightOffset, setDateRightOffset] = useState<number | null>(null);
 
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  useEffect(() => {
+    const updateDatePosition = () => {
+      if (!heroRef.current || !buttonRef.current) return;
+      const heroRect = heroRef.current.getBoundingClientRect();
+      const buttonRect = buttonRef.current.getBoundingClientRect();
 
-  const handlePrint = useReactToPrint({
-    contentRef: componentRef,
-    documentTitle: 'FMM Operations Report – Active Portfolio',
-    suppressErrors: true,
-    preserveAfterPrint: true,
-    pageStyle: `
-      @page {
-        size: A4 portrait;
-        margin: 0;
+      const buttonBottomInHero = buttonRect.bottom - heroRect.top;
+      const heroHeight = heroRect.height;
+
+      // Exact midpoint between the button bottom and hero container bottom
+      const midpoint = buttonBottomInHero + (heroHeight - buttonBottomInHero) / 2;
+      setDateMidpointY(midpoint);
+
+      if (platformWordRef.current) {
+        const platformRect = platformWordRef.current.getBoundingClientRect();
+        // Distance from hero container's right edge to the right edge of the word "platform"
+        const rightOffset = heroRect.right - platformRect.right;
+        setDateRightOffset(rightOffset);
       }
-      @media print {
-        body {
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
+    };
+
+    updateDatePosition();
+    window.addEventListener('resize', updateDatePosition);
+
+    // Call after initial mount animation ticks
+    const t1 = setTimeout(updateDatePosition, 150);
+    const t2 = setTimeout(updateDatePosition, 600);
+    const t3 = setTimeout(updateDatePosition, 1000);
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(updateDatePosition);
+      if (heroRef.current) observer.observe(heroRef.current);
+      if (buttonRef.current) observer.observe(buttonRef.current);
+      if (platformWordRef.current) observer.observe(platformWordRef.current);
+    }
+
+    return () => {
+      window.removeEventListener('resize', updateDatePosition);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      if (observer) observer.disconnect();
+    };
+  }, []);
+
+  const waitForImages = (element: HTMLElement) => {
+    const images = element.getElementsByTagName('img');
+    const promises = [];
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
+      if (!img.complete) {
+        promises.push(new Promise(resolve => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        }));
+      }
+    }
+    return Promise.all(promises);
+  };
+
+  const injectSelectableTextLayer = (
+    pdf: jsPDF,
+    pageElement: HTMLElement,
+    contentWidth: number,
+    _contentHeight: number,
+    marginX: number,
+    marginY: number
+  ) => {
+    const pageRect = pageElement.getBoundingClientRect();
+    if (pageRect.width === 0 || pageRect.height === 0) return;
+
+    const scaleFactor = contentWidth / pageRect.width;
+
+    // Set text rendering mode to 3: invisible (neither fill nor stroke), but 100% selectable and searchable
+    (pdf.internal as any).write('3 Tr');
+    pdf.setFont('helvetica', 'normal');
+
+    const walker = document.createTreeWalker(
+      pageElement,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node.nodeValue || !node.nodeValue.trim()) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          const style = window.getComputedStyle(parent);
+          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
         }
       }
-    `,
-    onPrintError: (errorLocation, error) => {
-      console.warn(`[react-to-print] ${errorLocation}:`, error);
-    },
-  });
+    );
 
-  const handleDownloadReport = async () => {
-    if (isExportingPdf) return;
-    setIsExportingPdf(true);
+    const range = document.createRange();
+    let textNode = walker.nextNode();
+
+    while (textNode) {
+      const rawText = textNode.nodeValue?.replace(/\s+/g, ' ').trim();
+      if (rawText) {
+        try {
+          let rect: DOMRect | null = null;
+          try {
+            range.selectNodeContents(textNode);
+            const rects = range.getClientRects();
+            if (rects.length > 0 && rects[0].width > 0) {
+              rect = rects[0];
+            }
+          } catch {
+            // ignore range error
+          }
+
+          if (!rect && textNode.parentElement) {
+            const pRect = textNode.parentElement.getBoundingClientRect();
+            if (pRect.width > 0 && pRect.height > 0) {
+              rect = pRect;
+            }
+          }
+
+          if (rect && rect.width > 0 && rect.height > 0) {
+            const relX = rect.left - pageRect.left;
+            const relY = rect.top - pageRect.top;
+
+            const pdfX = marginX + (relX * scaleFactor);
+            // PDF text y is baseline (roughly 80% down the line box)
+            const pdfY = marginY + (relY * scaleFactor) + (rect.height * scaleFactor * 0.80);
+            
+            // Convert pixel height to PDF points (1 pt = 25.4 / 72 mm)
+            const fontSizePt = Math.max(4, Math.min(26, (rect.height * scaleFactor) * (72 / 25.4) * 0.82));
+
+            pdf.setFontSize(fontSizePt);
+            try {
+              pdf.text(rawText, pdfX, pdfY);
+            } catch {
+              const sanitized = rawText.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+              try {
+                pdf.text(sanitized, pdfX, pdfY);
+              } catch {
+                // ignore unencodable glyph
+              }
+            }
+          }
+        } catch {
+          // ignore node error
+        }
+      }
+      textNode = walker.nextNode();
+    }
+
+    // Restore text rendering mode to 0 (normal fill)
+    (pdf.internal as any).write('0 Tr');
+  };
+
+  const handleDownloadPDF = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    if (isDownloading) return;
+
+    setIsDownloading(true);
+    // Force Recharts to completely remount from scratch to ensure correct x/y calculations
+    setPdfRenderKey(Date.now());
 
     try {
-      const container = componentRef.current;
-      if (!container) {
-        throw new Error('Report template reference not available');
+      // Wait for the freshly mounted charts to paint off-screen
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      if ('fonts' in document) {
+        await (document as any).fonts.ready;
+      }
+      window.scrollTo(0, 0);
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const pageIds = ['pdf-page-1', 'pdf-page-2'];
+
+      for (let i = 0; i < pageIds.length; i++) {
+        const pageElement = document.getElementById(pageIds[i]);
+        if (!pageElement) continue;
+
+        // Wait for images on this specific page
+        await waitForImages(pageElement);
+
+        // Render at scale 3 for ultra-high-resolution 300+ DPI print quality
+        const canvas = await html2canvas(pageElement, {
+          scale: 3,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#FAFAFA'
+        });
+
+        const marginX = 7; // 7mm franja blanca a la izquierda y derecha
+        const marginTop = 8; // 8mm franja blanca superior
+        const maxContentWidth = pdfWidth - (2 * marginX); // 196mm
+        const maxContentHeight = pageHeight - marginTop - 8; // 281mm
+
+        let contentWidth = maxContentWidth;
+        let contentHeight = (canvas.height * contentWidth) / canvas.width;
+
+        if (contentHeight > maxContentHeight) {
+          contentHeight = maxContentHeight;
+          contentWidth = (canvas.width * contentHeight) / canvas.height;
+        }
+
+        const finalMarginX = (pdfWidth - contentWidth) / 2;
+        const finalMarginY = marginTop;
+        const imgData = canvas.toDataURL('image/png');
+
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'PNG', finalMarginX, finalMarginY, contentWidth, contentHeight);
+
+        // Inject selectable & searchable vector text layer directly into the PDF
+        injectSelectableTextLayer(pdf, pageElement, contentWidth, contentHeight, finalMarginX, finalMarginY);
       }
 
-      const page1 = container.querySelector('#pdf-page-1') as HTMLElement | null;
-      const page2 = container.querySelector('#pdf-page-2') as HTMLElement | null;
-
-      if (!page1 || !page2) {
-        throw new Error('PDF page elements not found');
+      try {
+        pdf.save('FMM_Operations_Report_Execution.pdf');
+      } catch (saveError) {
+        console.warn('Sandbox block, opening in new tab', saveError);
+        window.open(pdf.output('bloburl'), '_blank');
       }
-
-      const opt = {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        scrollX: 0,
-        scrollY: 0,
-        onclone: (clonedDoc: Document) => {
-          const wrapper = clonedDoc.querySelector('[data-pdf-wrapper="true"]') as HTMLElement | null;
-          if (wrapper) {
-            wrapper.style.position = 'static';
-            wrapper.style.left = '0px';
-            wrapper.style.top = '0px';
-            wrapper.style.opacity = '1';
-          }
-        },
-      };
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      });
-
-      // Capture page 1
-      const canvas1 = await html2canvas(page1, opt);
-      const img1 = canvas1.toDataURL('image/jpeg', 0.95);
-      pdf.addImage(img1, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
-
-      // Capture page 2
-      pdf.addPage('a4', 'portrait');
-      const canvas2 = await html2canvas(page2, opt);
-      const img2 = canvas2.toDataURL('image/jpeg', 0.95);
-      pdf.addImage(img2, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
-
-      const blob = pdf.output('blob');
-      saveAs(blob, 'FMM Operations Report – Active Portfolio.pdf');
-    } catch (err) {
-      console.warn('Direct PDF export encountered an issue, downloading execution PDF report:', err);
-      // Guarantee reliable and immediate download so the user receives a PDF file
-      const link = document.createElement('a');
-      link.href = '/FMM Operations Report - Execution.pdf';
-      link.download = 'FMM Operations Report - Execution.pdf';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
     } finally {
-      setIsExportingPdf(false);
+      setIsDownloading(false);
     }
   };
 
@@ -384,15 +512,19 @@ export default function PortfolioLanding() {
     }
   }, [isHistoricalInView]);
 
-  const totalProjects = 48;
-  const totalAmountM = 4361;
-  const uniqueCountries = 12;
+  const totalProjects = Math.round(dashboardMetrics?.hero_total_projects ?? 48);
+  const totalAmountM = Math.round(dashboardMetrics?.hero_total_amount_m ?? 4361);
+  const uniqueCountries = Math.round(dashboardMetrics?.hero_total_countries ?? 12);
 
   return (
-    <div className="relative bg-zinc-50 font-sans">
+    <>
+      <div className="bid-screen-content relative bg-zinc-50 font-sans">
       
       {/* NEW HERO SECTION */}
-      <div className="relative min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center overflow-hidden z-20 bg-zinc-50 shadow-sm">
+      <div 
+        ref={heroRef}
+        className="relative min-h-[calc(100vh-4rem)] flex flex-col items-center justify-center overflow-hidden z-20 bg-zinc-50 shadow-sm"
+      >
         {/* Background Animation CSS */}
         <style>{`
           @keyframes smoothPan {
@@ -443,7 +575,7 @@ export default function PortfolioLanding() {
             className="text-[36.3px] md:text-6xl lg:text-7xl font-semibold text-white mb-5 md:mb-8 tracking-tight flex flex-col leading-[1.2] md:leading-normal md:block"
           >
             <span>The FMM <span className="relative inline-block bg-gradient-to-r from-[#6E8CA0] to-[#A7B1BB] bg-clip-text text-transparent">effectiveness</span> </span>
-            <span>platform</span>
+            <span ref={platformWordRef}>platform</span>
           </motion.h1>
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
@@ -462,7 +594,13 @@ export default function PortfolioLanding() {
             className="flex flex-col md:flex-row items-center justify-center w-full mt-4 md:mt-6 bg-transparent md:bg-transparent backdrop-blur-none md:backdrop-blur-none rounded-none md:rounded-none border-none md:border-none md:divide-x md:divide-white/20"
           >
             <div className="w-full md:w-auto">
-              <HeroCard value={totalProjects} label="Projects" icon={Handshake} />
+              <HeroCard 
+                value={totalProjects} 
+                label="Projects" 
+                badgeColor="bg-[#009ee3]"
+                icon={Handshake} 
+                loading={dashboardLoading} 
+              />
             </div>
             {/* Mobile Separator Line */}
             <div className="md:hidden w-1/4 h-[1px] bg-white/20 mx-auto"></div>
@@ -470,6 +608,8 @@ export default function PortfolioLanding() {
               <HeroCard 
                 value={totalAmountM} 
                 label="Million" 
+                badgeColor="bg-[#caa932]"
+                loading={dashboardLoading}
                 icon={
                   <div className="text-[40px] md:text-6xl font-bold text-white flex items-start justify-center h-full w-full leading-none -mt-1">
                     $
@@ -483,6 +623,8 @@ export default function PortfolioLanding() {
               <HeroCard 
                 value={uniqueCountries} 
                 label="Countries" 
+                badgeColor="bg-[#8cb928]"
+                loading={dashboardLoading}
                 icon={<img src="/mapa-alc.svg" alt="ALC Map Contour" className="w-10 h-10 md:w-16 md:h-16 text-white opacity-90" />} 
               />
             </div>
@@ -494,24 +636,50 @@ export default function PortfolioLanding() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
-            className="mt-7 md:mt-12 flex flex-col items-center gap-3"
+            className="mt-7 md:mt-12 flex flex-col items-center print-hidden"
           >
-            {/* Original Download Button */}
-            <a 
-              href="/FMM Operations Report - Execution.pdf" 
-              download="FMM Operations Report - Execution.pdf"
-              className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-[#718C9F] text-white text-sm font-medium rounded-lg hover:opacity-90 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer"
+            {/* Direct Clean PDF Report Print/Download Button */}
+            <button 
+              ref={buttonRef}
+              type="button"
+              onClick={handleDownloadPDF}
+              disabled={isDownloading}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#718C9F] hover:bg-[#5c7384] text-white text-sm font-semibold rounded-lg hover:opacity-95 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer print-hidden disabled:opacity-75"
+              title="Download FMM Operations Report (PDF)"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-              </svg>
-              Download PDF Report
-            </a>
+              {isDownloading ? (
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              )}
+              <span>{isDownloading ? 'Generando PDF...' : 'Download PDF Report'}</span>
+            </button>
           </motion.div>
         </div>
         
+        {/* Date situated at the exact vertical midpoint and horizontally aligned with the right edge of the word "platform" */}
+        {metrics?.data_as_of_long && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.7 }}
+            style={{
+              top: dateMidpointY !== null ? `${dateMidpointY}px` : undefined,
+              right: dateRightOffset !== null ? `${dateRightOffset}px` : undefined,
+            }}
+            className={`absolute z-20 pointer-events-none print-hidden -translate-y-1/2 text-right ${
+              dateMidpointY === null || dateRightOffset === null ? 'bottom-6 md:bottom-10 right-4 md:right-12' : ''
+            }`}
+          >
+            <p className="text-white text-xs font-normal tracking-wide drop-shadow-sm text-right whitespace-nowrap">
+              {metrics.data_as_of_long}
+            </p>
+          </motion.div>
+        )}
       </div>
 
       {/* Content Sections */}
@@ -548,7 +716,7 @@ export default function PortfolioLanding() {
           >
             <h2 className="text-2xl md:text-4xl font-bold text-zinc-900 mb-4 md:mb-6 tracking-tight text-center lg:text-left">Historical Disbursements</h2>
             <p className="text-base md:text-xl text-zinc-700 leading-relaxed mt-4 text-center lg:text-left">
-              In 2025, FMM’s disbursements reached $2,502 M, outperforming the annual projection by 17%. For 2026, FMM projected <strong className="font-bold text-zinc-900">$960 M</strong> in total disbursements, with <strong className="font-bold text-zinc-900">$630 M</strong> (66%) disbursed year-to-date.
+              In 2025, FMM’s disbursements reached $2,502 M, outperforming the annual projection by 17%. For 2026, FMM projected <strong className="font-bold text-zinc-900">$960 M</strong> in total disbursements, with <strong className="font-bold text-zinc-900">$1,216 M</strong> disbursed year-to-date.
             </p>
           </motion.div>
       {/* Contenedor de dos gráficos */}
@@ -664,23 +832,18 @@ export default function PortfolioLanding() {
         </div>
 
       </div>
-
-      {/* Printable/Exportable report template (rendered off-screen with visibility for layout computation) */}
-      <div 
-        data-pdf-wrapper="true"
-        style={{
-          position: 'fixed',
-          top: '0px',
-          left: '-9999px',
-          width: '210mm',
-          opacity: 1,
-          pointerEvents: 'none',
-          zIndex: -9999
-        }}
-        aria-hidden="true"
-      >
-        <PdfReportTemplate ref={componentRef} />
       </div>
-    </div>
+
+      {/* BID Institutional Printable Report Template (Renderizado off-screen para captura limpia de SVG y estilos) */}
+      <div 
+        ref={pdfRef}
+        id="bid-printable-report" 
+        className="bid-print-report-container absolute pointer-events-none z-[-10]" 
+        aria-hidden="true"
+        style={{ left: '-9999px', top: '0', opacity: 1 }}
+      >
+        <PdfReportTemplate key={pdfRenderKey} />
+      </div>
+    </>
   );
 }

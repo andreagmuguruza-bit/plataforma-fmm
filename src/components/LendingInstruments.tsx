@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { motion, useInView } from 'motion/react';
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip as RechartsTooltip, LabelList, Customized, Cell } from 'recharts';
 import { usePortfolioData } from '../hooks/usePortfolioData';
+import { useDashboardMetrics } from '../hooks/useDashboardMetrics';
 
 const CustomActivePortfolioTooltip = ({ active, payload, hoveredSegment }: any) => {
   if (active && payload && payload.length && hoveredSegment) {
@@ -61,23 +62,24 @@ const CustomStackedLabel = (props: any) => {
 };
 
 export function LendingInstrumentsAndStages() {
+  const { data: dashboardMetrics } = useDashboardMetrics();
   const { metrics } = usePortfolioData();
   const [hoveredSegment, setHoveredSegment] = useState<string | null>(null);
   const lendingChartRef = useRef(null);
   const isLendingInView = useInView(lendingChartRef, { once: true, margin: "-10%" });
 
-  const totalProjects = 48;
-  const invCount = 47;
-  const pblCount = 1;
-  const invAmount = 3761;
-  const pblAmount = 600;
-  const stage1InvCount = metrics?.stage1InvCount || 6;
-  const stage2InvCount = metrics?.stage2InvCount || 37;
-  const stage3InvCount = metrics?.stage3InvCount || 4;
-  const stage1InvAmount = metrics?.stage1InvAmount || 981;
-  const stage2InvAmountValue = metrics?.stage2InvAmount || 2415;
+  const totalProjects = Math.round(dashboardMetrics?.hero_total_projects ?? 48);
+  const invCount = Math.round(dashboardMetrics?.inv_count ?? 47);
+  const pblCount = Math.round(dashboardMetrics?.pbl_count ?? 1);
+  const invAmount = Math.round(dashboardMetrics?.inv_amount_m ?? 3761);
+  const pblAmount = Math.round(dashboardMetrics?.pbl_amount_m ?? 600);
+  const stage1InvCount = Math.round(dashboardMetrics?.inv_stage_1_count ?? (metrics?.stage1InvCount || 12));
+  const stage2InvCount = Math.round(dashboardMetrics?.inv_stage_2_count ?? (metrics?.stage2InvCount || 33));
+  const stage3InvCount = Math.round(dashboardMetrics?.inv_stage_3_count ?? (metrics?.stage3InvCount || 2));
+  const stage1InvAmount = Math.round(dashboardMetrics?.inv_stage_1_amount ?? (metrics?.stage1InvAmount || 2232));
+  const stage2InvAmountValue = Math.round(dashboardMetrics?.inv_stage_2_amount ?? (metrics?.stage2InvAmount || 2344));
   const stage2InvAmount = stage2InvAmountValue;
-  const stage3InvAmount = metrics?.stage3InvAmount || 330;
+  const stage3InvAmount = Math.round(dashboardMetrics?.inv_stage_3_amount ?? (metrics?.stage3InvAmount || 51));
 
   const activePortfolioData = [
     {

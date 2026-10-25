@@ -11,6 +11,7 @@ import {
 import { History, CheckCircle2, RotateCcw, ClipboardCheck, Loader2 } from 'lucide-react';
 import { usePortfolioData } from '../hooks/usePortfolioData';
 import { useQualitativeData } from '../hooks/useQualitativeData';
+import { useGASPortfolioData } from '../hooks/useGASPortfolioData';
 import { AlertTriangles } from './AlertTriangles';
 import { getAlertsForProject, getAlertTagForProject } from '../utils/alertUtils';
 
@@ -62,6 +63,92 @@ const formatCurrency = (val: number) => {
 
 const formatCurrencyM = (val: number) => {
   return `$${Math.round(val)}M`;
+};
+
+const formatOperationStatus = (rawStatus: string | undefined | null): string => {
+  if (!rawStatus) return 'N/A';
+  const str = String(rawStatus).trim();
+  const upper = str.toUpperCase();
+
+  if (upper.startsWith('DI -') || upper.startsWith('DI-') || upper === 'DI' || upper.includes('DISBURSING') || upper.includes('DESEMBOLSANDO')) {
+    return 'DI - Disbursing';
+  }
+  if (upper.startsWith('AF -') || upper.startsWith('AF-') || upper === 'AF' || upper.includes('APPROVED BY THE BOARD') || upper.includes('APROBADO POR DIRECTORIO')) {
+    return 'AF - Approved by the Board';
+  }
+  if (upper.startsWith('FD -') || upper.startsWith('FD-') || upper === 'FD' || upper.includes('FULLY DISBURSED') || upper.includes('TOTALMENTE DESEMBOLSADO')) {
+    return 'FD - Fully disbursed';
+  }
+  if (upper.startsWith('EF -') || upper.startsWith('EF-') || upper === 'EF' || upper.includes('EFFECTIVE') || upper.includes('EFECTIVO')) {
+    return 'EF - Effective';
+  }
+  if (upper.startsWith('EL -') || upper.startsWith('EL-') || upper === 'EL' || upper.includes('ELIGIBLE') || upper.includes('ELEGIBLE')) {
+    return 'EL - Eligible';
+  }
+  if (upper.startsWith('CO -') || upper.startsWith('CO-') || upper === 'CO' || upper.startsWith('CL -') || upper.includes('CLOSED') || upper.includes('CERRADO')) {
+    return 'CO - Closed';
+  }
+  if (upper.startsWith('CA -') || upper.startsWith('CA-') || upper === 'CA' || upper.startsWith('CF -') || upper.includes('CANCELLED') || upper.includes('CANCELADO')) {
+    return 'CA - Cancelled';
+  }
+  if (upper.startsWith('AP -') || upper.startsWith('AP-') || upper === 'AP' || upper.includes('APPROVED')) {
+    return 'AP - Approved';
+  }
+  if (upper.startsWith('PE -') || upper.startsWith('PE-') || upper === 'PE' || upper.includes('PENDING ELIGIBILITY')) {
+    return 'PE - Pending eligibility';
+  }
+  if (upper.startsWith('SI -') || upper.startsWith('SI-') || upper === 'SI' || upper.includes('SIGNED') || upper.includes('FIRMA')) {
+    return 'SI - Signed';
+  }
+  if (upper.startsWith('IP -') || upper.startsWith('IP-') || upper === 'IP' || upper.includes('IN PREPARATION') || upper.includes('EN PREPARACIÓN')) {
+    return 'IP - In preparation';
+  }
+
+  const match = str.match(/^([A-Za-z0-9]+)\s*[-–]\s*([^-–]+)/);
+  if (match) {
+    const code = match[1].toUpperCase();
+    const rawDesc = match[2].trim();
+    const titleDesc = rawDesc.charAt(0).toUpperCase() + rawDesc.slice(1).toLowerCase();
+    return `${code} - ${titleDesc}`;
+  }
+
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+};
+
+const formatDateDDMMMYYYY = (dateStr: string | undefined | null): string => {
+  if (!dateStr || String(dateStr).trim() === '' || String(dateStr).trim().toUpperCase() === 'N/A' || String(dateStr).trim().toUpperCase() === 'PENDING') {
+    return 'N/A';
+  }
+  const s = String(dateStr).trim();
+  const ymdMatch = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  if (ymdMatch) {
+    const year = ymdMatch[1];
+    const monthIdx = parseInt(ymdMatch[2], 10) - 1;
+    const day = String(parseInt(ymdMatch[3], 10)).padStart(2, '0');
+    if (monthIdx >= 0 && monthIdx < 12) {
+      return `${day}/${months[monthIdx]}/${year}`;
+    }
+  }
+
+  const dmyAlphaMatch = s.match(/^(\d{1,2})[-/ ]([A-Za-z]{3,})[-/ ](\d{2,4})$/);
+  if (dmyAlphaMatch) {
+    const day = String(parseInt(dmyAlphaMatch[1], 10)).padStart(2, '0');
+    const monthStr = dmyAlphaMatch[2].slice(0, 3).toUpperCase();
+    let year = dmyAlphaMatch[3];
+    if (year.length === 2) year = `20${year}`;
+    return `${day}/${monthStr}/${year}`;
+  }
+
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+  }
+
+  return s;
 };
 
 interface ProjectViewProps {
@@ -118,14 +205,43 @@ const CustomChartTooltip = ({ active, payload, label }: any) => {
           const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
           
           const code = entry.payload?.projectCode || entry.payload?.projectId;
-          const isCoCumulativeProjection = (code === 'CO-L1164') && (entry.name === 'Cumulative Baseline Projection' || entry.dataKey === 'cumulativeProjection');
+          const isCoCumulativeProjection = (code === 'CO-L1164') && (entry.name === 'Cumulative Baseline Projection' || entry.name === 'Current Projection ($M)' || entry.name === 'Current Projection' || entry.dataKey === 'cumulativeProjection');
           const formattedValue = isCoCumulativeProjection 
             ? (displayValue || 0).toFixed(1)
             : Math.round(displayValue || 0).toLocaleString();
 
+          const labelName = entry.name.endsWith(' ($M)') ? entry.name.slice(0, -5) : entry.name;
+
           return (
             <p key={index} className={`mb-1 ${isMobile ? 'text-[9.5px]' : 'text-xs'}`}>
-              <span className={`font-bold ${isDisbursed ? 'text-[#005173]' : 'text-zinc-500'}`}>{entry.name}:</span> ${formattedValue}M
+              <span className={`font-bold ${isDisbursed ? 'text-[#005173]' : 'text-zinc-500'}`}>{labelName}:</span> ${formattedValue}M
+            </p>
+          );
+        })}
+      </div>
+    );
+  }
+  return null;
+};
+
+const CustomChart1Tooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    const uniquePayload = payload.reduce((acc: any[], current: any) => {
+      const x = acc.find(item => item.name === current.name);
+      if (!x) return acc.concat([current]);
+      return acc;
+    }, []);
+
+    return (
+      <div className="bg-white border border-zinc-200 p-3 rounded-lg shadow-lg text-sm z-50">
+        <p className="font-bold text-[#005173] mb-2 border-b border-zinc-100 pb-1">{label}</p>
+        {uniquePayload.map((entry: any, index: number) => {
+          if (entry.value === null || entry.value === undefined) return null;
+          const isDisbursed = String(entry.name).toLowerCase().includes('disburs');
+          const val = Number(entry.value).toFixed(1);
+          return (
+            <p key={index} className="mb-1 text-xs">
+              <span className={`font-bold ${isDisbursed ? 'text-[#005173]' : 'text-zinc-500'}`}>{entry.name}:</span> US${val}M
             </p>
           );
         })}
@@ -161,41 +277,37 @@ const CustomStackedLabel = (props: any) => {
 };
 
 const renderCustomBarLabel = (props: any) => {
-  const { x, y, width, height, value, payload, projectCode } = props;
-  const disb = payload?.combinedDisbursed || 0;
-  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
-  const isSpecialProject = String(projectCode || '').trim().toUpperCase() === 'AR-L1248';
-  const year = payload?.year ? parseInt(payload.year) : 0;
-
+  const { x, y, width, height, value, payload } = props;
   if (value == null) return null;
-  if (value === 0 && !(isSpecialProject && isDesktop && year === 2024)) return null;
+  const barVal = Number(value);
+  if (barVal === 0) return null;
 
-  let dy = 16; // Default: securely inside the top of the bar
+  // Retrieve actual disbursed value from payload
+  const disbRaw = payload?.line_actual_disbursed ?? payload?.disbursed ?? payload?.combinedDisbursed;
+  const hasDisb = disbRaw !== null && disbRaw !== undefined && disbRaw !== '';
+  const disbVal = hasDisb ? Number(disbRaw) : null;
 
-  if (isDesktop) {
-    if (isSpecialProject && year === 2020) {
-      // FIX: Push label to the very bottom of the tall 2020 bar on desktop.
-      dy = Math.abs(height || 0) > 20 ? Math.abs(height) - 15 : 12;
-    } else if (value <= 6) {
-      // Logic for tiny bars on desktop
-      dy = -14;
-      if (Math.abs(value - disb) <= 6) {
-        dy = -34;
-      }
-      // FIX: Force 2024 (0$) to align perfectly with 2025 (1$) horizontally
-      if (isSpecialProject && (year === 2024 || year === 2025)) {
-        dy = -34;
+  // Default: slightly above the top of the bar
+  let dy = -10;
+
+  if (hasDisb && disbVal !== null) {
+    const diff = barVal - disbVal;
+    const absDiff = Math.abs(diff);
+
+    // When baseline bar top and disbursed line dot are close (within 4M),
+    // line dot label is placed cleanly ABOVE the point (yLine - 12).
+    // The bar label is placed BELOW the point/bar top to avoid collision.
+    if (absDiff <= 4) {
+      if (diff >= 0) {
+        // Bar is slightly taller than or equal to dot (e.g. 2020: 16.3 vs 15.3)
+        // Place bar label inside the bar below the dot
+        dy = 18;
+      } else {
+        // Bar is slightly shorter than dot (e.g. 2021: 17.5 vs 19.0)
+        // Place bar label below the dot inside the bar
+        dy = 16;
       }
     } else {
-      // Collision avoidance for normal bars on desktop
-      if (value > disb && (value - disb) <= 12) {
-        dy = 32; 
-      }
-    }
-  } else {
-    // Mobile view fallback: Only apply a simple, safe offset for tiny bars
-    // to prevent labels from disappearing inside 2px high bars on small screens.
-    if (value <= 6) {
       dy = -10;
     }
   }
@@ -210,23 +322,18 @@ const renderCustomBarLabel = (props: any) => {
       fontSize={typeof window !== 'undefined' && window.innerWidth < 1024 ? 8 : 11} 
       fontWeight={500}
     >
-      ${Math.round(value)}
+      ${barVal.toFixed(1)}
     </text>
   );
 };
 
 const renderCustomLineLabel = (props: any) => {
-  const { x, y, value, payload, projectCode } = props;
+  const { x, y, value } = props;
   if (value == null) return null;
 
-  const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 1024;
-  const isSpecialProject = String(projectCode || '').trim().toUpperCase() === 'AR-L1248';
-  const year = payload?.year ? parseInt(payload.year) : 0;
+  // Disbursed amount label ALWAYS sits cleanly ABOVE the point (dot)
+  const labelY = y - 12;
 
-  let labelY = y - 12; // Default above
-
-  // The line label ALWAYS sits cleanly above the dot.
-  // The Bar label logic above is now mathematically designed to dynamically avoid this space.
   return (
     <text 
       x={x} 
@@ -235,9 +342,9 @@ const renderCustomLineLabel = (props: any) => {
       textAnchor="middle" 
       dominantBaseline="middle" 
       fontSize={typeof window !== 'undefined' && window.innerWidth < 1024 ? 8 : 11} 
-      fontWeight={500}
+      fontWeight={600}
     >
-      ${Math.round(value)}
+      ${Number(value).toFixed(1)}
     </text>
   );
 };
@@ -439,10 +546,85 @@ const EVALUATION_DATA: Record<string, EvaluationPillar[]> = {
   ]
 };
 
+const MIDTERM_PROJECT_IDS = [
+  'BL-L1038', 'BR-L1550', 'BR-L1539', 'UR-L1193', 'PN-L1172', 'EC-L1253',
+  'BR-L1540', 'CO-L1245', 'SU-L1060', 'BR-L1513', 'BR-L1525', 'UR-L1164',
+  'BR-L1592', 'PN-L1161'
+];
+
 export default function ProjectView({ project, onBack, onUpdate, onNavigateToAlert, initialTab }: ProjectViewProps) {
   const projectCode = project.id;
+  const gasData = useGASPortfolioData();
+  const selectedProjId = project.id || (project as any).projectNumber;
+  const hidePmrHistoricEvaluation = selectedProjId === 'HO-L1261' || selectedProjId === 'PE-L1303' || project.id === 'HO-L1261' || project.id === 'PE-L1303';
+
+  const gasProjectRow = React.useMemo(() => {
+    const list = [...(gasData.active_portfolio_table || []), ...(gasData.inactive_pmr_table || [])];
+    return list.find(
+      r => (r.projectNumber && String(r.projectNumber).trim().toUpperCase() === String(selectedProjId).trim().toUpperCase()) ||
+           (r.operationNumber && String(r.operationNumber).trim().toUpperCase() === String(selectedProjId).trim().toUpperCase())
+    );
+  }, [gasData.active_portfolio_table, gasData.inactive_pmr_table, selectedProjId]);
+
   const { getProjectDetails, loading: dataLoading } = usePortfolioData();
-  const details = getProjectDetails(project.id);
+  const rawDetails = getProjectDetails(project.id);
+  const details = React.useMemo(() => {
+    if (rawDetails) return rawDetails;
+    const inactiveRow = gasProjectRow;
+    const approved = Number(inactiveRow?.currentApprovedAmount || 0);
+    const approvedFull = approved >= 100000 ? approved : approved * 1000000;
+    const approvedM = approved >= 100000 ? approved / 1000000 : approved;
+    const disbursed = Number(inactiveRow?.disbursedLifeAmount || 0);
+    const disbursedFull = disbursed >= 100000 ? disbursed : disbursed * 1000000;
+    const disbursedM = disbursed >= 100000 ? disbursed / 1000000 : disbursed;
+    const percent = Number(inactiveRow?.disbursedLifePercent || 0);
+
+    return {
+      id: selectedProjId,
+      name: inactiveRow?.title || project.name || '',
+      country: inactiveRow?.countryName || project.country || '',
+      countryCode: inactiveRow?.countryCode || project.countryCode || '',
+      countryName: inactiveRow?.countryName || project.countryName || '',
+      ttl: inactiveRow?.ttl || project.ttl || '',
+      pmrStatus: 'N/A',
+      operationStatus: inactiveRow?.operationStatus || 'CO - Closed',
+      executingAgency: inactiveRow?.executingAgency || '',
+      linkedLoans: inactiveRow?.operationNumber ? [inactiveRow.operationNumber] : [],
+      currentApprovedAmount: approvedFull,
+      disbursedLifeAmount: disbursedFull,
+      disbursedLifePercent: percent,
+      ageInExecution: String(inactiveRow?.yearsInExecution || '0'),
+      monthsOfExtension: String(inactiveRow?.monthsOfExtensions || '0'),
+      objective: inactiveRow?.objective || '',
+      timeline: {
+        approval: { date: inactiveRow?.approvalDate || 'N/A', status: 'completed' },
+        effectiveness: { date: inactiveRow?.effectiveDate || 'N/A', status: 'completed' },
+        eligibility: { date: inactiveRow?.eligibilityDate || 'N/A', status: 'completed' },
+        firstDisbursement: { date: inactiveRow?.firstDisbursementDate || 'N/A', status: 'completed' },
+        lastDisbursement: { date: inactiveRow?.totallyDisbursedDate || 'N/A', status: 'completed', currentDeadline: inactiveRow?.deadlineCurrentDisbursement || 'N/A' },
+        extension: { text: `${inactiveRow?.monthsOfExtensions || 0} months`, status: 'completed' },
+        closure: { date: inactiveRow?.closureDate || 'N/A', status: 'completed' },
+      },
+      lastDisbursementMade: inactiveRow?.lastDisbursementDate || 'N/A',
+      localContribution: inactiveRow?.localContribution ? `$${(Number(inactiveRow.localContribution) / 1000000).toFixed(1)}M` : 'N/A',
+      undisbursedAmountStr: `$${Number(inactiveRow?.undisbursedAmount || 0)}M`,
+      financial: {
+        originalApprovedAmount: Number(inactiveRow?.originalApprovedAmount || approvedFull),
+        canceledAmount: Number(inactiveRow?.canceledAmount || 0),
+        currentApprovedAmount: approvedFull,
+        deadlineLastDisbursement: inactiveRow?.deadlineCurrentDisbursement || 'N/A',
+        timeWithoutDisbursements: String(inactiveRow?.monthsWithoutDisbursement || '0'),
+        currentApprovedAmountM: approvedM,
+        disbursedLifeAmountM: disbursedM,
+        disbursedLifePercent: percent,
+        isDisbursedFully: percent >= 99.9,
+      },
+      pmrHistory: [],
+      historicalPerformanceData: [],
+      monthlyMonitoringData: [],
+    } as any;
+  }, [rawDetails, gasProjectRow, selectedProjId, project]);
+
   const currentYear = new Date().getFullYear();
 
   const {
@@ -457,7 +639,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
   const activeIsPrefilledByTeam = isPrefilledByTeam !== undefined ? isPrefilledByTeam : project.isPrefilledByTeam;
   
   // Extract approval year from string (e.g., "MAR/2020", "22/MAR/2020", etc.)
-  const approvalDate = details?.timeline?.approval?.date || '';
+  const approvalDate = gasProjectRow?.approvalDate || details?.timeline?.approval?.date || '';
   const approvalYearMatch = approvalDate.match(/\d{4}/);
   const startYear = approvalYearMatch ? parseInt(approvalYearMatch[0]) : 0;
 
@@ -468,20 +650,359 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
     return year >= startYear && year <= currentYear;
   });
 
-  const firstDisbursementDate = details?.timeline?.firstDisbursement?.date || '';
-  const hasFirstDisbursement = firstDisbursementDate.trim().toUpperCase() !== 'PENDING' && firstDisbursementDate !== '';
+  const pmr2026Item = React.useMemo(() => {
+    const list = [...(gasData.historical_pmr || []), ...(gasData.inactive_historical_pmr || [])];
+    return list.find(
+      h => (
+        (h.project_number && String(h.project_number).trim().toUpperCase() === String(selectedProjId).trim().toUpperCase()) ||
+        (gasProjectRow?.operationNumber && h.project_number && String(h.project_number).trim().toUpperCase() === String(gasProjectRow.operationNumber).trim().toUpperCase())
+      ) && Number(h.display_year) === 2026
+    );
+  }, [gasData.historical_pmr, gasData.inactive_historical_pmr, selectedProjId, gasProjectRow?.operationNumber]);
+
+  const bannerPmrStatus = React.useMemo(() => {
+    if (pmr2026Item) {
+      const raw = (pmr2026Item.validated_classification && pmr2026Item.validated_classification !== 'N/A' && pmr2026Item.validated_classification.trim() !== '')
+        ? pmr2026Item.validated_classification.trim()
+        : (pmr2026Item.auto_classification && pmr2026Item.auto_classification !== 'N/A' && pmr2026Item.auto_classification.trim() !== '')
+        ? pmr2026Item.auto_classification.trim()
+        : 'N/A';
+      return formatPMR(raw);
+    }
+    return formatPMR(details?.pmrStatus);
+  }, [pmr2026Item, details?.pmrStatus]);
+
+  const bannerTitle = gasProjectRow?.title || project.name || details.name;
+  const bannerProjectId = gasProjectRow?.projectNumber || project.id || details.id;
+  const bannerOpNumber = gasProjectRow?.operationNumber || (details.linkedLoans && details.linkedLoans.length > 0 ? details.linkedLoans.join(', ') : '');
+  const bannerCountryName = gasProjectRow?.countryName || project.countryName || details.countryName;
+  const bannerCountryCode = gasProjectRow?.countryCode || project.countryCode || details.countryCode;
+  const bannerTtl = gasProjectRow?.ttl || project.ttl || details.ttl;
+  const bannerStatus = formatOperationStatus(gasProjectRow?.operationStatus || details.operationStatus);
+
+  const dataAsOfLongText = React.useMemo(() => {
+    const raw = 
+      gasProjectRow?.data_as_of_long ||
+      gasData.data_as_of_long ||
+      gasData.data_as_of ||
+      'October 23, 2026';
+    const trimmed = String(raw).trim();
+    return trimmed.toLowerCase().startsWith('data as of') ? trimmed : `Data as of: ${trimmed}`;
+  }, [gasProjectRow, gasData.data_as_of_long, gasData.data_as_of]);
+
+  // Financial fields mapped strictly from active_portfolio_table (with fallback to details)
+  const fpOriginalApprovedAmount = gasProjectRow?.originalApprovedAmount != null && String(gasProjectRow.originalApprovedAmount) !== ''
+    ? Number(gasProjectRow.originalApprovedAmount)
+    : details.financial.originalApprovedAmount;
+
+  const fpCanceledAmount = gasProjectRow?.canceledAmount != null && String(gasProjectRow.canceledAmount) !== ''
+    ? Number(gasProjectRow.canceledAmount)
+    : details.financial.canceledAmount;
+
+  // currentApprovedAmount in active_portfolio_table is in millions (e.g. 94)
+  const fpCurrentApprovedAmountM = gasProjectRow?.currentApprovedAmount != null && String(gasProjectRow.currentApprovedAmount) !== ''
+    ? (Number(gasProjectRow.currentApprovedAmount) >= 100000 ? Number(gasProjectRow.currentApprovedAmount) / 1000000 : Number(gasProjectRow.currentApprovedAmount))
+    : details.financial.currentApprovedAmountM;
+
+  const fpCurrentApprovedAmountRaw = gasProjectRow?.currentApprovedAmount != null && String(gasProjectRow.currentApprovedAmount) !== ''
+    ? (Number(gasProjectRow.currentApprovedAmount) >= 100000 ? Number(gasProjectRow.currentApprovedAmount) : Number(gasProjectRow.currentApprovedAmount) * 1000000)
+    : details.financial.currentApprovedAmount;
+
+  // disbursedLifeAmount in active_portfolio_table is in millions (e.g. 93.61)
+  const fpDisbursedLifeAmountM = gasProjectRow?.disbursedLifeAmount != null && String(gasProjectRow.disbursedLifeAmount) !== ''
+    ? (Number(gasProjectRow.disbursedLifeAmount) >= 100000 ? Number(gasProjectRow.disbursedLifeAmount) / 1000000 : Number(gasProjectRow.disbursedLifeAmount))
+    : details.financial.disbursedLifeAmountM;
+
+  // disbursedLifePercent in active_portfolio_table is % (e.g. 99.58)
+  const fpDisbursedLifePercent = gasProjectRow?.disbursedLifePercent != null && String(gasProjectRow.disbursedLifePercent) !== ''
+    ? Number(gasProjectRow.disbursedLifePercent)
+    : details.financial.disbursedLifePercent;
+
+  const fpDeadlineLastDisbursement = gasProjectRow?.deadlineCurrentDisbursement || details.financial.deadlineLastDisbursement;
+
+  const isDisbursedFully = fpDisbursedLifePercent >= 99.9 || Boolean(gasProjectRow?.totallyDisbursedDate && gasProjectRow.totallyDisbursedDate !== 'Pending');
+
+  // General Details mapped strictly from active_portfolio_table
+  const gdExecutingAgency = gasProjectRow?.executingAgency || details.executingAgency;
+  const gdOperationStatus = gasProjectRow?.operationStatus || details.operationStatus;
+
+  const gdLocalContribution = React.useMemo(() => {
+    let rawVal: any = gasProjectRow?.localContribution;
+    if (rawVal == null || String(rawVal).trim() === '') {
+      rawVal = details.localContribution;
+    }
+    if (rawVal == null || String(rawVal).trim() === '' || String(rawVal).trim().toUpperCase() === 'N/A') {
+      return 'N/A';
+    }
+    const cleanNum = typeof rawVal === 'number' 
+      ? rawVal 
+      : parseFloat(String(rawVal).replace(/[^0-9.-]+/g, ''));
+    if (!isNaN(cleanNum)) {
+      const inM = cleanNum >= 100000 ? cleanNum / 1000000 : cleanNum;
+      return `$${inM.toFixed(1)}M`;
+    }
+    return String(rawVal);
+  }, [gasProjectRow?.localContribution, details.localContribution]);
+
+  const gdUndisbursedAmountStr = React.useMemo(() => {
+    if (gasProjectRow?.undisbursedAmount != null && String(gasProjectRow.undisbursedAmount) !== '') {
+      const num = Number(gasProjectRow.undisbursedAmount);
+      if (!isNaN(num)) {
+        if (num === 0) return '$0M';
+        if (num < 1) return `$${num.toFixed(2)}M`;
+        return `$${Math.round(num)}M`;
+      }
+      return String(gasProjectRow.undisbursedAmount);
+    }
+    return details.undisbursedAmountStr || 'N/A';
+  }, [gasProjectRow?.undisbursedAmount, details.undisbursedAmountStr]);
+
+  const gdMonthsOfExtensions = gasProjectRow?.monthsOfExtensions != null && String(gasProjectRow.monthsOfExtensions) !== ''
+    ? String(gasProjectRow.monthsOfExtensions)
+    : (details.monthsOfExtension || '0');
+
+  const gdLastDisbursementDate = React.useMemo(() => {
+    const raw = gasProjectRow?.lastDisbursementDate && gasProjectRow.lastDisbursementDate !== 'N/A'
+      ? gasProjectRow.lastDisbursementDate
+      : (details.lastDisbursementMade || 'N/A');
+    return formatDateDDMMMYYYY(raw);
+  }, [gasProjectRow?.lastDisbursementDate, details.lastDisbursementMade]);
+
+  const gdMonthsWithoutDisbursement = gasProjectRow?.monthsWithoutDisbursement != null && String(gasProjectRow.monthsWithoutDisbursement) !== ''
+    ? String(gasProjectRow.monthsWithoutDisbursement)
+    : (details.financial.timeWithoutDisbursements || 'N/A');
+
+  const gdYearsInExecution = React.useMemo(() => {
+    const raw = gasProjectRow?.yearsInExecution != null && String(gasProjectRow.yearsInExecution) !== ''
+      ? gasProjectRow.yearsInExecution
+      : details.ageInExecution;
+    if (raw == null || String(raw).trim() === '' || String(raw).trim().toUpperCase() === 'N/A') return 'N/A';
+    const cleanStr = String(raw).replace(/years?/gi, '').trim();
+    const num = parseFloat(cleanStr);
+    return isNaN(num) ? cleanStr : num.toFixed(1);
+  }, [gasProjectRow?.yearsInExecution, details.ageInExecution]);
+
+  const gdObjective = gasProjectRow?.objective || details.objective;
+
+  // Timeline dates
+  const tlApprovalDate = gasProjectRow?.approvalDate || details.timeline.approval.date;
+  const tlApprovalCompleted = Boolean(tlApprovalDate && tlApprovalDate.trim().toUpperCase() !== 'PENDING' && tlApprovalDate.trim().toUpperCase() !== 'N/A');
+
+  const tlEffectiveDate = gasProjectRow?.effectiveDate || details.timeline.effectiveness.date;
+  const tlEffectiveCompleted = Boolean(tlEffectiveDate && tlEffectiveDate.trim().toUpperCase() !== 'PENDING' && tlEffectiveDate.trim().toUpperCase() !== 'N/A');
+
+  const tlEligibilityDate = gasProjectRow?.eligibilityDate || details.timeline.eligibility.date;
+  const tlEligibilityCompleted = Boolean(tlEligibilityDate && tlEligibilityDate.trim().toUpperCase() !== 'PENDING' && tlEligibilityDate.trim().toUpperCase() !== 'N/A');
+
+  const tlFirstDisbursementDate = gasProjectRow?.firstDisbursementDate || details.timeline.firstDisbursement.date;
+  const tlFirstDisbursementCompleted = Boolean(tlFirstDisbursementDate && tlFirstDisbursementDate.trim().toUpperCase() !== 'PENDING' && tlFirstDisbursementDate.trim().toUpperCase() !== 'N/A');
+
+  const tlTotallyDisbursedDate = gasProjectRow?.totallyDisbursedDate || details.timeline.lastDisbursement.date;
+  const tlTotallyDisbursedCompleted = Boolean(tlTotallyDisbursedDate && tlTotallyDisbursedDate.trim().toUpperCase() !== 'PENDING' && tlTotallyDisbursedDate.trim().toUpperCase() !== 'N/A');
+
+  const tlExtensionText = gasProjectRow?.monthsOfExtensions !== undefined
+    ? `${gasProjectRow.monthsOfExtensions} months`
+    : details.timeline.extension.text;
+
+  const tlDeadlineText = gasProjectRow?.deadlineCurrentDisbursement || details.timeline.lastDisbursement.currentDeadline || 'N/A';
+
+  const tlClosureDate = gasProjectRow?.closureDate || details.timeline.closure.date;
+  const tlClosureCompleted = Boolean(tlClosureDate && tlClosureDate.trim().toUpperCase() !== 'PENDING' && tlClosureDate.trim().toUpperCase() !== 'N/A');
+
+  const hasFirstDisbursement = tlFirstDisbursementCompleted && tlFirstDisbursementDate !== '';
 
   const splitIndex = historicalData.findIndex(d => parseInt(d.year) === currentYear - 1);
   const splitPercentage = historicalData.length > 1 && splitIndex !== -1 
     ? (splitIndex / (historicalData.length - 1)) * 100 
     : 100;
 
+  const gasChart1 = React.useMemo(() => {
+    const list = [...(gasData.chart1_yearly_performance || []), ...(gasData.inactive_chart1_yearly_performance || [])];
+    return list
+      .filter(item => (
+        (item.project_number && String(item.project_number).trim().toUpperCase() === String(selectedProjId).trim().toUpperCase()) ||
+        (gasProjectRow?.operationNumber && String(item.project_number).trim().toUpperCase() === String(gasProjectRow.operationNumber).trim().toUpperCase())
+      ) && Number(item.year) <= 2026)
+      .sort((a, b) => Number(a.year) - Number(b.year));
+  }, [gasData.chart1_yearly_performance, gasData.inactive_chart1_yearly_performance, selectedProjId, gasProjectRow?.operationNumber]);
+
+  const gasChart2 = React.useMemo(() => {
+    const list = [...(gasData.chart2_monthly_cumulative || []), ...(gasData.inactive_chart2_monthly_cumulative || [])];
+    return list
+      .filter(item => (
+        (item.project_number && String(item.project_number).trim().toUpperCase() === String(selectedProjId).trim().toUpperCase()) ||
+        (gasProjectRow?.operationNumber && String(item.project_number).trim().toUpperCase() === String(gasProjectRow.operationNumber).trim().toUpperCase())
+      ))
+      .sort((a, b) => Number(a.month) - Number(b.month));
+  }, [gasData.chart2_monthly_cumulative, gasData.inactive_chart2_monthly_cumulative, selectedProjId, gasProjectRow?.operationNumber]);
+
+  const gasHistoricalPmr = React.useMemo(() => {
+    const list = [...(gasData.historical_pmr || []), ...(gasData.inactive_historical_pmr || [])];
+    return list
+      .filter(item => (
+        (item.project_number && String(item.project_number).trim().toUpperCase() === String(selectedProjId).trim().toUpperCase()) ||
+        (gasProjectRow?.operationNumber && String(item.project_number).trim().toUpperCase() === String(gasProjectRow.operationNumber).trim().toUpperCase())
+      ))
+      .sort((a, b) => Number(a.display_year) - Number(b.display_year));
+  }, [gasData.historical_pmr, gasData.inactive_historical_pmr, selectedProjId, gasProjectRow?.operationNumber]);
+
+  const chart1Data = React.useMemo(() => {
+    const baseItems = gasChart1.length > 0
+      ? gasChart1.map(item => {
+          const baselineRaw = Number(item.bar_historical_baseline) || 0;
+          const disbursedRaw = item.line_actual_disbursed !== null && item.line_actual_disbursed !== undefined && item.line_actual_disbursed !== ''
+            ? Number(item.line_actual_disbursed)
+            : null;
+          const baselineM = baselineRaw > 0 ? baselineRaw / 1000000 : 0;
+          const disbursedM = disbursedRaw !== null ? disbursedRaw / 1000000 : null;
+
+          return {
+            year: String(item.year),
+            baselineM,
+            disbursedM,
+            rawBaseline: baselineRaw,
+            rawDisbursed: disbursedRaw,
+          };
+        })
+      : historicalData.map(d => ({
+          year: String(d.year),
+          baselineM: d.projection,
+          disbursedM: d.disbursed !== null ? d.disbursed : (d.projected_disbursed ?? null),
+          rawBaseline: d.projection * 1000000,
+          rawDisbursed: (d.disbursed ?? d.projected_disbursed ?? 0) * 1000000,
+        }));
+
+    const lastIdx = baseItems.length - 1;
+
+    return baseItems.map((item, idx) => {
+      // Solid line covers up to lastIdx - 1
+      const solidDisbursed = idx < lastIdx ? item.disbursedM : null;
+      // Dashed line connects lastIdx - 1 to lastIdx
+      const dashedDisbursed = (idx === lastIdx - 1 || idx === lastIdx) ? item.disbursedM : null;
+
+      return {
+        year: item.year,
+        bar_historical_baseline: item.baselineM,
+        line_actual_disbursed: item.disbursedM,
+        solidDisbursed,
+        dashedDisbursed,
+        projection: item.baselineM,
+        disbursed: item.disbursedM,
+        rawBaseline: item.rawBaseline,
+        rawDisbursed: item.rawDisbursed,
+      };
+    });
+  }, [gasChart1, historicalData]);
+
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  const chart2Data = React.useMemo(() => {
+    if (gasChart2.length > 0) {
+      return gasChart2.map(item => {
+        const monthNum = Number(item.month);
+        const monthLabel = MONTH_NAMES[monthNum - 1] || `M${item.month}`;
+
+        const projRaw = item.cumulative_current_projection;
+        const projM = (projRaw !== null && projRaw !== undefined && projRaw !== '') 
+          ? Number(projRaw) / 1000000 
+          : 0;
+
+        const disbRaw = item.cumulative_disbursed;
+        const hasDisb = disbRaw !== null && disbRaw !== undefined && disbRaw !== '';
+        const disbM = hasDisb ? Number(disbRaw) / 1000000 : null;
+
+        return {
+          month: monthLabel,
+          monthNum,
+          cumulative_current_projection: projM,
+          cumulative_disbursed: disbM,
+          rawProjection: Number(projRaw) || 0,
+          rawDisbursed: hasDisb ? Number(disbRaw) : null,
+        };
+      });
+    }
+
+    return (details?.monthlyMonitoringData || []).map(item => ({
+      month: item.month,
+      monthNum: 0,
+      cumulative_current_projection: item.cumulativeProjection,
+      cumulative_disbursed: item.cumulativeDisbursed,
+      rawProjection: (item.cumulativeProjection || 0) * 1000000,
+      rawDisbursed: item.cumulativeDisbursed !== null ? item.cumulativeDisbursed * 1000000 : null,
+    }));
+  }, [gasChart2, details?.monthlyMonitoringData]);
+
+  const pmrTimelineData = React.useMemo(() => {
+    if (gasHistoricalPmr.length > 0) {
+      return gasHistoricalPmr.map(item => {
+        const year = Number(item.display_year);
+        const finalStatus = (item.validated_classification && item.validated_classification !== 'N/A' && item.validated_classification.trim() !== '')
+          ? item.validated_classification
+          : (item.auto_classification && item.auto_classification !== 'N/A' && item.auto_classification.trim() !== '')
+          ? item.auto_classification
+          : 'N/A';
+
+        const dotColor = 
+          finalStatus === 'Satisfactory' ? '#4CAF50' :
+          finalStatus === 'Alert' ? '#FFC107' :
+          finalStatus === 'Problem' ? '#F44336' :
+          '#9ca3af';
+
+        const tooltipText = `${item.tooltip || `Jan-Dec ${year - 1}`}: ${finalStatus}`;
+
+        return {
+          year,
+          tooltip: item.tooltip,
+          finalStatus,
+          dotColor,
+          tooltipText,
+        };
+      }).sort((a, b) => a.year - b.year);
+    }
+
+    return (details?.pmrHistory || []).map(item => {
+      const finalStatus = item.validatedStatus && item.validatedStatus !== 'N/A' 
+        ? item.validatedStatus 
+        : (item.autoCalculatedStatus || 'N/A');
+      const dotColor = 
+        finalStatus.toLowerCase().includes('sat') ? '#4CAF50' :
+        finalStatus.toLowerCase().includes('alert') ? '#FFC107' :
+        finalStatus.toLowerCase().includes('prob') ? '#F44336' :
+        '#9ca3af';
+      return {
+        year: item.year,
+        tooltip: item.hoverText || `Jan-Dec ${item.year - 1}`,
+        finalStatus: formatPMR(finalStatus),
+        dotColor,
+        tooltipText: `${item.hoverText || `Jan-Dec ${item.year - 1}`}: ${formatPMR(finalStatus)}`,
+      };
+    }).sort((a, b) => a.year - b.year);
+  }, [gasHistoricalPmr, details?.pmrHistory]);
+
+  const pmrTwoRowsData = React.useMemo(() => {
+    if (gasHistoricalPmr.length > 0) {
+      return gasHistoricalPmr.map(item => ({
+        year: Number(item.display_year),
+        tooltip: item.tooltip || `Jan-Dec ${Number(item.display_year) - 1}`,
+        autoClassification: item.auto_classification && item.auto_classification.trim() !== '' ? item.auto_classification : 'N/A',
+        validatedClassification: item.validated_classification && item.validated_classification.trim() !== '' ? item.validated_classification : 'N/A',
+      })).sort((a, b) => a.year - b.year);
+    }
+
+    return (details?.pmrHistory || []).map(item => ({
+      year: item.year,
+      tooltip: item.hoverText || `Jan-Dec ${item.year - 1}`,
+      autoClassification: item.autoCalculatedStatus || 'N/A',
+      validatedClassification: item.validatedStatus || 'N/A',
+    })).sort((a, b) => a.year - b.year);
+  }, [gasHistoricalPmr, details?.pmrHistory]);
+
   const [activeTab, setActiveTab] = useState<'baseline' | 'interview' | 'qa' | 'midterm' | 'critical_procurement'>(initialTab || 'baseline');
   const lastInitRef = React.useRef<{ projectId: string; initialTab?: string } | null>(null);
 
   // Sync activeTab with initialTab when initialTab or project changes
   React.useEffect(() => {
-    const isMidtermSupported = project.id === 'PN-L1161' || project.id === 'PN-L1172';
+    const isMidtermSupported = MIDTERM_PROJECT_IDS.includes(project.id);
     const isCriticalProcurementSupported = project.id === 'PN-L1161' || project.id === 'PN-L1172';
     
     const needsInit = !lastInitRef.current || 
@@ -516,7 +1037,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
   const [hoveredPmrTooltip, setHoveredPmrTooltip] = useState<string | null>(null);
   const pdfRef = useRef<HTMLDivElement>(null);
 
-  const titleImage = React.useMemo(() => renderTextToDataURL(project.name, 'bold 30px Inter, system-ui, sans-serif', '#18181b', 1530), [project.name]);
+  const titleImage = React.useMemo(() => renderTextToDataURL(bannerTitle, 'bold 30px Inter, system-ui, sans-serif', '#18181b', 1530), [bannerTitle]);
   const generalDetailsImage = React.useMemo(() => renderTextToDataURL('General Details', 'bold 24px Inter, system-ui, sans-serif', '#18181b', 500), []);
   const financialProgressImage = React.useMemo(() => renderTextToDataURL('Financial Progress', 'bold 24px Inter, system-ui, sans-serif', '#18181b', 500), []);
 
@@ -635,7 +1156,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
     }
   };
 
-  const isMidtermSupported = project.id === 'PN-L1161' || project.id === 'PN-L1172';
+  const isMidtermSupported = MIDTERM_PROJECT_IDS.includes(project.id);
   const isCriticalProcurementSupported = project.id === 'PN-L1161' || project.id === 'PN-L1172';
 
   const tabs = [
@@ -664,21 +1185,21 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="text-left flex-1 min-w-0">
-              <h2 className="text-lg md:text-[18px] font-semibold tracking-tight text-black leading-tight mt-1 lg:mt-0 w-full break-words lg:truncate">{project.name}</h2>
+              <h2 className="text-lg md:text-[18px] font-semibold tracking-tight text-black leading-tight mt-1 lg:mt-0 w-full break-words lg:truncate">{bannerTitle}</h2>
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-start gap-y-2 lg:gap-x-3 text-xs text-zinc-500 font-medium mt-3 lg:whitespace-nowrap">
                 <span className="flex items-center gap-1.5">
                   <span className="lg:hidden shrink-0">•</span>
                   <span className="lg:hidden shrink-0">Project ID:</span> 
-                  {project.id}
+                  {bannerProjectId}
                 </span>
-                {details.linkedLoans.length > 0 && (
+                {bannerOpNumber && (
                   <>
                     <span className="hidden lg:inline text-zinc-300">|</span>
                     <div className="flex items-start gap-1.5 lg:whitespace-nowrap">
                       <span className="lg:hidden shrink-0 mt-0.5">•</span>
                       <div className="flex flex-row items-center gap-x-1">
                         <span className="lg:hidden shrink-0 font-medium whitespace-nowrap">Operation ID:</span>
-                        <span className="flex-1 whitespace-nowrap">{details.linkedLoans.join(', ')}</span>
+                        <span className="flex-1 whitespace-nowrap">{bannerOpNumber}</span>
                       </div>
                     </div>
                   </>
@@ -687,64 +1208,36 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                 <span className="flex items-center gap-1.5">
                   <span className="lg:hidden shrink-0">•</span>
                   <span className="lg:hidden shrink-0 mr-0.5">Country:</span>
-                  {project.countryName && countryCodes[project.countryName] ? (
+                  {bannerCountryName && countryCodes[bannerCountryName] ? (
                     <img 
-                      src={`https://flagcdn.com/w40/${countryCodes[project.countryName]}.png`} 
+                      src={`https://flagcdn.com/w40/${countryCodes[bannerCountryName]}.png`} 
                       className="w-5 h-auto shadow-sm" 
                       crossOrigin="anonymous"
                       referrerPolicy="no-referrer" 
-                      alt={project.countryName || 'Country flag'}
+                      alt={bannerCountryName || 'Country flag'}
                     />
-                  ) : project.countryCode ? (
+                  ) : bannerCountryCode ? (
                     <img 
-                      src={`https://flagcdn.com/w40/${project.countryCode.toLowerCase()}.png`} 
+                      src={`https://flagcdn.com/w40/${bannerCountryCode.toLowerCase()}.png`} 
                       className="w-5 h-auto shadow-sm" 
                       crossOrigin="anonymous"
                       referrerPolicy="no-referrer" 
-                      alt={project.countryName || 'Country flag'}
+                      alt={bannerCountryName || 'Country flag'}
                     />
                   ) : (
                     '🏳️'
                   )}
-                  {project.countryName}
+                  {bannerCountryName}
                 </span>
                 <span className="hidden lg:inline text-zinc-300">|</span>
                 <span className="flex items-center gap-1.5">
                   <span className="lg:hidden shrink-0">•</span>
-                  <span>TTL: {(() => {
-                    const ttlStr = project.ttl || '';
-                    if (['BR-L1377', 'BR-L1534'].includes(project.id)) return 'MARIA CRISTINA';
-                    if (ttlStr.toUpperCase() === 'YARYGINA UDOVENKO, ANASTASIYA') return 'ANASTASIYA';
-                    
-                    const isEcuador = project.countryName === 'Ecuador';
-                    if (isEcuador && ttlStr.toUpperCase().includes('ARIEL')) return 'ARIEL';
-
-                    // Determine if we need to shorten the name to save space on desktop
-                    const hasLongOperationId = details.linkedLoans.length > 1 || (details.linkedLoans.length === 1 && details.linkedLoans[0].length > 12);
-                    
-                    if (hasLongOperationId && ttlStr.includes(',')) {
-                      const [lastPart, firstPart] = ttlStr.split(',').map(s => s.trim());
-                      const lastNames = lastPart.split(' ');
-                      const firstNames = firstPart.split(' ');
-                      
-                      // If very tight (2+ loans), show only first name
-                      if (details.linkedLoans.length >= 2) {
-                        return firstNames[0];
-                      }
-                      
-                      // Otherwise, try to keep first surname and first name
-                      if (lastNames.length >= 2) {
-                        return `${lastNames[0]}, ${firstNames[0]}`;
-                      }
-                    }
-                    
-                    return ttlStr;
-                  })()}</span>
+                  <span>TTL: {bannerTtl}</span>
                 </span>
                 <span className="hidden lg:inline text-zinc-300">|</span>
                 <span className="flex items-center gap-1.5">
                   <span className="lg:hidden shrink-0">•</span>
-                  <span>Status: {details.operationStatus}</span>
+                  <span>Status: {bannerStatus}</span>
                 </span>
                 <span className="hidden lg:inline text-zinc-300">|</span>
                 <span className="flex flex-col lg:flex-row lg:items-center justify-start lg:justify-start gap-x-1 gap-y-1 w-full lg:w-auto lg:whitespace-nowrap">
@@ -756,10 +1249,10 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                     <span 
                       className="w-2.5 h-2.5 rounded-full shrink-0" 
                       style={{ 
-                        backgroundColor: getDotColor(details.pmrStatus)
+                        backgroundColor: getDotColor(bannerPmrStatus)
                       }}
                     ></span> 
-                    {formatPMR(details.pmrStatus)}
+                    {bannerPmrStatus}
                   </div>
                 </span>
               </div>
@@ -782,7 +1275,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
       <div className="flex flex-col sm:flex-row sm:items-center justify-start gap-3 mx-4 lg:mx-0 mb-4 pl-0 lg:pl-10">
         <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider shrink-0 select-none">ACTIVE ALERTS:</span>
         {(() => {
-          const activeAlerts = (getAlertsForProject(project.id) || []).filter(
+          const activeAlerts = (getAlertsForProject(project.id, gasData) || []).filter(
             a => a.color === 'red' || a.color === 'yellow'
           );
           if (activeAlerts.length === 0) {
@@ -796,7 +1289,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
           return (
             <div className="flex flex-wrap items-center gap-[10px] select-none">
               {activeAlerts.map(alert => {
-                const info = getAlertTagForProject(project.id, alert.number);
+                const info = getAlertTagForProject(project.id, alert.number, gasData);
                 let boxColor = '#cccccc';
                 if (info.color === 'red') boxColor = '#e53935';
                 else if (info.color === 'yellow') boxColor = '#ffb300';
@@ -893,11 +1386,11 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                     <div className="space-y-4">
                       <div className="flex justify-between items-center text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Operation status:</span>
-                        <span className="text-zinc-500 font-medium text-right ml-4">{details.operationStatus}</span>
+                        <span className="text-zinc-500 font-medium text-right ml-4">{formatOperationStatus(gdOperationStatus)}</span>
                       </div>
                       <div className="flex justify-between items-center text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Executing Agency:</span>
-                        <span className="text-zinc-500 font-medium text-right ml-4">{details.executingAgency}</span>
+                        <span className="text-zinc-500 font-medium text-right ml-4">{gdExecutingAgency}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Linked to<br className="lg:hidden" /> the loan:</span>
@@ -905,35 +1398,35 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Current<br className="lg:hidden" /> Approved<br className="lg:hidden" /> Amount:</span>
-                        <span className="text-zinc-500 font-medium">{formatCurrencyM(details.currentApprovedAmount / 1000000)}</span>
+                        <span className="text-zinc-500 font-medium">{formatCurrencyM(fpCurrentApprovedAmountM)}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Local contribution:</span>
-                        <span className="text-zinc-500 font-medium">{details.localContribution || 'N/A'}</span>
+                        <span className="text-zinc-500 font-medium">{gdLocalContribution}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Disbursed Life<br className="lg:hidden" /> Amount:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '100%' : project.id === 'UR-L1111' ? '99.98%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
+                        <span className="text-zinc-500 font-medium">{`${fpDisbursedLifePercent.toFixed(1)}%`}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Undisbursed Amount:</span>
-                        <span className="text-zinc-500 font-medium">{details.undisbursedAmountStr || 'N/A'}</span>
+                        <span className="text-zinc-500 font-medium">{gdUndisbursedAmountStr}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Months of extensions:</span>
-                        <span className="text-zinc-500 font-medium">{details.monthsOfExtension || '0'}</span>
+                        <span className="text-zinc-500 font-medium">{gdMonthsOfExtensions}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Last disbursement made:</span>
-                        <span className="text-zinc-500 font-medium">{details.lastDisbursementMade || 'N/A'}</span>
+                        <span className="text-zinc-500 font-medium">{gdLastDisbursementDate}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Time without<br className="lg:hidden" /> disbursement (months):</span>
-                        <span className="text-zinc-500 font-medium">{details.financial.timeWithoutDisbursements || 'N/A'}</span>
+                        <span className="text-zinc-500 font-medium">{gdMonthsWithoutDisbursement}</span>
                       </div>
                       <div className="flex justify-between items-start text-[12.6px] lg:text-sm">
                         <span className="font-bold text-zinc-900">Years in execution<br className="lg:hidden" /> (since eligibility):</span>
-                        <span className="text-zinc-500 font-medium">{details.ageInExecution || 'N/A'}</span>
+                        <span className="text-zinc-500 font-medium">{gdYearsInExecution}</span>
                       </div>
                     </div>
 
@@ -941,7 +1434,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       <div className="space-y-3">
                         <h4 className="text-[10.8px] lg:text-xs font-bold text-zinc-900 uppercase tracking-wider">OBJECTIVE</h4>
                         <p className="text-[12.6px] lg:text-sm text-zinc-500 font-medium leading-relaxed text-justify">
-                          {details.objective ? (details.objective.split('.')[0] + '.') : 'No objective provided.'}
+                          {gdObjective ? (gdObjective.split('.')[0] + '.') : 'No objective provided.'}
                         </p>
                       </div>
                     </div>
@@ -960,9 +1453,9 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm space-y-6 relative pl-14 z-40">
                           {/* Approval */}
                           <div className="relative">
-                            <div className="absolute -left-[31px] top-[30px] bottom-[-20px] w-0.5 z-50" style={{ backgroundColor: (details.timeline.approval.status === 'completed' && details.timeline.effectiveness.status === 'completed') ? '#4EA72E' : '#71717a' }} />
+                            <div className="absolute -left-[31px] top-[30px] bottom-[-20px] w-0.5 z-50" style={{ backgroundColor: (tlApprovalCompleted && tlEffectiveCompleted) ? '#4EA72E' : '#71717a' }} />
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
-                              {details.timeline.approval.status === 'completed' ? (
+                              {tlApprovalCompleted ? (
                                 <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
                               ) : (
                                 <div className="w-6 h-6 rounded-full bg-zinc-500 flex items-center justify-center">
@@ -972,14 +1465,14 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[12.6px] lg:text-sm font-bold text-zinc-800">Approval:</span>
-                              <span className="text-[12.6px] lg:text-sm text-zinc-600">{details.timeline.approval.date}</span>
+                              <span className="text-[12.6px] lg:text-sm text-zinc-600">{tlApprovalDate}</span>
                             </div>
                           </div>
                           {/* Effectiveness */}
                           <div className="relative">
-                            <div className="absolute -left-[31px] top-[30px] bottom-[-48px] w-0.5 z-50" style={{ backgroundColor: (details.timeline.effectiveness.status === 'completed' && details.timeline.eligibility.status === 'completed') ? '#4EA72E' : '#71717a' }} />
+                            <div className="absolute -left-[31px] top-[30px] bottom-[-48px] w-0.5 z-50" style={{ backgroundColor: (tlEffectiveCompleted && tlEligibilityCompleted) ? '#4EA72E' : '#71717a' }} />
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
-                              {details.timeline.effectiveness.status === 'completed' ? (
+                              {tlEffectiveCompleted ? (
                                 <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
                               ) : (
                                 <div className="w-6 h-6 rounded-full bg-zinc-500 flex items-center justify-center">
@@ -989,7 +1482,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[12.6px] lg:text-sm font-bold text-zinc-800">Effectiveness:</span>
-                              <span className="text-[12.6px] lg:text-sm text-zinc-600">{details.timeline.effectiveness.date}</span>
+                              <span className="text-[12.6px] lg:text-sm text-zinc-600">{tlEffectiveDate}</span>
                             </div>
                           </div>
                         </div>
@@ -1003,9 +1496,9 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm space-y-6 relative pl-14 z-30">
                           {/* Eligibility */}
                           <div className="relative">
-                            <div className="absolute -left-[31px] top-[30px] bottom-[-20px] w-0.5 z-50" style={{ backgroundColor: (details.timeline.eligibility.status === 'completed' && details.timeline.firstDisbursement.status === 'completed') ? '#4EA72E' : '#71717a' }} />
+                            <div className="absolute -left-[31px] top-[30px] bottom-[-20px] w-0.5 z-50" style={{ backgroundColor: (tlEligibilityCompleted && tlFirstDisbursementCompleted) ? '#4EA72E' : '#71717a' }} />
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
-                              {details.timeline.eligibility.status === 'completed' ? (
+                              {tlEligibilityCompleted ? (
                                 <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
                               ) : (
                                 <div className="w-6 h-6 rounded-full bg-zinc-500 flex items-center justify-center">
@@ -1015,14 +1508,14 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[12.6px] lg:text-sm font-bold text-zinc-800">Eligibility:</span>
-                              <span className="text-[12.6px] lg:text-sm text-zinc-600">{details.timeline.eligibility.date}</span>
+                              <span className="text-[12.6px] lg:text-sm text-zinc-600">{tlEligibilityDate}</span>
                             </div>
                           </div>
                           {/* First disbursement */}
                           <div className="relative">
-                            <div className="absolute -left-[31px] top-[30px] bottom-[-48px] w-0.5 z-50" style={{ backgroundColor: (details.timeline.firstDisbursement.status === 'completed' && details.timeline.lastDisbursement.status === 'completed') ? '#4EA72E' : '#71717a' }} />
+                            <div className="absolute -left-[31px] top-[30px] bottom-[-48px] w-0.5 z-50" style={{ backgroundColor: (tlFirstDisbursementCompleted && tlTotallyDisbursedCompleted) ? '#4EA72E' : '#71717a' }} />
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
-                              {details.timeline.firstDisbursement.status === 'completed' ? (
+                              {tlFirstDisbursementCompleted ? (
                                 <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
                               ) : (
                                 <div className="w-6 h-6 rounded-full bg-zinc-500 flex items-center justify-center">
@@ -1032,7 +1525,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[12.6px] lg:text-sm font-bold text-zinc-800">First disbursement:</span>
-                              <span className="text-[12.6px] lg:text-sm text-zinc-600">{details.timeline.firstDisbursement.date}</span>
+                              <span className="text-[12.6px] lg:text-sm text-zinc-600">{tlFirstDisbursementDate}</span>
                             </div>
                           </div>
                         </div>
@@ -1046,9 +1539,9 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm relative pl-14 z-20">
                           {/* Last disbursement */}
                           <div className="relative">
-                            <div className="absolute -left-[31px] top-[30px] bottom-[-48px] w-0.5 z-50" style={{ backgroundColor: (details.timeline.lastDisbursement.status === 'completed' && details.timeline.closure.status === 'completed') ? '#4EA72E' : '#71717a' }} />
+                            <div className="absolute -left-[31px] top-[30px] bottom-[-48px] w-0.5 z-50" style={{ backgroundColor: (tlTotallyDisbursedCompleted && tlClosureCompleted) ? '#4EA72E' : '#71717a' }} />
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
-                              {details.timeline.lastDisbursement.status === 'completed' ? (
+                              {tlTotallyDisbursedCompleted ? (
                                 <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
                               ) : (
                                 <div className="w-6 h-6 rounded-full bg-zinc-500 flex items-center justify-center">
@@ -1059,12 +1552,12 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                             <div className="flex flex-col">
                               <span className="text-[12.6px] lg:text-sm font-bold text-zinc-800">Totally disbursed:</span>
                               <div className="text-[12.6px] lg:text-sm text-zinc-600">
-                                {details.timeline.lastDisbursement.date}
+                                {tlTotallyDisbursedDate}
                                 <div className="text-[12.6px] lg:text-sm text-zinc-500 font-normal mt-0.5">
-                                  Extension: {details.timeline.extension.text}
+                                  Extension: {tlExtensionText}
                                 </div>
                                 <div className="text-[12.6px] lg:text-sm text-zinc-500 font-normal mt-0.5">
-                                  Current deadline: {details.timeline.lastDisbursement.currentDeadline || 'N/A'}
+                                  Current deadline: {tlDeadlineText}
                                 </div>
                               </div>
                             </div>
@@ -1080,7 +1573,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                         <div className="flex-1 bg-zinc-100/80 p-6 rounded-sm relative pl-14 z-10" >
                           <div className="relative">
                             <div className="absolute -left-[42px] top-0 p-0.5 bg-transparent z-10">
-                              {details.timeline.closure.status === 'completed' ? (
+                              {tlClosureCompleted ? (
                                 <CheckCircle2 className="w-6 h-6 stroke-white" style={{ color: '#4EA72E', fill: '#4EA72E' }} />
                               ) : (
                                 <div className="w-6 h-6 rounded-full bg-zinc-500 flex items-center justify-center">
@@ -1090,7 +1583,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                             </div>
                             <div className="flex flex-col">
                               <span className="text-[12.6px] lg:text-sm font-bold text-zinc-800">Closure:</span>
-                              <span className="text-[12.6px] lg:text-sm text-zinc-600">{details.timeline.closure.date}</span>
+                              <span className="text-[12.6px] lg:text-sm text-zinc-600">{tlClosureDate}</span>
                             </div>
                           </div>
                         </div>
@@ -1129,195 +1622,149 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 mt-6 mb-3">
-                  <p className="text-sm text-zinc-600">
-                    <span className="font-bold text-black uppercase">PMR HISTORIC EVALUATION - MARCH CYCLE </span>
-                    <span className="italic text-black">(After eligibility)</span>
-                  </p>
-                </div>
+                {!hidePmrHistoricEvaluation && (
+                  <>
+                    <div className="flex items-center gap-2 mt-6 mb-3">
+                      <p className="text-sm text-zinc-600">
+                        <span className="font-bold text-black uppercase">PMR HISTORIC EVALUATION - MARCH CYCLE </span>
+                        <span className="italic text-black">(After eligibility)</span>
+                      </p>
+                    </div>
 
-                <div className="bg-zinc-50 p-4 sm:p-6 rounded-2xl border border-zinc-200">
-                  {details.pmrHistory.length > 0 ? (
-                    <>
-                      {/* Desktop Horizontal View */}
-                      <div className="hidden lg:block pb-4 w-full">
-                        <div className="grid lg:grid-cols-[220px_1fr] gap-y-4 w-full">
-                          {/* Years Header */}
-                          <div />
-                          <div className="flex items-center w-full lg:px-4 justify-between">
-                            {details.pmrHistory.map((item, index, array) => (
+                    <div className="bg-zinc-50 p-6 rounded-2xl border border-zinc-200">
+                  {pmrTwoRowsData.length > 0 ? (
+                    <div className="w-full py-4 overflow-x-auto">
+                      <div className="min-w-[620px] px-4">
+                        {/* Traffic light legend - aligned right above years */}
+                        <div className="flex items-center justify-end gap-6 mb-5 text-xs text-zinc-600 font-medium">
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#4CAF50]"></span>
+                            <span>Satisfactory</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#FFC107]"></span>
+                            <span>Alert</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#F44336]"></span>
+                            <span>Problem</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full bg-[#9ca3af]"></span>
+                            <span>N/A</span>
+                          </div>
+                        </div>
+
+                        {/* Header: Label Column Spacer + Years */}
+                        <div className="flex items-center mb-6">
+                          <div className="w-56 lg:w-64 shrink-0" />
+                          <div className="flex-1 flex items-center justify-between px-3">
+                            {pmrTwoRowsData.map((item, index, array) => (
                               <React.Fragment key={item.year}>
-                                <div className="w-6 flex justify-center">
+                                <div className="w-8 flex justify-center">
                                   <span className="text-sm font-bold text-zinc-900">{item.year}</span>
                                 </div>
-                                {index < array.length - 1 && <div className="flex-1 min-w-[4px]" />}
-                              </React.Fragment>
-                            ))}
-                          </div>
-
-                          {/* Auto-calculated Classification */}
-                          <div className="flex items-center">
-                            <span className="text-sm font-bold text-zinc-900 leading-tight">Auto-calculated Classification</span>
-                          </div>
-                          <div className="flex items-center w-full lg:px-4 justify-between">
-                            {details.pmrHistory.map((item, index, array) => (
-                              <React.Fragment key={item.year}>
-                                <div className="w-6 flex justify-center">
-                                  <div 
-                                    className="pmr-tooltip-container cursor-pointer"
-                                    onMouseEnter={() => setHoveredPmrTooltip(`auto-${item.year}`)}
-                                    onMouseLeave={() => setHoveredPmrTooltip(null)}
-                                    title={`PMR March Cycle ${item.year}: ${formatPMR(item.autoCalculatedStatus)}`}
-                                  >
-                                    <div 
-                                      className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm transition-transform duration-200 hover:scale-110 ring-[2px] ring-zinc-50 relative z-10"
-                                      style={{ backgroundColor: getDotColor(item.autoCalculatedStatus) }}
-                                    >
-                                      {getDotIcon(item.autoCalculatedStatus)}
-                                    </div>
-                                    {/* Tooltip */}
-                                    <div 
-                                      className={`pmr-tooltip-popup ${hoveredPmrTooltip === `auto-${item.year}` ? '!block' : ''}`}
-                                    >
-                                      <div className="px-2.5 py-1 bg-zinc-900 text-white text-[10px] font-bold rounded whitespace-nowrap shadow-lg relative">
-                                        PMR March Cycle {item.year}: {formatPMR(item.autoCalculatedStatus)}
-                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                {index < array.length - 1 && (
-                                  <div 
-                                    className="flex-1 h-[2px] mx-0.5 min-w-[4px]"
-                                    style={{ backgroundColor: getLineColor(item.autoCalculatedStatus, array[index+1].autoCalculatedStatus) }}
-                                  />
-                                )}
-                              </React.Fragment>
-                            ))}
-                          </div>
-
-                          {/* Validated Classification */}
-                          <div className="flex items-center">
-                            <span className="text-sm font-bold text-zinc-900 leading-tight">Validated Classification</span>
-                          </div>
-                          <div className="flex items-center w-full lg:px-4 justify-between">
-                            {details.pmrHistory.map((item, index, array) => (
-                              <React.Fragment key={item.year}>
-                                <div className="w-6 flex justify-center">
-                                  <div 
-                                    className="pmr-tooltip-container cursor-pointer"
-                                    onMouseEnter={() => setHoveredPmrTooltip(`val-${item.year}`)}
-                                    onMouseLeave={() => setHoveredPmrTooltip(null)}
-                                    title={`PMR March Cycle ${item.year}: ${formatPMR(item.validatedStatus)}`}
-                                  >
-                                    <div 
-                                      className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm transition-transform duration-200 hover:scale-110 ring-[2px] ring-zinc-50 relative z-10"
-                                      style={{ backgroundColor: getDotColor(item.validatedStatus) }}
-                                    >
-                                      {getDotIcon(item.validatedStatus)}
-                                    </div>
-                                    {/* Tooltip */}
-                                    <div 
-                                      className={`pmr-tooltip-popup ${hoveredPmrTooltip === `val-${item.year}` ? '!block' : ''}`}
-                                    >
-                                      <div className="px-2.5 py-1 bg-zinc-900 text-white text-[10px] font-bold rounded whitespace-nowrap shadow-lg relative">
-                                        PMR March Cycle {item.year}: {formatPMR(item.validatedStatus)}
-                                        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                {index < array.length - 1 && (
-                                  <div 
-                                    className="flex-1 h-[2px] mx-0.5 min-w-[4px]"
-                                    style={{ backgroundColor: getLineColor(item.validatedStatus, array[index+1].validatedStatus) }}
-                                  />
-                                )}
+                                {index < array.length - 1 && <div className="flex-1 min-w-[20px]" />}
                               </React.Fragment>
                             ))}
                           </div>
                         </div>
-                      </div>
 
-                      {/* Mobile Vertical View */}
-                      <div className="block lg:hidden w-full overflow-visible">
-                        <div className="grid grid-cols-[50px_1fr_1fr] gap-y-[18px] w-full max-w-[340px] mx-auto items-center px-2">
-                          {/* Header Row */}
-                          <div className="text-[10px] font-bold text-zinc-500 text-center leading-tight">Year</div>
-                          <div className="text-[10px] font-bold text-zinc-500 text-center leading-tight px-1">Auto-calculated<br/>Classification</div>
-                          <div className="text-[10px] font-bold text-zinc-500 text-center leading-tight px-1">Validated<br/>Classification</div>
-                          
-                          {/* Data Rows */}
-                          {details.pmrHistory.map((item, index, array) => (
-                            <React.Fragment key={item.year}>
-                              <div className="flex justify-center">
-                                <span className="text-[11px] font-bold text-zinc-900">{item.year}</span>
-                              </div>
-                              <div className="flex justify-center relative">
-                                <div 
-                                  className="pmr-tooltip-container cursor-pointer"
-                                  onMouseEnter={() => setHoveredPmrTooltip(`mob-auto-${item.year}`)}
-                                  onMouseLeave={() => setHoveredPmrTooltip(null)}
-                                  title={`PMR March Cycle ${item.year}: ${formatPMR(item.autoCalculatedStatus)}`}
-                                >
-                                  <div 
-                                    className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm ring-[2px] ring-zinc-50 relative z-10"
-                                    style={{ backgroundColor: getDotColor(item.autoCalculatedStatus) }}
-                                  >
-                                    {getDotIcon(item.autoCalculatedStatus)}
-                                  </div>
-                                  {/* Tooltip */}
-                                  <div 
-                                    className={`pmr-tooltip-popup ${hoveredPmrTooltip === `mob-auto-${item.year}` ? '!block' : ''}`}
-                                  >
-                                    <div className="px-2 py-1 bg-zinc-900 text-white text-[8px] font-bold rounded whitespace-nowrap shadow-lg relative">
-                                      PMR March Cycle {item.year}: {formatPMR(item.autoCalculatedStatus)}
-                                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
+                        {/* Row 1: Auto-calculated Classification */}
+                        <div className="flex items-center mb-8">
+                          <div className="w-56 lg:w-64 shrink-0 pr-4">
+                            <span className="text-sm font-bold text-zinc-900">Auto-calculated Classification</span>
+                          </div>
+                          <div className="flex-1 flex items-center justify-between px-3 relative">
+                            {pmrTwoRowsData.map((item, index, array) => {
+                              const status = item.autoClassification;
+                              const nextStatus = array[index + 1]?.autoClassification;
+                              const dotColor = getDotColor(status);
+                              const tooltipText = `${item.year} Auto-calculated: ${status} (${item.tooltip})`;
+
+                              return (
+                                <React.Fragment key={`auto-${item.year}`}>
+                                  <div className="w-8 flex justify-center relative">
+                                    <div 
+                                      className="group relative cursor-pointer"
+                                      title={tooltipText}
+                                    >
+                                      <div 
+                                        className="w-7 h-7 rounded-full flex items-center justify-center text-white shadow-sm ring-2 ring-white transition-transform duration-200 group-hover:scale-125 relative z-10"
+                                        style={{ backgroundColor: dotColor }}
+                                      >
+                                        {getDotIcon(status)}
+                                      </div>
+                                      
+                                      {/* Tooltip on Hover */}
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-30 pointer-events-none">
+                                        <div className="px-3 py-1.5 bg-zinc-900 text-white text-[11px] font-bold rounded-lg whitespace-nowrap shadow-xl relative">
+                                          {tooltipText}
+                                          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                                {index < array.length - 1 && (
-                                  <div 
-                                    className="absolute top-6 left-1/2 -translate-x-1/2 w-[2px] h-[11px] z-0"
-                                    style={{ backgroundColor: getLineColor(item.autoCalculatedStatus, array[index+1].autoCalculatedStatus) }}
-                                  />
-                                )}
-                              </div>
-                              <div className="flex justify-center relative">
-                                <div 
-                                  className="pmr-tooltip-container cursor-pointer"
-                                  onMouseEnter={() => setHoveredPmrTooltip(`mob-val-${item.year}`)}
-                                  onMouseLeave={() => setHoveredPmrTooltip(null)}
-                                  title={`PMR March Cycle ${item.year}: ${formatPMR(item.validatedStatus)}`}
-                                >
-                                  <div 
-                                    className="w-6 h-6 rounded-full flex items-center justify-center text-white shadow-sm ring-[2px] ring-zinc-50 relative z-10"
-                                    style={{ backgroundColor: getDotColor(item.validatedStatus) }}
-                                  >
-                                    {getDotIcon(item.validatedStatus)}
-                                  </div>
-                                  {/* Tooltip */}
-                                  <div 
-                                    className={`pmr-tooltip-popup ${hoveredPmrTooltip === `mob-val-${item.year}` ? '!block' : ''}`}
-                                  >
-                                    <div className="px-2 py-1 bg-zinc-900 text-white text-[8px] font-bold rounded whitespace-nowrap shadow-lg relative">
-                                      PMR March Cycle {item.year}: {formatPMR(item.validatedStatus)}
-                                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
+                                  {index < array.length - 1 && (
+                                    <div 
+                                      className="flex-1 h-[2.5px] mx-1 min-w-[20px]"
+                                      style={{ backgroundColor: getLineColor(status, nextStatus) }}
+                                    />
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Row 2: Validated Classification */}
+                        <div className="flex items-center">
+                          <div className="w-56 lg:w-64 shrink-0 pr-4">
+                            <span className="text-sm font-bold text-zinc-900">Validated Classification</span>
+                          </div>
+                          <div className="flex-1 flex items-center justify-between px-3 relative">
+                            {pmrTwoRowsData.map((item, index, array) => {
+                              const status = item.validatedClassification;
+                              const nextStatus = array[index + 1]?.validatedClassification;
+                              const dotColor = getDotColor(status);
+                              const tooltipText = `${item.year} Validated: ${status} (${item.tooltip})`;
+
+                              return (
+                                <React.Fragment key={`val-${item.year}`}>
+                                  <div className="w-8 flex justify-center relative">
+                                    <div 
+                                      className="group relative cursor-pointer"
+                                      title={tooltipText}
+                                    >
+                                      <div 
+                                        className="w-7 h-7 rounded-full flex items-center justify-center text-white shadow-sm ring-2 ring-white transition-transform duration-200 group-hover:scale-125 relative z-10"
+                                        style={{ backgroundColor: dotColor }}
+                                      >
+                                        {getDotIcon(status)}
+                                      </div>
+                                      
+                                      {/* Tooltip on Hover */}
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-30 pointer-events-none">
+                                        <div className="px-3 py-1.5 bg-zinc-900 text-white text-[11px] font-bold rounded-lg whitespace-nowrap shadow-xl relative">
+                                          {tooltipText}
+                                          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-zinc-900 rotate-45" />
+                                        </div>
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                                {index < array.length - 1 && (
-                                  <div 
-                                    className="absolute top-6 left-1/2 -translate-x-1/2 w-[2px] h-[11px] z-0"
-                                    style={{ backgroundColor: getLineColor(item.validatedStatus, array[index+1].validatedStatus) }}
-                                  />
-                                )}
-                              </div>
-                            </React.Fragment>
-                          ))}
+                                  {index < array.length - 1 && (
+                                    <div 
+                                      className="flex-1 h-[2.5px] mx-1 min-w-[20px]"
+                                      style={{ backgroundColor: getLineColor(status, nextStatus) }}
+                                    />
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
                         </div>
                       </div>
-                    </>
+                    </div>
                   ) : (
                     <p className="text-[10px] lg:text-sm text-zinc-600">
                       {details.timeline.eligibility.date.trim().toUpperCase() === 'PENDING' 
@@ -1327,6 +1774,8 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                     </p>
                   )}
                 </div>
+                  </>
+                )}
 
                 <div className="flex items-center gap-2 mt-6 mb-3">
                   <p className="text-sm text-zinc-600">
@@ -1478,19 +1927,19 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                   <div className="w-full lg:col-span-7 flex flex-col justify-start py-1 gap-y-[12.75px]">
                     <div className="flex flex-row justify-between items-start lg:items-center text-[12.6px] lg:text-sm gap-2">
                       <span className="font-bold text-zinc-900 text-left w-[45%] lg:w-auto whitespace-normal leading-snug pr-2">Original Approved Amount:</span>
-                      <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">{formatCurrency(details.financial.originalApprovedAmount)}</span>
+                      <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">{formatCurrency(fpOriginalApprovedAmount)}</span>
                     </div>
                     <div className="flex flex-row justify-between items-start lg:items-center text-[12.6px] lg:text-sm gap-2">
                       <span className="font-bold text-zinc-900 text-left w-[45%] lg:w-auto whitespace-normal leading-snug pr-2">Canceled Amount:</span>
-                      <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">({formatCurrency(details.financial.canceledAmount)})</span>
+                      <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">({formatCurrency(fpCanceledAmount)})</span>
                     </div>
                     <div className="flex flex-row justify-between items-start lg:items-center text-[12.6px] lg:text-sm gap-2">
                       <span className="font-bold text-zinc-900 text-left w-[45%] lg:w-auto whitespace-normal leading-snug pr-2">Current Approved Amount:</span>
-                      <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">{formatCurrency(details.financial.currentApprovedAmount)}</span>
+                      <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">{formatCurrency(fpCurrentApprovedAmountRaw)}</span>
                     </div>
                     <div className="flex flex-row justify-between items-start lg:items-center text-[12.6px] lg:text-sm gap-2">
                       <span className="font-bold text-zinc-900 text-left w-[45%] lg:w-auto whitespace-normal leading-snug pr-2">Deadline for last Current Disbursement:</span>
-                      <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">{details.financial.deadlineLastDisbursement}</span>
+                      <span className="text-zinc-500 font-medium text-right w-[55%] lg:w-auto break-words shrink-0">{fpDeadlineLastDisbursement}</span>
                     </div>
                   </div>
 
@@ -1499,7 +1948,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                     <div className="space-y-2">
                       <div className="flex justify-between text-[9px] lg:text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                         <span>CURRENT APPROVED AMOUNT</span>
-                        <span className="text-zinc-900">{formatCurrencyM(details.financial.currentApprovedAmountM)}</span>
+                        <span className="text-zinc-900">{formatCurrencyM(fpCurrentApprovedAmountM)}</span>
                       </div>
                       <div className="relative h-6 w-full bg-[#005173] rounded-sm overflow-hidden flex items-center justify-end px-2">
                         <span className="relative z-10 text-[9px] lg:text-[10px] font-bold" style={{ color: '#ffffff' }}>100%</span>
@@ -1510,21 +1959,21 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       <div className="flex justify-between text-[9px] lg:text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                         <div className="flex items-center gap-1">
                           <span>DISBURSED LIFE AMOUNT</span>
-                          {details.financial.isDisbursedFully && (
+                          {isDisbursedFully && (
                             <div className="w-3 h-3 bg-[#4EA72E] rounded-full flex items-center justify-center">
                               <Check className="w-2 h-2 text-white stroke-[4]" />
                             </div>
                           )}
                         </div>
-                        <span className="text-zinc-900">{formatCurrencyM(details.financial.disbursedLifeAmountM)}</span>
+                        <span className="text-zinc-900">{formatCurrencyM(fpDisbursedLifeAmountM)}</span>
                       </div>
                       <div className="relative h-6 w-full bg-zinc-200 rounded-sm overflow-hidden">
                         <div 
                           className="absolute inset-y-0 left-0 bg-[#00AEEF] flex items-center justify-end px-2"
-                          style={{ width: `${details.financial.disbursedLifePercent}%` }}
+                          style={{ width: `${Math.min(100, Math.max(0, fpDisbursedLifePercent))}%` }}
                         >
                           <span className="relative z-10 text-[9px] lg:text-[10px] font-bold" style={{ color: '#ffffff' }}>
-                            {project.id === 'EC-L1251' ? '100%' : project.id === 'PN-L1172' ? '10%' : project.id === 'UR-L1111' ? '99.98%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
+                            {`${fpDisbursedLifePercent.toFixed(1)}%`}
                           </span>
                         </div>
                       </div>
@@ -1575,20 +2024,12 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                     <div className="flex-1 flex justify-center">
                       {historicalView === 'graph' ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={historicalData} margin={{ top: 30, right: (typeof window !== 'undefined' && window.innerWidth < 1024) ? 0 : 30, bottom: 65, left: 5 }}>
+                          <ComposedChart data={chart1Data} margin={{ top: 30, right: (typeof window !== 'undefined' && window.innerWidth < 1024) ? 0 : 30, bottom: 65, left: 10 }}>
                             <defs>
                               <pattern id="diagonalHatchProj" patternUnits="userSpaceOnUse" width="4" height="4">
                                 <rect width="4" height="4" fill="#ffffff" />
                                 <path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" stroke="#A6B3BC" strokeWidth="1" opacity="0.5" />
                               </pattern>
-                              <linearGradient id="solidLineGradient" x1="0" y1="0" x2="100%" y2="0">
-                                <stop offset={`${splitPercentage}%`} stopColor="#005173" />
-                                <stop offset={`${splitPercentage}%`} stopColor="transparent" />
-                              </linearGradient>
-                              <linearGradient id="dashedLineGradient" x1="0" y1="0" x2="100%" y2="0">
-                                <stop offset={`${splitPercentage}%`} stopColor="transparent" />
-                                <stop offset={`${splitPercentage}%`} stopColor="#005173" />
-                              </linearGradient>
                             </defs>
                             <XAxis 
                               dataKey="year" 
@@ -1600,8 +2041,8 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                               angle={window.innerWidth < 1024 ? -90 : 0}
                               textAnchor={window.innerWidth < 1024 ? "end" : "middle"}
                             />
-                            <YAxis hide domain={[0, 'dataMax + 10']} />
-                            <RechartsTooltip content={<CustomChartTooltip />} />
+                            <YAxis hide domain={[0, 'auto']} />
+                            <RechartsTooltip content={<CustomChart1Tooltip />} />
                             <Legend verticalAlign="bottom" height={40} content={() => (
                               <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-8 text-[8px] lg:text-[11px] text-zinc-600 font-bold mt-4 whitespace-normal sm:whitespace-nowrap items-center text-center">
                                 <div className="flex items-center gap-2">
@@ -1613,14 +2054,19 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                                 <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#005173]"></div>Disbursed Amount ($M)</div>
                               </div>
                             )}/>
-                            <Bar dataKey="projection" name="Baseline Projection" barSize={typeof window !== 'undefined' && window.innerWidth < 1024 ? 18 : 24} fill="url(#diagonalHatchProj)" stroke="#d4d4d8" isAnimationActive={false}>
-                              <LabelList dataKey="projection" content={(props: any) => renderCustomBarLabel({ ...props, projectCode: project.id })} />
+                            <Bar dataKey="bar_historical_baseline" name="Baseline Projection" barSize={typeof window !== 'undefined' && window.innerWidth < 1024 ? 18 : 24} fill="url(#diagonalHatchProj)" stroke="#d4d4d8" isAnimationActive={false}>
+                              <LabelList dataKey="bar_historical_baseline" content={(props: any) => renderCustomBarLabel({ ...props, projectCode: project.id })} />
                             </Bar>
-                            <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="combinedDisbursed" name="Disbursed Amount ($M)" stroke="url(#solidLineGradient)" strokeWidth={2} dot={{r: 4, fill: '#005173', strokeWidth: 0}} isAnimationActive={false}>
-                              <LabelList dataKey="combinedDisbursed" position="top" offset={10} content={(props: any) => renderCustomLineLabel({ ...props, projectCode: project.id })} />
+                            <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="solidDisbursed" name="Disbursed Amount" stroke="#005173" strokeWidth={2} dot={{r: 4, fill: '#005173', strokeWidth: 0}} connectNulls={false} isAnimationActive={false}>
+                              <LabelList dataKey="solidDisbursed" position="top" offset={10} content={(props: any) => renderCustomLineLabel({ ...props, projectCode: project.id })} />
                             </Line>
-                            <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="combinedDisbursed" name="Disbursed Amount ($M)" stroke="url(#dashedLineGradient)" strokeWidth={2} strokeDasharray="5 5" dot={{r: 4, fill: '#005173', strokeWidth: 0}} isAnimationActive={false}>
-                              <LabelList dataKey="combinedDisbursed" position="top" offset={10} content={(props: any) => renderCustomLineLabel({ ...props, projectCode: project.id })} />
+                            <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="dashedDisbursed" name="Disbursed Amount" legendType="none" stroke="#005173" strokeWidth={2} strokeDasharray="4 4" dot={{r: 4, fill: '#005173', strokeWidth: 0}} connectNulls={false} isAnimationActive={false}>
+                              <LabelList dataKey="dashedDisbursed" position="top" offset={10} content={(props: any) => {
+                                if (props.index === chart1Data.length - 1) {
+                                  return renderCustomLineLabel({ ...props, projectCode: project.id });
+                                }
+                                return null;
+                              }} />
                             </Line>
                           </ComposedChart>
                         </ResponsiveContainer>
@@ -1635,28 +2081,28 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                               </tr>
                             </thead>
                             <tbody>
-                              {historicalData.map((row, idx) => (
+                              {chart1Data.map((row, idx) => (
                                 <tr key={idx} className="border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
                                   <td className="py-2 px-1 lg:px-4 text-[10px] lg:text-sm font-bold text-zinc-900">{row.year}</td>
                                   <td className="py-2 px-1 lg:px-4 text-[10px] lg:text-sm text-right text-zinc-600 font-medium">
-                                    {row.projection > 0 ? (row.projection * 1000000).toLocaleString() : '-'}
+                                    {row.rawBaseline > 0 ? Math.round(row.rawBaseline).toLocaleString() : '-'}
                                   </td>
                                   <td className="py-2 px-1 lg:px-4 text-[10px] lg:text-sm text-right text-zinc-600 font-medium">
-                                    {row.disbursed !== null ? (row.disbursed * 1000000).toLocaleString() : (row.projected_disbursed !== undefined ? (row.projected_disbursed * 1000000).toLocaleString() : '-')}
+                                    {row.rawDisbursed !== null && row.rawDisbursed !== undefined ? Math.round(row.rawDisbursed).toLocaleString() : '-'}
                                   </td>
                                 </tr>
                               ))}
-                              {historicalData.length > 0 && (
+                              {chart1Data.length > 0 && (
                                 <tr className="bg-zinc-50 border-t-2 border-zinc-200">
                                   <td className="py-2 px-1 lg:px-4 text-[10px] lg:text-sm font-bold text-[#005173]">Total</td>
                                   <td className="py-2 px-1 lg:px-4 text-[10px] lg:text-sm text-right text-[#005173] font-bold">
-                                    {historicalData.reduce((sum, row) => sum + (row.projection || 0), 0) > 0 
-                                      ? (historicalData.reduce((sum, row) => sum + (row.projection || 0), 0) * 1000000).toLocaleString() 
+                                    {chart1Data.reduce((sum, row) => sum + (row.rawBaseline || 0), 0) > 0 
+                                      ? Math.round(chart1Data.reduce((sum, row) => sum + (row.rawBaseline || 0), 0)).toLocaleString() 
                                       : '-'}
                                   </td>
                                   <td className="py-2 px-1 lg:px-4 text-[10px] lg:text-sm text-right text-[#005173] font-bold">
-                                    {historicalData.reduce((sum, row) => sum + (row.disbursed || row.projected_disbursed || 0), 0) > 0 
-                                      ? (historicalData.reduce((sum, row) => sum + (row.disbursed || row.projected_disbursed || 0), 0) * 1000000).toLocaleString() 
+                                    {chart1Data.reduce((sum, row) => sum + (row.rawDisbursed || 0), 0) > 0 
+                                      ? Math.round(chart1Data.reduce((sum, row) => sum + (row.rawDisbursed || 0), 0)).toLocaleString() 
                                       : '-'}
                                   </td>
                                 </tr>
@@ -1676,7 +2122,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       
                       <div className="order-2 lg:order-none lg:flex-[6] flex justify-center">
                         <h4 className="text-[9.5px] lg:text-sm font-bold text-[#005173] text-center leading-tight m-0">
-                          2026 Cumulative Monthly Disbursements, Baseline Projection vs<br className="hidden lg:block" /> Disbursed Amount ($M)
+                          2026 Cumulative Monthly Disbursements, Current Projection vs<br className="hidden lg:block" /> Disbursed Amount ($M)
                         </h4>
                       </div>
 
@@ -1702,7 +2148,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                     <div className="flex-1 flex justify-center">
                       {monthlyView === 'graph' ? (
                         <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={details?.monthlyMonitoringData || []} margin={{ top: 30, right: (typeof window !== 'undefined' && window.innerWidth < 1024) ? 15 : 30, bottom: 65, left: 5 }}>
+                          <ComposedChart data={chart2Data} margin={{ top: 30, right: (typeof window !== 'undefined' && window.innerWidth < 1024) ? 15 : 30, bottom: 65, left: 25 }}>
                             <XAxis 
                               dataKey="month" 
                               axisLine={{ stroke: '#e4e4e7' }} 
@@ -1712,20 +2158,21 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                               dy={15} 
                               angle={window.innerWidth < 1024 ? -90 : 0}
                               textAnchor={window.innerWidth < 1024 ? "end" : "middle"}
+                              padding={{ left: 24, right: 16 }}
                             />
                             <YAxis hide domain={[0, 'dataMax + 1']} />
                             <RechartsTooltip content={<CustomChartTooltip />} />
                             <Legend verticalAlign="bottom" height={40} content={() => (
                               <div className="flex flex-col sm:flex-row justify-center gap-2 sm:gap-8 text-[8px] lg:text-[11px] text-zinc-600 font-bold mt-4 whitespace-normal sm:whitespace-nowrap items-center text-center">
-                                <div className="flex items-center gap-2 whitespace-nowrap text-[7.5px] sm:text-[10px] lg:text-[11px]"><div className="w-8 h-[1px] border-t border-dashed border-zinc-400"></div>Cumulative Baseline Projection ($M)</div>
-                                <div className="flex items-center gap-2 whitespace-nowrap text-[7.5px] sm:text-[10px] lg:text-[11px]"><div className="w-8 h-[2px] bg-[#FFB800] relative flex items-center justify-center"><div className="w-2 h-2 rounded-full bg-[#FFB800]"></div></div>Cumulative Disbursed Amount ($M)</div>
+                                <div className="flex items-center gap-2 whitespace-nowrap text-[7.5px] sm:text-[10px] lg:text-[11px]"><div className="w-8 h-[1px] border-t border-dashed border-zinc-400"></div>Current Projection ($M)</div>
+                                <div className="flex items-center gap-2 whitespace-nowrap text-[7.5px] sm:text-[10px] lg:text-[11px]"><div className="w-8 h-[2px] bg-[#FFB800] relative flex items-center justify-center"><div className="w-2 h-2 rounded-full bg-[#FFB800]"></div></div>Disbursed Amount ($M)</div>
                               </div>
                             )}/>
-                            <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulativeProjection" name="Cumulative Baseline Projection" stroke="#94a3b8" strokeWidth={1} strokeDasharray="5 5" dot={false} isAnimationActive={false}>
-                              <LabelList dataKey="cumulativeProjection" content={(props: any) => renderProjectionLabel({ ...props, projectCode: project.id })} />
+                            <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulative_current_projection" name="Current Projection ($M)" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="5 5" dot={false} isAnimationActive={false}>
+                              <LabelList dataKey="cumulative_current_projection" content={(props: any) => renderProjectionLabel({ ...props, projectCode: project.id })} />
                             </Line>
-                            <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulativeDisbursed" name="Cumulative Disbursed Amount" stroke="#FFB800" strokeWidth={2} dot={{r: 4, fill: '#FFB800', strokeWidth: 0}} isAnimationActive={false}>
-                              <LabelList dataKey="cumulativeDisbursed" position="top" offset={10} content={renderCustomLineLabel} />
+                            <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulative_disbursed" name="Disbursed Amount ($M)" stroke="#FFB800" strokeWidth={2} dot={{r: 4, fill: '#FFB800', strokeWidth: 0}} connectNulls={false} isAnimationActive={false}>
+                              <LabelList dataKey="cumulative_disbursed" position="top" offset={10} content={renderCustomLineLabel} />
                             </Line>
                           </ComposedChart>
                         </ResponsiveContainer>
@@ -1735,28 +2182,19 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                             <thead>
                               <tr className="bg-zinc-100 border-b border-zinc-200">
                                 <th className="py-2 px-1 lg:px-4 text-left text-[9px] lg:text-xs font-bold text-zinc-600 uppercase">Month</th>
-                                <th className="py-2 px-1 lg:px-4 text-right text-[9px] lg:text-xs font-bold text-zinc-600 uppercase whitespace-nowrap">Cumulative<br className="lg:hidden" /> Baseline<br className="lg:hidden" /> Projection ($)</th>
+                                <th className="py-2 px-1 lg:px-4 text-right text-[9px] lg:text-xs font-bold text-zinc-600 uppercase whitespace-nowrap">Current<br className="lg:hidden" /> Projection<br className="lg:hidden" /> ($)</th>
                                 <th className="py-2 px-1 lg:px-4 text-right text-[9px] lg:text-xs font-bold text-zinc-600 uppercase whitespace-nowrap">Cumulative<br className="lg:hidden" /> Disbursed<br className="lg:hidden" /> Amount ($)</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {details?.monthlyMonitoringData.map((row, idx) => (
+                              {chart2Data.map((row, idx) => (
                                 <tr key={idx} className="border-b border-zinc-100 hover:bg-zinc-50 transition-colors">
                                   <td className="py-2 px-1 lg:px-4 text-[10px] lg:text-sm font-bold text-zinc-900">{row.month}</td>
                                   <td className="py-2 px-1 lg:px-4 text-[10px] lg:text-sm text-right text-zinc-600 font-medium">
-                                    {row.cumulativeProjection !== null ? (row.cumulativeProjection * 1000000).toLocaleString() : '-'}
+                                    {row.rawProjection > 0 ? Math.round(row.rawProjection).toLocaleString() : '-'}
                                   </td>
                                   <td className="py-2 px-1 lg:px-4 text-[10px] lg:text-sm text-right text-zinc-600 font-medium">
-                                    {(() => {
-                                      const val = row.cumulativeDisbursedReal !== undefined && row.cumulativeDisbursedReal !== null 
-                                        ? row.cumulativeDisbursedReal 
-                                        : row.cumulativeDisbursed;
-                                      if (val === null) return '-';
-                                      const num = val * 1000000;
-                                      return Number.isInteger(num) 
-                                        ? num.toLocaleString() 
-                                        : num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                                    })()}
+                                    {row.rawDisbursed !== null && row.rawDisbursed !== undefined ? Math.round(row.rawDisbursed).toLocaleString() : '-'}
                                   </td>
                                 </tr>
                               ))}
@@ -1931,7 +2369,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                   <div className="bg-white p-6 rounded-xl border border-zinc-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-start gap-3">
                     <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider shrink-0 select-none">ACTIVE ALERTS:</span>
                     {(() => {
-                      const activeAlerts = (getAlertsForProject(project.id) || []).filter(
+                      const activeAlerts = (getAlertsForProject(project.id, gasData) || []).filter(
                         a => a.color === 'red' || a.color === 'yellow'
                       );
                       if (activeAlerts.length === 0) {
@@ -1945,7 +2383,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       return (
                         <div className="flex flex-wrap items-center gap-[10px] select-none">
                           {activeAlerts.map(alert => {
-                            const info = getAlertTagForProject(project.id, alert.number);
+                            const info = getAlertTagForProject(project.id, alert.number, gasData);
                             let boxColor = '#cccccc';
                             if (info.color === 'red') boxColor = '#e53935';
                             else if (info.color === 'yellow') boxColor = '#ffb300';
@@ -2162,41 +2600,48 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
           {/* PDF Header */}
           <div className="mb-1">
             <div className="mb-4">
-              <img src={titleImage} alt={details.name} style={{ height: 'auto', maxWidth: '100%' }} />
+              <img src={titleImage} alt={bannerTitle} style={{ height: 'auto', maxWidth: '100%' }} />
             </div>
             <div className="flex flex-wrap items-center gap-2 text-base text-black font-medium">
-              <span>{details.id}</span>
+              <span>{bannerProjectId}</span>
+              {bannerOpNumber && (
+                <>
+                  <span>|</span>
+                  <span>{bannerOpNumber}</span>
+                </>
+              )}
+              <span>|</span>
               <span className="flex items-center gap-1">
-                {details.countryName && countryCodes[details.countryName] ? (
+                {bannerCountryName && countryCodes[bannerCountryName] ? (
                   <img 
-                    src={`https://flagcdn.com/w40/${countryCodes[details.countryName]}.png`} 
+                    src={`https://flagcdn.com/w40/${countryCodes[bannerCountryName]}.png`} 
                     className="w-5 h-auto shadow-sm" 
                     crossOrigin="anonymous"
                     referrerPolicy="no-referrer" 
-                    alt={details.countryName || 'Country flag'}
+                    alt={bannerCountryName || 'Country flag'}
                   />
-                ) : details.countryCode ? (
+                ) : bannerCountryCode ? (
                   <img 
-                    src={`https://flagcdn.com/w40/${details.countryCode.toLowerCase()}.png`} 
+                    src={`https://flagcdn.com/w40/${bannerCountryCode.toLowerCase()}.png`} 
                     className="w-5 h-auto shadow-sm" 
                     crossOrigin="anonymous"
                     referrerPolicy="no-referrer" 
-                    alt={details.countryName || 'Country flag'}
+                    alt={bannerCountryName || 'Country flag'}
                   />
                 ) : (
                   '🏳️'
                 )}
-                {details.countryName}
+                {bannerCountryName}
               </span>
               <span>|</span>
-              <span>TTL: {details.ttl}</span>
+              <span>TTL: {bannerTtl}</span>
               <span>|</span>
-              <span>Status: {details.operationStatus}.</span>
+              <span>Status: {bannerStatus}.</span>
               <span>|</span>
               <span className="flex items-center gap-1">
                 PMR March Cycle 2026: 
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getDotColor(details.pmrStatus) }}></div> 
-                {formatPMR(details.pmrStatus)}
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: getDotColor(bannerPmrStatus) }}></div> 
+                {bannerPmrStatus}
               </span>
             </div>
 
@@ -2204,7 +2649,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
             <div className="flex flex-row items-center justify-start gap-4 mt-3">
               <span className="text-sm font-bold text-zinc-500 uppercase tracking-wider shrink-0 select-none">ACTIVE ALERTS:</span>
               {(() => {
-                const activeAlerts = (getAlertsForProject(details.id) || []).filter(
+                const activeAlerts = (getAlertsForProject(details.id, gasData) || []).filter(
                   a => a.color === 'red' || a.color === 'yellow'
                 );
                 if (activeAlerts.length === 0) {
@@ -2218,7 +2663,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                 return (
                   <div className="flex flex-wrap items-center gap-[10px] select-none">
                     {activeAlerts.map(alert => {
-                      const info = getAlertTagForProject(details.id, alert.number);
+                      const info = getAlertTagForProject(details.id, alert.number, gasData);
                       let boxColor = '#cccccc';
                       if (alert.color === 'red') boxColor = '#dc2626';
                       if (alert.color === 'yellow') boxColor = '#f59e0b';
@@ -2274,11 +2719,11 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                     <div className="space-y-3">
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Operation status:</span>
-                        <span className="text-zinc-500 font-medium">{details.operationStatus}</span>
+                        <span className="text-zinc-500 font-medium">{formatOperationStatus(gdOperationStatus)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Executing Agency:</span>
-                        <span className="text-zinc-500 font-medium text-right">{details.executingAgency}</span>
+                        <span className="text-zinc-500 font-medium text-right">{gdExecutingAgency}</span>
                       </div>
                       <div className="flex justify-between items-start text-sm">
                         <span className="font-bold text-zinc-900">Linked to the loan:</span>
@@ -2286,35 +2731,35 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Current Approved Amount:</span>
-                        <span className="text-zinc-500 font-medium">{formatCurrencyM(details.currentApprovedAmount / 1000000)}</span>
+                        <span className="text-zinc-500 font-medium">{formatCurrencyM(fpCurrentApprovedAmountM)}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Local contribution:</span>
-                        <span className="text-zinc-500 font-medium">{details.localContribution || 'N/A'}</span>
+                        <span className="text-zinc-500 font-medium">{gdLocalContribution}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Disbursed Life Amount:</span>
-                        <span className="text-zinc-500 font-medium">{project.id === 'EC-L1251' ? '100%' : project.id === 'UR-L1111' ? '99.98%' : `${details.disbursedLifePercent.toFixed(1)}%`}</span>
+                        <span className="text-zinc-500 font-medium">{`${fpDisbursedLifePercent.toFixed(1)}%`}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Undisbursed Amount:</span>
-                        <span className="text-zinc-500 font-medium">{details.undisbursedAmountStr || 'N/A'}</span>
+                        <span className="text-zinc-500 font-medium">{gdUndisbursedAmountStr}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Months of extensions:</span>
-                        <span className="text-zinc-500 font-medium">{details.monthsOfExtension || '0'}</span>
+                        <span className="text-zinc-500 font-medium">{gdMonthsOfExtensions}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Last disbursement made:</span>
-                        <span className="text-zinc-500 font-medium">{details.lastDisbursementMade || 'N/A'}</span>
+                        <span className="text-zinc-500 font-medium">{gdLastDisbursementDate}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Time without disbursement (months):</span>
-                        <span className="text-zinc-500 font-medium">{details.financial.timeWithoutDisbursements || 'N/A'}</span>
+                        <span className="text-zinc-500 font-medium">{gdMonthsWithoutDisbursement}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
                         <span className="font-bold text-zinc-900">Age in execution (since eligibility):</span>
-                        <span className="text-zinc-500 font-medium">{details.ageInExecution || 'N/A'}</span>
+                        <span className="text-zinc-500 font-medium">{gdYearsInExecution}</span>
                       </div>
                     </div>
  
@@ -2322,7 +2767,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       <div className="space-y-2">
                         <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">OBJECTIVE</h4>
                         <p className="text-sm text-zinc-500 font-medium leading-relaxed text-justify">
-                          {details.objective ? (details.objective.split('.')[0] + '.') : 'No objective provided.'}
+                          {gdObjective ? (gdObjective.split('.')[0] + '.') : 'No objective provided.'}
                         </p>
                       </div>
                     </div>
@@ -2336,12 +2781,12 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       {/* Steps */}
                       {(() => {
                         const stepList = [
-                          { label: 'Approval:', date: details.timeline.approval.date, completed: details.timeline.approval.status === 'completed' },
-                          { label: 'Effectiveness:', date: details.timeline.effectiveness.date, completed: details.timeline.effectiveness.status === 'completed' },
-                          { label: 'Eligibility:', date: details.timeline.eligibility.date, completed: details.timeline.eligibility.status === 'completed' },
-                          { label: 'First disbursement:', date: details.timeline.firstDisbursement.date, completed: details.timeline.firstDisbursement.status === 'completed' },
-                          { label: 'Totally disbursed:', date: `${details.timeline.lastDisbursement.date}\nExtension: ${details.timeline.extension.text}\nCurrent deadline: ${details.timeline.lastDisbursement.currentDeadline || 'N/A'}`, completed: details.timeline.lastDisbursement.status === 'completed' },
-                          { label: 'Closure:', date: details.timeline.closure.date, completed: details.timeline.closure.status === 'completed' },
+                          { label: 'Approval:', date: tlApprovalDate, completed: tlApprovalCompleted },
+                          { label: 'Effectiveness:', date: tlEffectiveDate, completed: tlEffectiveCompleted },
+                          { label: 'Eligibility:', date: tlEligibilityDate, completed: tlEligibilityCompleted },
+                          { label: 'First disbursement:', date: tlFirstDisbursementDate, completed: tlFirstDisbursementCompleted },
+                          { label: 'Totally disbursed:', date: `${tlTotallyDisbursedDate}\nExtension: ${tlExtensionText}\nCurrent deadline: ${tlDeadlineText}`, completed: tlTotallyDisbursedCompleted },
+                          { label: 'Closure:', date: tlClosureDate, completed: tlClosureCompleted },
                         ];
                         return stepList.map((step, index) => (
                           <div key={index} className="relative">
@@ -2390,19 +2835,19 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                   <div className="space-y-[15.3px] flex flex-col justify-center">
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-bold text-zinc-900">Original Approved Amount:</span>
-                      <span className="text-zinc-900 font-bold">{formatCurrency(details.financial.originalApprovedAmount)}</span>
+                      <span className="text-zinc-900 font-bold">{formatCurrency(fpOriginalApprovedAmount)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-bold text-zinc-900">Canceled Amount:</span>
-                      <span className="text-zinc-900 font-bold">({formatCurrency(details.financial.canceledAmount)})</span>
+                      <span className="text-zinc-900 font-bold">({formatCurrency(fpCanceledAmount)})</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-bold text-zinc-900">Current Approved Amount:</span>
-                      <span className="text-zinc-900 font-bold">{formatCurrency(details.financial.currentApprovedAmount)}</span>
+                      <span className="text-zinc-900 font-bold">{formatCurrency(fpCurrentApprovedAmountRaw)}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span className="font-bold text-zinc-900">Deadline for last Current Disbursement:</span>
-                      <span className="text-zinc-900 font-bold">{details.financial.deadlineLastDisbursement}</span>
+                      <span className="text-zinc-900 font-bold">{fpDeadlineLastDisbursement}</span>
                     </div>
                   </div>
 
@@ -2410,7 +2855,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                     <div className="space-y-2">
                       <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                         <span>CURRENT APPROVED AMOUNT</span>
-                        <span className="text-zinc-900">{formatCurrencyM(details.financial.currentApprovedAmountM)}</span>
+                        <span className="text-zinc-900">{formatCurrencyM(fpCurrentApprovedAmountM)}</span>
                       </div>
                       <div className="relative h-6 w-full bg-[#005173] rounded-sm overflow-hidden flex items-center justify-end px-3">
                         <span className="relative z-10 text-xs font-bold" style={{ color: '#ffffff' }}>100%</span>
@@ -2421,21 +2866,21 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       <div className="flex justify-between text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
                         <div className="flex items-center gap-1">
                           <span>DISBURSED LIFE AMOUNT</span>
-                          {details.financial.isDisbursedFully && (
+                          {isDisbursedFully && (
                             <div className="w-3 h-3 bg-[#4EA72E] rounded-full flex items-center justify-center">
                               <Check className="w-2 h-2 text-white stroke-[4]" />
                             </div>
                           )}
                         </div>
-                        <span className="text-zinc-900">{formatCurrencyM(details.financial.disbursedLifeAmountM)}</span>
+                        <span className="text-zinc-900">{formatCurrencyM(fpDisbursedLifeAmountM)}</span>
                       </div>
                       <div className="relative h-6 w-full bg-zinc-200 rounded-sm overflow-hidden">
                         <div 
                           className="absolute inset-y-0 left-0 bg-[#00AEEF] flex items-center justify-end px-3"
-                          style={{ width: `${details.financial.disbursedLifePercent}%` }}
+                          style={{ width: `${Math.min(100, Math.max(0, fpDisbursedLifePercent))}%` }}
                         >
                           <span className="relative z-10 text-xs font-bold" style={{ color: '#ffffff' }}>
-                            {project.id === 'EC-L1251' ? '100%' : project.id === 'PN-L1172' ? '10%' : project.id === 'UR-L1111' ? '99.98%' : `${details.financial.disbursedLifePercent.toFixed(1)}%`}
+                            {`${fpDisbursedLifePercent.toFixed(1)}%`}
                           </span>
                         </div>
                       </div>
@@ -2462,31 +2907,24 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                       <h4 className="text-[13px] font-bold text-[#005173] mb-1 text-center px-4">
                         Historical Performance, Baseline Projection vs Disbursed Amount ($M), by Year
                       </h4>
-                      {/* Margen top/bottom de Recharts reducido */}
-                      <ComposedChart key={`hist-${pdfRenderKey}`} data={historicalData} width={550} height={265} margin={{ top: 30, right: 30, bottom: 0, left: 10 }}>
-                        <defs>
-                          <linearGradient id="solidLineGradientPDF" x1="0" y1="0" x2="100%" y2="0">
-                            <stop offset={`${splitPercentage}%`} stopColor="#005173" />
-                            <stop offset={`${splitPercentage}%`} stopColor="transparent" />
-                          </linearGradient>
-                          <linearGradient id="dashedLineGradientPDF" x1="0" y1="0" x2="100%" y2="0">
-                            <stop offset={`${splitPercentage}%`} stopColor="transparent" />
-                            <stop offset={`${splitPercentage}%`} stopColor="#005173" />
-                          </linearGradient>
-                        </defs>
+                      <ComposedChart key={`hist-${pdfRenderKey}`} data={chart1Data} width={550} height={265} margin={{ top: 30, right: 30, bottom: 0, left: 10 }}>
                         <XAxis dataKey="year" axisLine={{ stroke: '#e4e4e7' }} tickLine={false} tick={{fill: '#52525b', fontSize: 12, fontWeight: 'bold'}} interval={0} dy={10} />
-                        <YAxis hide domain={[0, 'dataMax + 10']} />
-                        <Bar dataKey="projection" name="Baseline Projection" barSize={30} fill="#e4e4e7" stroke="#a1a1aa" isAnimationActive={false}>
-                          <LabelList dataKey="projection" content={(props: any) => renderCustomBarLabel({ ...props, projectCode: project.id })} />
+                        <YAxis hide domain={[0, 'auto']} />
+                        <Bar dataKey="bar_historical_baseline" name="Baseline Projection" barSize={30} fill="#e4e4e7" stroke="#a1a1aa" isAnimationActive={false}>
+                          <LabelList dataKey="bar_historical_baseline" content={(props: any) => renderCustomBarLabel({ ...props, projectCode: project.id })} />
                         </Bar>
-                        <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="combinedDisbursed" name="Disbursed Amount ($M)" stroke="url(#solidLineGradientPDF)" strokeWidth={3} dot={{r: 5, fill: '#005173', strokeWidth: 0}} isAnimationActive={false}>
-                          <LabelList dataKey="combinedDisbursed" position="top" offset={10} content={(props: any) => renderCustomLineLabel({ ...props, projectCode: project.id })} />
+                        <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="solidDisbursed" name="Disbursed Amount" stroke="#005173" strokeWidth={3} dot={{r: 5, fill: '#005173', strokeWidth: 0}} connectNulls={false} isAnimationActive={false}>
+                          <LabelList dataKey="solidDisbursed" position="top" offset={10} content={(props: any) => renderCustomLineLabel({ ...props, projectCode: project.id })} />
                         </Line>
-                        <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="combinedDisbursed" name="Disbursed Amount ($M)" stroke="url(#dashedLineGradientPDF)" strokeWidth={3} strokeDasharray="5 5" dot={{r: 5, fill: '#005173', strokeWidth: 0}} isAnimationActive={false}>
-                          <LabelList dataKey="combinedDisbursed" position="top" offset={10} content={(props: any) => renderCustomLineLabel({ ...props, projectCode: project.id })} />
+                        <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="dashedDisbursed" name="Disbursed Amount" legendType="none" stroke="#005173" strokeWidth={3} strokeDasharray="4 4" dot={{r: 5, fill: '#005173', strokeWidth: 0}} connectNulls={false} isAnimationActive={false}>
+                          <LabelList dataKey="dashedDisbursed" position="top" offset={10} content={(props: any) => {
+                            if (props.index === chart1Data.length - 1) {
+                              return renderCustomLineLabel({ ...props, projectCode: project.id });
+                            }
+                            return null;
+                          }} />
                         </Line>
                       </ComposedChart>
-                      {/* Margen top de la leyenda reducido */}
                       <div className="flex justify-center gap-8 text-xs text-zinc-600 font-bold mt-1">
                         <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#e4e4e7] border border-[#a1a1aa]"></div>Baseline Projection ($M)</div>
                         <div className="flex items-center gap-2"><div className="w-3 h-3 bg-[#005173]"></div>Disbursed Amount ($M)</div>
@@ -2495,23 +2933,22 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
 
                     {/* Chart 2: Monthly */}
                     <div className="flex flex-col items-center">
-                      {/* Margen top/bottom reducido */}
                       <h4 className="text-[13px] font-bold text-[#005173] mt-2 mb-1 text-center px-4">
-                        2026 Cumulative Monthly Disbursements, Baseline Projection vs Disbursed Amount ($M)
+                        2026 Cumulative Monthly Disbursements, Current Projection vs Disbursed Amount ($M)
                       </h4>
-                      <ComposedChart key={`month-${pdfRenderKey}`} data={details?.monthlyMonitoringData || []} width={550} height={265} margin={{ top: 30, right: 30, bottom: 0, left: 10 }}>
-                        <XAxis dataKey="month" axisLine={{ stroke: '#e4e4e7' }} tickLine={false} tick={{fill: '#52525b', fontSize: 12, fontWeight: 'bold'}} interval={0} dy={10} />
+                      <ComposedChart key={`month-${pdfRenderKey}`} data={chart2Data} width={550} height={265} margin={{ top: 30, right: 30, bottom: 0, left: 25 }}>
+                        <XAxis dataKey="month" axisLine={{ stroke: '#e4e4e7' }} tickLine={false} tick={{fill: '#52525b', fontSize: 12, fontWeight: 'bold'}} interval={0} dy={10} padding={{ left: 24, right: 16 }} />
                         <YAxis hide domain={[0, 'dataMax + 1']} />
-                        <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulativeProjection" name="Cumulative Baseline Projection" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false}>
-                          <LabelList dataKey="cumulativeProjection" content={(props: any) => renderProjectionLabel({ ...props, projectCode: project.id })} />
+                        <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulative_current_projection" name="Current Projection ($M)" stroke="#94a3b8" strokeWidth={2} strokeDasharray="5 5" dot={false} isAnimationActive={false}>
+                          <LabelList dataKey="cumulative_current_projection" content={(props: any) => renderProjectionLabel({ ...props, projectCode: project.id })} />
                         </Line>
-                        <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulativeDisbursed" name="Cumulative Disbursed Amount" stroke="#FFB800" strokeWidth={3} dot={{r: 5, fill: '#FFB800', strokeWidth: 0}} isAnimationActive={false}>
-                          <LabelList dataKey="cumulativeDisbursed" position="top" offset={10} content={renderCustomLineLabel} />
+                        <Line type="monotoneX" strokeLinecap="round" strokeLinejoin="round" dataKey="cumulative_disbursed" name="Disbursed Amount ($M)" stroke="#FFB800" strokeWidth={3} dot={{r: 5, fill: '#FFB800', strokeWidth: 0}} connectNulls={false} isAnimationActive={false}>
+                          <LabelList dataKey="cumulative_disbursed" position="top" offset={10} content={renderCustomLineLabel} />
                         </Line>
                       </ComposedChart>
                       <div className="flex justify-center gap-8 text-xs text-zinc-600 font-bold mt-1 whitespace-nowrap">
-                        <div className="flex items-center gap-2"><div className="w-8 h-[2px] border-t-2 border-dashed border-zinc-400"></div>Cumulative Baseline Projection ($M)</div>
-                        <div className="flex items-center gap-2"><div className="w-8 h-[3px] bg-[#FFB800] relative flex items-center justify-center"><div className="w-2.5 h-2.5 rounded-full bg-[#FFB800]"></div></div>Cumulative Disbursed Amount ($)</div>
+                        <div className="flex items-center gap-2"><div className="w-8 h-[2px] border-t-2 border-dashed border-zinc-400"></div>Current Projection ($M)</div>
+                        <div className="flex items-center gap-2"><div className="w-8 h-[3px] bg-[#FFB800] relative flex items-center justify-center"><div className="w-2.5 h-2.5 rounded-full bg-[#FFB800]"></div></div>Disbursed Amount ($M)</div>
                       </div>
                     </div>
                   </>
@@ -2519,122 +2956,163 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
               </div>
             </div>
         </div>
+
+        {/* Footer with Data as of */}
+        <div className="mt-auto pt-4 flex justify-end">
+          <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+            {dataAsOfLongText}
+          </span>
+        </div>
         </div>
 
         <div id="pdf-page-2" className="bg-white p-8 w-[1600px] min-h-[1130px] flex flex-col mt-4 break-inside-avoid">
           {/* Section 3: PMR Performance */}
-          <div className="mb-12">
+          <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <TrendingUp className="w-8 h-8 text-[#005173]" />
               <h2 className="text-2xl font-bold text-[#005173]">PMR Performance</h2>
             </div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: '#4EA72E' }}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            {!hidePmrHistoricEvaluation && (
+              <div className="flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: '#4EA72E' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                  <span className="text-sm font-bold text-zinc-700">Satisfactory</span>
                 </div>
-                <span className="text-sm font-bold text-zinc-700">Satisfactory</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center text-white bg-[#F59E0B]">
-                  <span className="text-white font-bold text-[12px] leading-none">!</span>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-white bg-[#F59E0B]">
+                    <span className="text-white font-bold text-[12px] leading-none">!</span>
+                  </div>
+                  <span className="text-sm font-bold text-zinc-700">Alert</span>
                 </div>
-                <span className="text-sm font-bold text-zinc-700">Alert</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: '#B91C1C' }}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: '#B91C1C' }}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                  </div>
+                  <span className="text-sm font-bold text-zinc-700">Problem</span>
                 </div>
-                <span className="text-sm font-bold text-zinc-700">Problem</span>
               </div>
-            </div>
+            )}
           </div>
           </div>
           
           <div className="bg-zinc-50 p-8 rounded-2xl border border-zinc-200 flex flex-col gap-6 break-inside-avoid">
-            <div className="flex items-center gap-2 mb-2">
-              <p className="text-base text-zinc-600">
-                <span className="font-bold text-black uppercase">PMR HISTORIC EVALUATION - MARCH CYCLE </span>
-                <span className="italic text-black">(After eligibility)</span>
-              </p>
-            </div>
+            {!hidePmrHistoricEvaluation && (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-base text-zinc-600">
+                    <span className="font-bold text-black uppercase">PMR HISTORIC EVALUATION - MARCH CYCLE </span>
+                    <span className="italic text-black">(After eligibility)</span>
+                  </p>
+                </div>
             
-            {details.pmrHistory.length > 0 ? (
-              <div className="grid grid-cols-[250px_1fr] gap-y-6">
-                {/* Years Header */}
-                <div />
-                <div className="flex items-center w-full px-4">
-                  {details.pmrHistory.map((item, index, array) => (
-                    <React.Fragment key={item.year}>
-                      <div className="w-8 flex justify-center">
-                        <span className="text-sm font-bold text-zinc-900">{item.year}</span>
-                      </div>
-                      {index < array.length - 1 && <div className="flex-1" />}
-                    </React.Fragment>
-                  ))}
+            {pmrTwoRowsData.length > 0 ? (
+              <div className="w-full py-4 px-6">
+                {/* Header: Label Spacer + Years */}
+                <div className="flex items-center mb-6">
+                  <div className="w-64 shrink-0" />
+                  <div className="flex-1 flex items-center justify-between px-3">
+                    {pmrTwoRowsData.map((item, index, array) => (
+                      <React.Fragment key={item.year}>
+                        <div className="w-10 flex justify-center">
+                          <span className="text-base font-bold text-zinc-900">{item.year}</span>
+                        </div>
+                        {index < array.length - 1 && <div className="flex-1 min-w-[30px]" />}
+                      </React.Fragment>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Auto-calculated Classification */}
-                <div className="flex items-center">
-                  <span className="text-sm font-bold text-zinc-900 whitespace-nowrap">Auto-calculated Classification</span>
-                </div>
-                <div className="flex items-center w-full px-4">
-                  {details.pmrHistory.map((item, index, array) => (
-                    <React.Fragment key={item.year}>
-                      <div className="w-8 flex justify-center">
-                        <div 
-                          className="pmr-tooltip-container w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm ring-4 ring-zinc-50 relative z-10 cursor-pointer"
-                          style={{ backgroundColor: getDotColor(item.autoCalculatedStatus) }}
-                          title={`PMR March Cycle ${item.year}: ${formatPMR(item.autoCalculatedStatus)}`}
-                        >
-                          {getDotIcon(item.autoCalculatedStatus)}
-                          <div className="pmr-tooltip-popup">
-                            <div className="px-2 py-1 bg-zinc-800 text-white text-[10px] rounded whitespace-nowrap shadow-lg">
-                              PMR March Cycle {item.year}: {formatPMR(item.autoCalculatedStatus)}
+                {/* Row 1: Auto-calculated Classification */}
+                <div className="flex items-center mb-8">
+                  <div className="w-64 shrink-0 pr-4">
+                    <span className="text-base font-bold text-zinc-900">Auto-calculated Classification</span>
+                  </div>
+                  <div className="flex-1 flex items-center justify-between px-3 relative">
+                    {pmrTwoRowsData.map((item, index, array) => {
+                      const status = item.autoClassification;
+                      const nextStatus = array[index + 1]?.autoClassification;
+                      const dotColor = getDotColor(status);
+                      const tooltipText = `${item.year} Auto-calculated: ${status} (${item.tooltip})`;
+
+                      return (
+                        <React.Fragment key={`pdf-auto-${item.year}`}>
+                          <div className="w-10 flex justify-center relative">
+                            <div 
+                              className="w-9 h-9 rounded-full flex items-center justify-center text-white shadow-sm ring-4 ring-zinc-50 relative z-10"
+                              style={{ backgroundColor: dotColor }}
+                              title={tooltipText}
+                            >
+                              {getDotIcon(status)}
                             </div>
                           </div>
-                        </div>
-                      </div>
-                      {index < array.length - 1 && (
-                        <div 
-                          className="flex-1 h-[4px]"
-                          style={{ backgroundColor: getLineColor(item.autoCalculatedStatus, array[index+1].autoCalculatedStatus) }}
-                        />
-                      )}
-                    </React.Fragment>
-                  ))}
+                          {index < array.length - 1 && (
+                            <div 
+                              className="flex-1 h-[3px] mx-1 min-w-[30px]"
+                              style={{ backgroundColor: getLineColor(status, nextStatus) }}
+                            />
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* Validated Classification */}
+                {/* Row 2: Validated Classification */}
                 <div className="flex items-center">
-                  <span className="text-sm font-bold text-zinc-900 whitespace-nowrap">Validated Classification</span>
-                </div>
-                <div className="flex items-center w-full px-4">
-                  {details.pmrHistory.map((item, index, array) => (
-                    <React.Fragment key={item.year}>
-                      <div className="w-8 flex justify-center">
-                        <div 
-                          className="pmr-tooltip-container w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm ring-4 ring-zinc-50 relative z-10 cursor-pointer"
-                          style={{ backgroundColor: getDotColor(item.validatedStatus) }}
-                          title={`PMR March Cycle ${item.year}: ${formatPMR(item.validatedStatus)}`}
-                        >
-                          {getDotIcon(item.validatedStatus)}
-                          <div className="pmr-tooltip-popup">
-                            <div className="px-2 py-1 bg-zinc-800 text-white text-[10px] rounded whitespace-nowrap shadow-lg">
-                              PMR March Cycle {item.year}: {formatPMR(item.validatedStatus)}
+                  <div className="w-64 shrink-0 pr-4">
+                    <span className="text-base font-bold text-zinc-900">Validated Classification</span>
+                  </div>
+                  <div className="flex-1 flex items-center justify-between px-3 relative">
+                    {pmrTwoRowsData.map((item, index, array) => {
+                      const status = item.validatedClassification;
+                      const nextStatus = array[index + 1]?.validatedClassification;
+                      const dotColor = getDotColor(status);
+                      const tooltipText = `${item.year} Validated: ${status} (${item.tooltip})`;
+
+                      return (
+                        <React.Fragment key={`pdf-val-${item.year}`}>
+                          <div className="w-10 flex justify-center relative">
+                            <div 
+                              className="w-9 h-9 rounded-full flex items-center justify-center text-white shadow-sm ring-4 ring-zinc-50 relative z-10"
+                              style={{ backgroundColor: dotColor }}
+                              title={tooltipText}
+                            >
+                              {getDotIcon(status)}
                             </div>
                           </div>
-                        </div>
-                      </div>
-                      {index < array.length - 1 && (
-                        <div 
-                          className="flex-1 h-[4px]"
-                          style={{ backgroundColor: getLineColor(item.validatedStatus, array[index+1].validatedStatus) }}
-                        />
-                      )}
-                    </React.Fragment>
-                  ))}
+                          {index < array.length - 1 && (
+                            <div 
+                              className="flex-1 h-[3px] mx-1 min-w-[30px]"
+                              style={{ backgroundColor: getLineColor(status, nextStatus) }}
+                            />
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Traffic light legend */}
+                <div className="flex items-center justify-end gap-6 mt-6 pt-4 border-t border-zinc-200/60 text-xs text-zinc-600 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#4CAF50]"></span>
+                    <span>Satisfactory</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#FFC107]"></span>
+                    <span>Alert</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#F44336]"></span>
+                    <span>Problem</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#9ca3af]"></span>
+                    <span>N/A</span>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -2647,6 +3125,8 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
             )}
 
             <div className="h-px bg-zinc-200" />
+              </>
+            )}
 
             <div className="flex items-center gap-2 -mb-2">
               <p className="text-base text-zinc-600">
@@ -2720,6 +3200,13 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
               </div>
 
             </div>
+          </div>
+
+          {/* Footer with Data as of */}
+          <div className="mt-auto pt-6 flex justify-end">
+            <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+              {dataAsOfLongText}
+            </span>
           </div>
         </div>
 
@@ -2934,6 +3421,13 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                   ))}
                 </div>
               </div>
+            </div>
+
+            {/* Footer with Data as of */}
+            <div className="mt-auto pt-6 flex justify-end">
+              <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
+                {dataAsOfLongText}
+              </span>
             </div>
           </div>
         )}
