@@ -546,10 +546,13 @@ const EVALUATION_DATA: Record<string, EvaluationPillar[]> = {
   ]
 };
 
-const MIDTERM_PROJECT_IDS = [
+// Temporarily disabled per user request: "elimina por ahora el tab de midterm evaluations de todos los proyectos que lo tienen actualmente, mas adelante lo volveremos a incorporar"
+const MIDTERM_PROJECT_IDS: string[] = [
+  /*
   'BL-L1038', 'BR-L1550', 'BR-L1539', 'UR-L1193', 'PN-L1172', 'EC-L1253',
   'BR-L1540', 'CO-L1245', 'SU-L1060', 'BR-L1513', 'BR-L1525', 'UR-L1164',
   'BR-L1592', 'PN-L1161'
+  */
 ];
 
 export default function ProjectView({ project, onBack, onUpdate, onNavigateToAlert, initialTab }: ProjectViewProps) {

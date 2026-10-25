@@ -981,9 +981,7 @@ function MainApp() {
                 <ProjectView 
                   project={selectedProject} 
                   initialTab={
-                    projectSourceView === 'mid-term-evaluations' 
-                      ? 'midterm' 
-                      : projectSourceView === 'critical-procurement'
+                    projectSourceView === 'critical-procurement'
                       ? 'critical_procurement'
                       : 'baseline'
                   }
