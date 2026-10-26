@@ -13,6 +13,7 @@ import { AlertTriangles } from './AlertTriangles';
 import { getAlertsForProject } from '../utils/alertUtils';
 import { GOOGLE_APPS_SCRIPT_URL, fetchLiveQualitativeData } from '../hooks/useQualitativeData';
 import { QUALITATIVE_METADATA_MAP } from '../data/qualitativeMetadata';
+import { PMR_MARCH_2026_QUALITATIVE_DATA } from '../data/pmrMarch2026QualitativeData';
 
 const syntheticIndicatorsMap: Record<string, string> = {
   'BR-L1629': '',
@@ -1031,13 +1032,29 @@ export default function Dashboard({
       ];
     }
 
-    // Fetch latest live qualitative data from Google Apps Script
+    const isMarch2026Cycle = isPmrMode && pmrCycle === 'March 2026';
+
+    const getMarch2026Qualitative = (projectId: string, operationId?: string) => {
+      const pUpper = projectId ? projectId.trim().toUpperCase() : '';
+      const opUpper = operationId ? operationId.trim().toUpperCase() : '';
+      const found = PMR_MARCH_2026_QUALITATIVE_DATA[pUpper] || 
+                    (opUpper ? PMR_MARCH_2026_QUALITATIVE_DATA[opUpper] : undefined) ||
+                    PMR_MARCH_2026_QUALITATIVE_DATA[projectId];
+      if (found) {
+        return found;
+      }
+      return { estado: '', productos: '', probabilidad: '', acciones: '' };
+    };
+
+    // Fetch latest live qualitative data from Google Apps Script only when not in PMR March 2026 cycle
     let liveQualMap: Record<string, any> = {};
-    try {
-      liveQualMap = await fetchLiveQualitativeData(true);
-    } catch (err) {
-      console.warn('Could not fetch latest live qualitative data for XLS:', err);
-      liveQualMap = await fetchLiveQualitativeData(false);
+    if (!isMarch2026Cycle) {
+      try {
+        liveQualMap = await fetchLiveQualitativeData(true);
+      } catch (err) {
+        console.warn('Could not fetch latest live qualitative data for XLS:', err);
+        liveQualMap = await fetchLiveQualitativeData(false);
+      }
     }
 
     const formatQualField = (val: any): string => {
@@ -1131,7 +1148,9 @@ export default function Dashboard({
       if (project.operations && project.operations.length > 1) {
         const projectN = currentRowN++;
         project.operations.forEach((op) => {
-          const qual = getQualitativeFields(project.projectNumber, op.number);
+          const qual = isMarch2026Cycle
+            ? getMarch2026Qualitative(project.projectNumber, op.number)
+            : getQualitativeFields(project.projectNumber, op.number);
           if (isPmrMode && pmrCycle === 'September 2026') {
             worksheet.addRow({
               n: projectN,
@@ -1182,7 +1201,9 @@ export default function Dashboard({
           }
         });
       } else {
-        const qual = getQualitativeFields(project.projectNumber, project.operationNumber);
+        const qual = isMarch2026Cycle
+          ? getMarch2026Qualitative(project.projectNumber, project.operationNumber)
+          : getQualitativeFields(project.projectNumber, project.operationNumber);
         if (isPmrMode && pmrCycle === 'September 2026') {
           worksheet.addRow({
             n: currentRowN++,

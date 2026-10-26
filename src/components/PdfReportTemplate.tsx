@@ -240,9 +240,12 @@ export const PdfReportTemplate = React.forwardRef<HTMLDivElement, {}>(function P
   return (
     <div 
       ref={ref} 
-      className="text-[#27272a] font-sans text-xs leading-normal"
+      className="text-[#27272a] font-sans text-xs leading-normal pdf-report-wrapper printable-desktop-wrapper"
       style={{
         fontFamily: "'Aptos', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        width: '794px',
+        minWidth: '794px',
+        maxWidth: '794px',
       }}
     >
       {/* ========================================================================= */}
@@ -257,6 +260,8 @@ export const PdfReportTemplate = React.forwardRef<HTMLDivElement, {}>(function P
           boxSizing: 'border-box',
           minHeight: '1070px',
           width: '794px',
+          minWidth: '794px',
+          maxWidth: '794px',
           padding: 0,
           overflow: 'hidden',
         }}
@@ -650,6 +655,8 @@ export const PdfReportTemplate = React.forwardRef<HTMLDivElement, {}>(function P
           boxSizing: 'border-box',
           minHeight: '1070px',
           width: '794px',
+          minWidth: '794px',
+          maxWidth: '794px',
           padding: 0,
           overflow: 'hidden',
         }}

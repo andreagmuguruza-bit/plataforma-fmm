@@ -618,7 +618,7 @@ function MainApp() {
   return (
     <div className="min-h-screen bg-zinc-50 flex flex-col font-sans text-zinc-900">
       {/* Top Bar */}
-      <header className="bg-[#FAFAFA] text-zinc-700 border-b border-zinc-200 px-4 md:px-6 py-3 flex items-center justify-between sticky top-0 z-50">
+      <header className="bg-[#FAFAFA] text-zinc-700 border-b border-zinc-200 px-4 md:px-6 py-3 flex items-center justify-between sticky top-0 z-50 no-print print-hidden">
         <div className="flex items-center gap-4 md:gap-6">
           <button 
             onClick={() => setIsMobileMenuOpen(true)}

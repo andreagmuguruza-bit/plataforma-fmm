@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Project, User } from '../types';
-import { ClipboardCheck, Search, ChevronDown } from 'lucide-react';
+import { ClipboardCheck, Search, ChevronDown, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useGASPortfolioData } from '../hooks/useGASPortfolioData';
 import { QUALITATIVE_METADATA_MAP } from '../data/qualitativeMetadata';
+import { useLiveQualitativeMap, parseRemoteProjectData } from '../hooks/useQualitativeData';
 
 interface ProjectSelectorProps {
   projects: Project[];
@@ -133,6 +134,25 @@ export function shouldSeeAllProjects(user?: User | null): boolean {
 const PMR_SET = new Set(PMR_PREFILLING_PROJECT_IDS);
 const PMR_ORDER_MAP = new Map(PMR_PREFILLING_PROJECT_IDS.map((id, index) => [id, index]));
 
+export function getStatusDisplay(project: Project) {
+  if (project.validatedByTTLDate) {
+    return {
+      text: `Validated by the TTL on ${project.validatedByTTLDate}`,
+      color: 'bg-[#4EA72E]'
+    };
+  }
+  if (project.isPrefilledByTeam) {
+    return {
+      text: 'Pending TTL validation',
+      color: 'bg-[#FFC107]'
+    };
+  }
+  return {
+    text: 'Pending Effectiveness Team prefilling',
+    color: 'bg-[#FFC107]'
+  };
+}
+
 export default function ProjectSelector({ projects, onSelectProject, currentUser, selectedTTL, selectedEffectivenessMember }: ProjectSelectorProps) {
   const [filterProject, setFilterProject] = useState('');
   const [filterCountry, setFilterCountry] = useState('');
@@ -162,6 +182,7 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
 
   const gasData = useGASPortfolioData();
   const hasFullAccess = shouldSeeAllProjects(currentUser);
+  const { qualMap, isQualLoading } = useLiveQualitativeMap();
 
   // Always maintain all 46 designated PMR prefilling projects in the exact requested order
   const pmrProjects = React.useMemo(() => {
@@ -201,6 +222,21 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
         ? 'Honduras'
         : (existing?.countryName || existing?.country || gasRow?.countryName || '');
 
+      // Dynamic validation status from FMM_Qualitative_Data Google Sheets
+      const parsedRemote = parseRemoteProjectData(qualMap, upperId, existing?.operationNumber || gasRow?.operationNumber);
+      const remoteData = parsedRemote?.remoteData || parsedRemote?.projectEntry;
+
+      const rawPrefilled = remoteData?.isPrefilledByTeam ?? (parsedRemote?.projectEntry?.isPrefilledByTeam) ?? (existing as any)?.isPrefilledByTeam;
+      const rawValidated = remoteData?.validatedByTTLDate ?? (parsedRemote?.projectEntry?.validatedByTTLDate) ?? (existing as any)?.validatedByTTLDate;
+
+      const resolvedPrefilled = rawPrefilled !== undefined
+        ? (rawPrefilled === true || rawPrefilled === 'true' || rawPrefilled === 'TRUE' || rawPrefilled === 1)
+        : (existing?.isPrefilledByTeam ?? ((id === 'BR-L1642' || id === 'HO-L1261') ? false : true));
+
+      const resolvedValidated = (rawValidated !== undefined && rawValidated !== null && String(rawValidated).trim() !== '' && String(rawValidated).toLowerCase() !== 'null' && String(rawValidated).toLowerCase() !== 'undefined')
+        ? String(rawValidated).trim()
+        : (existing?.validatedByTTLDate || null);
+
       if (existing) {
         return {
           ...existing,
@@ -209,7 +245,9 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
           countryName: projCountry,
           countryCode: existing.countryCode || gasRow?.countryCode || id.substring(0, 2).toLowerCase(),
           ttl: projTtl,
-          operationNumber: existing.operationNumber || gasRow?.operationNumber || id
+          operationNumber: existing.operationNumber || gasRow?.operationNumber || id,
+          isPrefilledByTeam: resolvedPrefilled,
+          validatedByTTLDate: resolvedValidated
         };
       }
 
@@ -222,8 +260,8 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
         countryName: projCountry,
         ttl: projTtl,
         status: gasRow?.stage || gasRow?.status || 'Stage I',
-        isPrefilledByTeam: (id === 'BR-L1642' || id === 'HO-L1261') ? false : true,
-        validatedByTTLDate: null,
+        isPrefilledByTeam: resolvedPrefilled,
+        validatedByTTLDate: resolvedValidated,
         qualitativeData: {
           estadoImplementacion: meta?.estadoImplementacion || [],
           productosDestacados: meta?.productosDestacados || [],
@@ -246,7 +284,7 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
         }
       } as Project;
     });
-  }, [projects, gasData.active_portfolio_table, gasData.inactive_pmr_table]);
+  }, [projects, gasData.active_portfolio_table, gasData.inactive_pmr_table, qualMap]);
 
   const filteredProjects = React.useMemo(() => {
     return pmrProjects.filter(project => {
@@ -269,10 +307,12 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
 
       // General filters apply
       const filterProjLower = String(filterProject || '').toLowerCase();
+      const statusObj = getStatusDisplay(project);
       const matchesProject = filterProject === '' || 
         String(project.name || '').toLowerCase().includes(filterProjLower) || 
         String(project.id || '').toLowerCase().includes(filterProjLower) ||
-        String(project.operationNumber || '').toLowerCase().includes(filterProjLower);
+        String(project.operationNumber || '').toLowerCase().includes(filterProjLower) ||
+        statusObj.text.toLowerCase().includes(filterProjLower);
       const projectCountry = project.countryName || project.country;
       const matchesCountry = filterCountry === '' || projectCountry === filterCountry;
       
@@ -333,25 +373,6 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
       ? getFirstName(currentUser.ttlName)
       : currentUser.name ? getFirstName(currentUser.name) : currentUser.username;
 
-  const getStatusDisplay = (project: Project) => {
-    if (project.validatedByTTLDate) {
-      return {
-        text: `Validated by the TTL on ${project.validatedByTTLDate}`,
-        color: 'bg-[#4EA72E]'
-      };
-    }
-    if (project.isPrefilledByTeam) {
-      return {
-        text: 'Pending TTL validation',
-        color: 'bg-[#FFC107]'
-      };
-    }
-    return {
-      text: 'Pending Effectiveness Team prefilling',
-      color: 'bg-[#FFC107]'
-    };
-  };
-
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -360,9 +381,17 @@ export default function ProjectSelector({ projects, onSelectProject, currentUser
       className="space-y-8"
     >
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Qualitative information
-        </h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Qualitative information
+          </h2>
+          {isQualLoading && (
+            <span className="inline-flex items-center gap-1.5 text-xs text-zinc-400 bg-zinc-100 px-2.5 py-1 rounded-full">
+              <Loader2 className="w-3 h-3 animate-spin text-[#005173]" />
+              <span className="italic">Syncing live status...</span>
+            </span>
+          )}
+        </div>
         <p className="text-zinc-500 mt-1 whitespace-pre-line">
           {"\n"}
           Hello, {displayName}. Please, {hasFullAccess ? 'prefill' : 'validate'} the qualitative information about the current status of {hasFullAccess ? 'the' : 'your'} projects for the PMR cycle.{"\n"}

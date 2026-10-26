@@ -16,6 +16,17 @@ export const formatDDMMMYY = (d: Date = new Date()): string => {
 // Global qualitative cache to ensure live data is always synchronized and instantly available
 let globalLiveQualMapCache: Record<string, any> = {};
 let globalLiveQualMapPromise: Promise<Record<string, any>> | null = null;
+const qualMapListeners = new Set<(map: Record<string, any>) => void>();
+
+export function notifyQualitativeMapListeners() {
+  qualMapListeners.forEach(listener => {
+    try {
+      listener(globalLiveQualMapCache);
+    } catch (e) {
+      console.warn('Error notifying qualitative listener:', e);
+    }
+  });
+}
 
 export async function fetchLiveQualitativeData(forceRefresh = false): Promise<Record<string, any>> {
   if (!forceRefresh && Object.keys(globalLiveQualMapCache).length > 0) {
@@ -33,6 +44,7 @@ export async function fetchLiveQualitativeData(forceRefresh = false): Promise<Re
         const json = await res.json();
         if (json && typeof json === 'object') {
           globalLiveQualMapCache = { ...globalLiveQualMapCache, ...json };
+          notifyQualitativeMapListeners();
           return globalLiveQualMapCache;
         }
       }
@@ -50,6 +62,51 @@ export async function fetchLiveQualitativeData(forceRefresh = false): Promise<Re
 // Background pre-warm
 if (typeof window !== 'undefined') {
   fetchLiveQualitativeData(false).catch(() => {});
+}
+
+export function useLiveQualitativeMap() {
+  const [qualMap, setQualMap] = useState<Record<string, any>>(() => ({ ...globalLiveQualMapCache }));
+  const [isQualLoading, setIsQualLoading] = useState<boolean>(() => Object.keys(globalLiveQualMapCache).length === 0);
+
+  useEffect(() => {
+    const handleUpdate = (updatedMap: Record<string, any>) => {
+      setQualMap({ ...updatedMap });
+      setIsQualLoading(false);
+    };
+
+    qualMapListeners.add(handleUpdate);
+
+    // Initial fetch if cache is empty
+    if (Object.keys(globalLiveQualMapCache).length === 0) {
+      setIsQualLoading(true);
+      fetchLiveQualitativeData(false)
+        .then(data => {
+          setQualMap({ ...data });
+        })
+        .finally(() => {
+          setIsQualLoading(false);
+        });
+    } else {
+      // Background revalidation to guarantee latest status
+      fetchLiveQualitativeData(true)
+        .then(data => {
+          setQualMap({ ...data });
+        })
+        .finally(() => {
+          setIsQualLoading(false);
+        });
+    }
+
+    return () => {
+      qualMapListeners.delete(handleUpdate);
+    };
+  }, []);
+
+  return { 
+    qualMap, 
+    isQualLoading, 
+    refetch: () => fetchLiveQualitativeData(true) 
+  };
 }
 
 export interface QualitativeFormData {
@@ -344,6 +401,7 @@ export function useQualitativeData(
       if (currentProj.operationNumber) {
         globalLiveQualMapCache[currentProj.operationNumber] = formData;
       }
+      notifyQualitativeMapListeners();
 
       await fetch(GOOGLE_APPS_SCRIPT_URL, {
         method: 'POST',

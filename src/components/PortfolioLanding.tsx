@@ -426,8 +426,8 @@ export default function PortfolioLanding() {
     setPdfRenderKey(Date.now());
 
     try {
-      // Wait for the freshly mounted charts to paint off-screen
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Small controlled delay (500ms) to ensure charts and SVGs are painted
+      await new Promise(resolve => setTimeout(resolve, 500));
       if ('fonts' in document) {
         await (document as any).fonts.ready;
       }
@@ -439,18 +439,24 @@ export default function PortfolioLanding() {
       const pageIds = ['pdf-page-1', 'pdf-page-2'];
 
       for (let i = 0; i < pageIds.length; i++) {
-        const pageElement = document.getElementById(pageIds[i]);
+        const pageElement = (pdfRef.current?.querySelector(`#${pageIds[i]}`) as HTMLElement) || document.getElementById(pageIds[i]);
         if (!pageElement) continue;
 
         // Wait for images on this specific page
         await waitForImages(pageElement);
 
-        // Render at scale 3 for ultra-high-resolution 300+ DPI print quality
+        // Render at scale 2 with forced desktop dimensions (windowWidth: 1200, width: 794)
         const canvas = await html2canvas(pageElement, {
-          scale: 3,
+          scale: 2,
           useCORS: true,
           logging: false,
-          backgroundColor: '#FAFAFA'
+          backgroundColor: '#FAFAFA',
+          width: 794,
+          height: pageElement.offsetHeight || 1070,
+          windowWidth: 1200,
+          windowHeight: 1200,
+          scrollX: 0,
+          scrollY: 0,
         });
 
         const marginX = 7; // 7mm franja blanca a la izquierda y derecha
@@ -636,7 +642,7 @@ export default function PortfolioLanding() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.6, ease: "easeOut" }}
-            className="mt-7 md:mt-12 flex flex-col items-center print-hidden"
+            className="mt-7 md:mt-12 flex flex-col items-center print-hidden no-print download-button"
           >
             {/* Direct Clean PDF Report Print/Download Button */}
             <button 
@@ -644,7 +650,7 @@ export default function PortfolioLanding() {
               type="button"
               onClick={handleDownloadPDF}
               disabled={isDownloading}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#718C9F] hover:bg-[#5c7384] text-white text-sm font-semibold rounded-lg hover:opacity-95 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer print-hidden disabled:opacity-75"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-[#718C9F] hover:bg-[#5c7384] text-white text-sm font-semibold rounded-lg hover:opacity-95 transition-all duration-300 shadow-sm hover:shadow-md cursor-pointer print-hidden no-print download-button disabled:opacity-75"
               title="Download FMM Operations Report (PDF)"
             >
               {isDownloading ? (
@@ -838,11 +844,13 @@ export default function PortfolioLanding() {
       <div 
         ref={pdfRef}
         id="bid-printable-report" 
-        className="bid-print-report-container absolute pointer-events-none z-[-10]" 
+        className="bid-print-report-container pdf-report-wrapper printable-desktop-wrapper absolute pointer-events-none z-[-10]" 
         aria-hidden="true"
-        style={{ left: '-9999px', top: '0', opacity: 1 }}
+        style={{ left: '-9999px', top: '0', width: '794px', minWidth: '794px', maxWidth: '794px', opacity: 1 }}
       >
-        <PdfReportTemplate key={pdfRenderKey} />
+        <div style={{ width: '794px', minWidth: '794px', maxWidth: '794px' }}>
+          <PdfReportTemplate key={pdfRenderKey} />
+        </div>
       </div>
     </>
   );

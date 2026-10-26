@@ -62,7 +62,7 @@
 }
 
 /* ========================================================================= */
-/* BID INSTITUTIONAL PRINT STYLES                                            */
+/* BID INSTITUTIONAL PRINT & FORCED DESKTOP PRINT STYLES                     */
 /* ========================================================================= */
 @media screen {
   .bid-print-report-container {
@@ -70,6 +70,8 @@
     left: -9999px !important;
     top: 0 !important;
     width: 794px !important;
+    min-width: 794px !important;
+    max-width: 794px !important;
     opacity: 1 !important;
     pointer-events: none !important;
     z-index: -10 !important;
@@ -78,8 +80,8 @@
 
 @media print {
   @page {
-    size: A4 portrait;
-    margin: 8mm 10mm 8mm 10mm;
+    size: A4;
+    margin: 1cm;
   }
 
   html, body {
@@ -90,26 +92,33 @@
     font-size: 11px !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    width: 1200px !important;
+    min-width: 1024px !important;
   }
 
-  /* Oculta la barra lateral, los menús, header y botones al imprimir */
+  /* Oculta los elementos de navegación móvil, menús desplegables y botones de descarga al momento de imprimir */
+  .no-print,
+  .print-hidden,
+  [data-print-hidden="true"],
   header,
   nav,
   aside,
   button,
-  .bid-screen-content,
-  .print-hidden,
-  [data-print-hidden="true"] {
+  .mobile-nav,
+  .download-button,
+  .bid-screen-content {
     display: none !important;
   }
 
-  /* Muestra únicamente el contenedor del reporte institucional */
-  .bid-print-report-container {
+  /* Muestra el contenedor del reporte institucional forzando diseño de escritorio */
+  .bid-print-report-container,
+  .pdf-report-wrapper {
     display: block !important;
     position: static !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
+    width: 1200px !important;
+    min-width: 1024px !important;
+    max-width: 1200px !important;
+    margin: 0 auto !important;
     padding: 0 !important;
     background: #ffffff !important;
   }
@@ -121,7 +130,21 @@
     background-color: #FAFAFA !important;
     border: 1.5px solid #000000 !important;
     padding: 0 !important;
-    margin: 0 !important;
+    margin: 0 auto 20px auto !important;
+  }
+
+  /* Forzar ancho mínimo de escritorio en el contenido del Project View */
+  .project-view-print-container,
+  .printable-desktop-wrapper,
+  .pdf-container {
+    display: block !important;
+    position: static !important;
+    width: 1200px !important;
+    min-width: 1024px !important;
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    background: #ffffff !important;
   }
 
   .bid-print-page-break {

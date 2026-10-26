@@ -1110,8 +1110,8 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
     setPdfRenderKey(Date.now());
 
     try {
-      // Wait 2 seconds strictly for the freshly mounted charts to paint off-screen
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Small controlled delay (500ms) to ensure charts and SVGs are completely painted
+      await new Promise(resolve => setTimeout(resolve, 500));
       if ('fonts' in document) {
         await (document as any).fonts.ready;
       }
@@ -1125,7 +1125,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
         : ['pdf-page-1', 'pdf-page-2'];
 
       for (let i = 0; i < pageIds.length; i++) {
-        const pageElement = document.getElementById(pageIds[i]);
+        const pageElement = (pdfRef.current?.querySelector(`#${pageIds[i]}`) as HTMLElement) || document.getElementById(pageIds[i]);
         if (!pageElement) continue;
 
         // Wait for flag images on this specific page
@@ -1135,7 +1135,13 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
           scale: 2,
           useCORS: true,
           logging: false,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          width: 1600,
+          height: pageElement.offsetHeight || 1130,
+          windowWidth: 1600, // Explicitly forces desktop layout calculation in html2canvas!
+          windowHeight: 1200,
+          scrollX: 0,
+          scrollY: 0,
         });
 
         const imgWidth = pdfWidth;
@@ -1176,14 +1182,14 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="space-y-6"
+        className="space-y-6 project-view-print-container"
       >
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 px-4 lg:px-0">
         <div className="flex flex-col lg:flex-row lg:items-start lg:items-center gap-4">
           <div className="flex items-start gap-1 lg:gap-3 w-full lg:w-auto -ml-8 lg:ml-0 pr-4">
             <button 
               onClick={onBack}
-              className="p-2 -ml-2 hover:bg-zinc-200 rounded-full transition-colors text-zinc-500 hover:text-zinc-900 shrink-0"
+              className="no-print print-hidden p-2 -ml-2 hover:bg-zinc-200 rounded-full transition-colors text-zinc-500 hover:text-zinc-900 shrink-0"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
@@ -1266,7 +1272,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
           <button 
             onClick={handleDownloadPDF}
             disabled={isGeneratingPDF}
-            className={`w-full lg:w-auto whitespace-nowrap flex items-center justify-center gap-2 bg-[#005173] text-white px-4 py-[10.8px] lg:py-2 rounded-lg font-bold text-[9.9px] lg:text-[11px] uppercase tracking-widest transition-colors shadow-sm ${isGeneratingPDF ? 'opacity-70 cursor-not-allowed' : 'hover:bg-[#003d57]'}`}
+            className={`no-print download-button print-hidden w-full lg:w-auto whitespace-nowrap flex items-center justify-center gap-2 bg-[#005173] text-white px-4 py-[10.8px] lg:py-2 rounded-lg font-bold text-[9.9px] lg:text-[11px] uppercase tracking-widest transition-colors shadow-sm ${isGeneratingPDF ? 'opacity-70 cursor-not-allowed' : 'hover:bg-[#003d57]'}`}
           >
             <Download className="w-4 h-4" />
             {isGeneratingPDF ? 'GENERATING...' : 'DOWNLOAD PDF'}
@@ -1337,7 +1343,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
 
       <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 pb-12">
         {/* Sidebar Navigation */}
-        <div className="lg:col-span-3 px-4 lg:px-0 lg:pl-10">
+        <div className="no-print print-hidden lg:col-span-3 px-4 lg:px-0 lg:pl-10">
           <div className="bg-white rounded-xl shadow-sm border border-zinc-200 p-1 lg:p-2 lg:sticky lg:top-6 grid grid-cols-4 lg:flex lg:flex-col overflow-hidden lg:overflow-x-visible no-scrollbar whitespace-normal items-stretch">
             {tabs.map(tab => (
               <button
@@ -2554,8 +2560,8 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
       {/* Hidden Container for PDF Generation */}
       <div 
         ref={pdfRef}
-        className="absolute pointer-events-none bg-white p-12 w-[1600px] pdf-container z-[-10]"
-        style={{ left: '-9999px', top: '0', opacity: 1 }}
+        className="absolute pointer-events-none bg-white p-12 w-[1600px] pdf-container z-[-10] printable-desktop-wrapper"
+        style={{ left: '-9999px', top: '0', width: '1600px', minWidth: '1600px', maxWidth: '1600px', opacity: 1 }}
       >
         <style>{`
           .pdf-container {
@@ -2599,7 +2605,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
             color: #FFFFFF !important;
           }
         `}</style>
-        <div id="pdf-page-1" className="bg-white p-8 w-[1600px] min-h-[1130px] flex flex-col break-inside-avoid">
+        <div id="pdf-page-1" className="bg-white p-8 w-[1600px] min-h-[1130px] flex flex-col break-inside-avoid" style={{ width: '1600px', minWidth: '1600px', maxWidth: '1600px' }}>
           {/* PDF Header */}
           <div className="mb-1">
             <div className="mb-4">
@@ -2968,7 +2974,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
         </div>
         </div>
 
-        <div id="pdf-page-2" className="bg-white p-8 w-[1600px] min-h-[1130px] flex flex-col mt-4 break-inside-avoid">
+        <div id="pdf-page-2" className="bg-white p-8 w-[1600px] min-h-[1130px] flex flex-col mt-4 break-inside-avoid" style={{ width: '1600px', minWidth: '1600px', maxWidth: '1600px' }}>
           {/* Section 3: PMR Performance */}
           <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
@@ -3217,7 +3223,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
           <div 
             id="pdf-page-3" 
             className="bg-white p-8 w-[1600px] min-h-[1130px] flex flex-col mt-4 break-inside-avoid"
-            style={['PN-L1161', 'PN-L1172'].includes(projectCode) ? { pageBreakBefore: 'always' } : undefined}
+            style={{ width: '1600px', minWidth: '1600px', maxWidth: '1600px', ...(['PN-L1161', 'PN-L1172'].includes(projectCode) ? { pageBreakBefore: 'always' } : {}) }}
           >
             {/* Page Header */}
             <div className="mb-6">
