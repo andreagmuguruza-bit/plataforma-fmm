@@ -14,6 +14,7 @@ import { useQualitativeData } from '../hooks/useQualitativeData';
 import { useGASPortfolioData } from '../hooks/useGASPortfolioData';
 import { AlertTriangles } from './AlertTriangles';
 import { getAlertsForProject, getAlertTagForProject } from '../utils/alertUtils';
+import { COUNTRY_FLAG_BASE64 } from '../utils/countryFlags';
 
 const getDotColor = (status: string) => {
   const s = String(status || '').toUpperCase().trim();
@@ -440,7 +441,14 @@ const countryCodes: Record<string, string> = {
   'El Salvador': 'sv',
   'Guatemala': 'gt',
   'Honduras': 'hn',
-  'Nicaragua': 'ni',
+};
+
+const getFlagBase64OrUrl = (countryName?: string, countryCode?: string) => {
+  const code = (countryCodes[countryName || ''] || countryCode || '').toLowerCase();
+  if (COUNTRY_FLAG_BASE64[code]) {
+    return COUNTRY_FLAG_BASE64[code];
+  }
+  return code ? `https://flagcdn.com/w40/${code}.png` : '';
 };
 
 interface EvaluationPillar {
@@ -1040,10 +1048,6 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
   const [hoveredPmrTooltip, setHoveredPmrTooltip] = useState<string | null>(null);
   const pdfRef = useRef<HTMLDivElement>(null);
 
-  const titleImage = React.useMemo(() => renderTextToDataURL(bannerTitle, 'bold 30px Inter, system-ui, sans-serif', '#18181b', 1530), [bannerTitle]);
-  const generalDetailsImage = React.useMemo(() => renderTextToDataURL('General Details', 'bold 24px Inter, system-ui, sans-serif', '#18181b', 500), []);
-  const financialProgressImage = React.useMemo(() => renderTextToDataURL('Financial Progress', 'bold 24px Inter, system-ui, sans-serif', '#18181b', 500), []);
-
   const renderReadOnlyQualitativeList = (items?: string[]) => {
     const lines = (items || []).join('\n').split('\n');
     const hasContent = lines.some(l => l && l.trim().length > 0);
@@ -1087,26 +1091,122 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
     );
   }
 
-  const waitForImages = (element: HTMLElement) => {
-    const images = element.getElementsByTagName('img');
+  const injectSelectableTextLayer = (
+    pdf: jsPDF,
+    pageElement: HTMLElement,
+    contentWidth: number,
+    _contentHeight: number,
+    marginX: number,
+    marginY: number
+  ) => {
+    const pageRect = pageElement.getBoundingClientRect();
+    if (pageRect.width === 0 || pageRect.height === 0) return;
+
+    const scaleFactor = contentWidth / pageRect.width;
+
+    // Set text rendering mode to 3: invisible (neither fill nor stroke), but 100% selectable and searchable
+    (pdf.internal as any).write('3 Tr');
+    pdf.setFont('helvetica', 'normal');
+
+    const walker = document.createTreeWalker(
+      pageElement,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          if (!node.nodeValue || !node.nodeValue.trim()) {
+            return NodeFilter.FILTER_REJECT;
+          }
+          const parent = node.parentElement;
+          if (!parent) return NodeFilter.FILTER_REJECT;
+          const style = window.getComputedStyle(parent);
+          if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+            return NodeFilter.FILTER_REJECT;
+          }
+          return NodeFilter.FILTER_ACCEPT;
+        }
+      }
+    );
+
+    const range = document.createRange();
+    let textNode = walker.nextNode();
+
+    while (textNode) {
+      const rawText = textNode.nodeValue?.replace(/\s+/g, ' ').trim();
+      if (rawText) {
+        try {
+          let rect: DOMRect | null = null;
+          try {
+            range.selectNodeContents(textNode);
+            const rects = range.getClientRects();
+            if (rects.length > 0 && rects[0].width > 0) {
+              rect = rects[0];
+            }
+          } catch {
+            // ignore range error
+          }
+
+          if (!rect && textNode.parentElement) {
+            const pRect = textNode.parentElement.getBoundingClientRect();
+            if (pRect.width > 0 && pRect.height > 0) {
+              rect = pRect;
+            }
+          }
+
+          if (rect && rect.width > 0 && rect.height > 0) {
+            const relX = rect.left - pageRect.left;
+            const relY = rect.top - pageRect.top;
+
+            const pdfX = marginX + (relX * scaleFactor);
+            // PDF text y is baseline (roughly 80% down the line box)
+            const pdfY = marginY + (relY * scaleFactor) + (rect.height * scaleFactor * 0.80);
+            
+            // Convert pixel height to PDF points (1 pt = 25.4 / 72 mm)
+            const fontSizePt = Math.max(4, Math.min(26, (rect.height * scaleFactor) * (72 / 25.4) * 0.82));
+
+            pdf.setFontSize(fontSizePt);
+            try {
+              pdf.text(rawText, pdfX, pdfY);
+            } catch {
+              const sanitized = rawText.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+              try {
+                pdf.text(sanitized, pdfX, pdfY);
+              } catch {
+                // ignore unencodable glyph
+              }
+            }
+          }
+        } catch {
+          // ignore node error
+        }
+      }
+      textNode = walker.nextNode();
+    }
+
+    // Restore text rendering mode to 0 (normal fill)
+    (pdf.internal as any).write('0 Tr');
+  };
+
+  const waitForImages = (container: HTMLElement) => {
+    const images = Array.from(container.querySelectorAll('img'));
     const promises = [];
-    for (let i = 0; i < images.length; i++) {
-      const img = images[i];
+    for (const img of images) {
       if (!img.complete) {
-        promises.push(new Promise(resolve => {
+        promises.push(new Promise((resolve) => {
           img.onload = resolve;
           img.onerror = resolve;
+          setTimeout(resolve, 1500);
         }));
       }
     }
     return Promise.all(promises);
   };
 
-  const handleDownloadPDF = async () => {
-    if (!pdfRef.current) return;
+  const handleDownloadPDF = async (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    if (!pdfRef.current || isGeneratingPDF) return;
 
     setIsGeneratingPDF(true);
-    // Force Recharts to completely remount from scratch to ensure correct x/y calculations
+    // Force Recharts and template to completely remount from scratch to ensure correct x/y calculations
     setPdfRenderKey(Date.now());
 
     try {
@@ -1128,7 +1228,7 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
         const pageElement = (pdfRef.current?.querySelector(`#${pageIds[i]}`) as HTMLElement) || document.getElementById(pageIds[i]);
         if (!pageElement) continue;
 
-        // Wait for flag images on this specific page
+        // Wait for images on this specific page
         await waitForImages(pageElement);
 
         const canvas = await html2canvas(pageElement, {
@@ -1144,16 +1244,35 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
           scrollY: 0,
         });
 
-        const imgWidth = pdfWidth;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        const marginX = 6; // 6mm margin left and right
+        const marginTop = 6; // 6mm margin top
+        const maxContentWidth = pdfWidth - (2 * marginX); // 285mm
+        const maxContentHeight = pageHeight - marginTop - 6; // 198mm
+
+        let contentWidth = maxContentWidth;
+        let contentHeight = (canvas.height * contentWidth) / canvas.width;
+
+        if (contentHeight > maxContentHeight) {
+          contentHeight = maxContentHeight;
+          contentWidth = (canvas.width * contentHeight) / canvas.height;
+        }
+
+        const finalMarginX = (pdfWidth - contentWidth) / 2;
+        const finalMarginY = marginTop;
         const imgData = canvas.toDataURL('image/png');
 
         if (i > 0) pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        pdf.addImage(imgData, 'PNG', finalMarginX, finalMarginY, contentWidth, contentHeight);
+
+        // Inject selectable & searchable vector text layer directly into the PDF
+        injectSelectableTextLayer(pdf, pageElement, contentWidth, contentHeight, finalMarginX, finalMarginY);
       }
 
+      const rawFileName = project.name || bannerTitle || 'Project';
+      const cleanFileName = `${rawFileName.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_')}_Report.pdf`;
+
       try {
-        pdf.save(`${project.name.replace(/\s+/g, '_')}_Report.pdf`);
+        pdf.save(cleanFileName);
       } catch (saveError) {
         console.warn('Sandbox block, opening in new tab', saveError);
         window.open(pdf.output('bloburl'), '_blank');
@@ -2560,7 +2679,8 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
       {/* Hidden Container for PDF Generation */}
       <div 
         ref={pdfRef}
-        className="absolute pointer-events-none bg-white p-12 w-[1600px] pdf-container z-[-10] printable-desktop-wrapper"
+        key={pdfRenderKey}
+        className="absolute pointer-events-none bg-white p-12 w-[1600px] pdf-container z-[-10]"
         style={{ left: '-9999px', top: '0', width: '1600px', minWidth: '1600px', maxWidth: '1600px', opacity: 1 }}
       >
         <style>{`
@@ -2609,7 +2729,9 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
           {/* PDF Header */}
           <div className="mb-1">
             <div className="mb-4">
-              <img src={titleImage} alt={bannerTitle} style={{ height: 'auto', maxWidth: '100%' }} />
+              <h1 className="text-3xl font-bold text-zinc-900 tracking-tight leading-tight">
+                {bannerTitle}
+              </h1>
             </div>
             <div className="flex flex-wrap items-center gap-2 text-base text-black font-medium">
               <span>{bannerProjectId}</span>
@@ -2620,27 +2742,22 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
                 </>
               )}
               <span>|</span>
-              <span className="flex items-center gap-1">
-                {bannerCountryName && countryCodes[bannerCountryName] ? (
-                  <img 
-                    src={`https://flagcdn.com/w40/${countryCodes[bannerCountryName]}.png`} 
-                    className="w-5 h-auto shadow-sm" 
-                    crossOrigin="anonymous"
-                    referrerPolicy="no-referrer" 
-                    alt={bannerCountryName || 'Country flag'}
-                  />
-                ) : bannerCountryCode ? (
-                  <img 
-                    src={`https://flagcdn.com/w40/${bannerCountryCode.toLowerCase()}.png`} 
-                    className="w-5 h-auto shadow-sm" 
-                    crossOrigin="anonymous"
-                    referrerPolicy="no-referrer" 
-                    alt={bannerCountryName || 'Country flag'}
-                  />
-                ) : (
-                  '🏳️'
-                )}
-                {bannerCountryName}
+              <span className="flex items-center gap-1.5">
+                {(() => {
+                  const flagSrc = getFlagBase64OrUrl(bannerCountryName, bannerCountryCode);
+                  if (flagSrc) {
+                    return (
+                      <img 
+                        src={flagSrc} 
+                        className="w-5 h-auto shadow-xs rounded-[1px] inline-block" 
+                        crossOrigin="anonymous"
+                        alt={bannerCountryName || 'Country flag'}
+                      />
+                    );
+                  }
+                  return <span>🏳️</span>;
+                })()}
+                <span>{bannerCountryName}</span>
               </span>
               <span>|</span>
               <span>TTL: {bannerTtl}</span>
@@ -2717,9 +2834,9 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
               <div>
                 <div className="flex items-center gap-3 mb-2">
                   <FileText className="w-8 h-8 text-black" />
-                  <div className="mt-1.5">
-                    <img src={generalDetailsImage} alt="General Details" style={{ height: '28px', width: 'auto' }} />
-                  </div>
+                  <h2 className="text-[22px] font-bold text-zinc-900 tracking-tight mt-0.5">
+                    General Details
+                  </h2>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-6">
@@ -2835,9 +2952,9 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
               <div>
                 <div className="flex items-center gap-1.5 mb-2">
                   <DollarIcon className="w-8 h-8 text-black text-2xl" />
-                  <div className="mt-1.5">
-                    <img src={financialProgressImage} alt="Financial Progress" style={{ height: '28px', width: 'auto' }} />
-                  </div>
+                  <h2 className="text-[22px] font-bold text-zinc-900 tracking-tight mt-0.5">
+                    Financial Progress
+                  </h2>
                 </div>
                 
                 <div className="bg-zinc-50 p-5 rounded-2xl border border-zinc-200 grid grid-cols-2 gap-6">
@@ -3228,31 +3345,28 @@ export default function ProjectView({ project, onBack, onUpdate, onNavigateToAle
             {/* Page Header */}
             <div className="mb-6">
               <div className="mb-4">
-                <img src={titleImage} alt={details.name} style={{ height: 'auto', maxWidth: '100%' }} />
+                <h1 className="text-3xl font-bold text-zinc-900 tracking-tight leading-tight">
+                  {bannerTitle || details.name}
+                </h1>
               </div>
               <div className="flex flex-wrap items-center gap-2 text-base text-black font-medium pb-4 border-b border-zinc-200">
                 <span>{details.id}</span>
-                <span className="flex items-center gap-1">
-                  {details.countryName && countryCodes[details.countryName] ? (
-                    <img 
-                      src={`https://flagcdn.com/w40/${countryCodes[details.countryName]}.png`} 
-                      className="w-5 h-auto shadow-sm" 
-                      crossOrigin="anonymous"
-                      referrerPolicy="no-referrer" 
-                      alt={details.countryName || 'Country flag'}
-                    />
-                  ) : details.countryCode ? (
-                    <img 
-                      src={`https://flagcdn.com/w40/${details.countryCode.toLowerCase()}.png`} 
-                      className="w-5 h-auto shadow-sm" 
-                      crossOrigin="anonymous"
-                      referrerPolicy="no-referrer" 
-                      alt={details.countryName || 'Country flag'}
-                    />
-                  ) : (
-                    '🏳️'
-                  )}
-                  {details.countryName}
+                <span className="flex items-center gap-1.5">
+                  {(() => {
+                    const flagSrc = getFlagBase64OrUrl(details.countryName, details.countryCode);
+                    if (flagSrc) {
+                      return (
+                        <img 
+                          src={flagSrc} 
+                          className="w-5 h-auto shadow-xs rounded-[1px] inline-block" 
+                          crossOrigin="anonymous"
+                          alt={details.countryName || 'Country flag'}
+                        />
+                      );
+                    }
+                    return <span>🏳️</span>;
+                  })()}
+                  <span>{details.countryName}</span>
                 </span>
                 <span>|</span>
                 <span>TTL: {details.ttl}</span>

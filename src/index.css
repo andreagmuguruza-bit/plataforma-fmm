@@ -133,18 +133,9 @@
     margin: 0 auto 20px auto !important;
   }
 
-  /* Forzar ancho mínimo de escritorio en el contenido del Project View */
-  .project-view-print-container,
-  .printable-desktop-wrapper,
+  /* Oculta contenedores offscreen de generación de PDF en la impresión */
   .pdf-container {
-    display: block !important;
-    position: static !important;
-    width: 1200px !important;
-    min-width: 1024px !important;
-    max-width: 1200px !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-    background: #ffffff !important;
+    display: none !important;
   }
 
   .bid-print-page-break {
